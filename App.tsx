@@ -8,6 +8,8 @@ import { AccountabilityView } from './components/AccountabilityView';
 import { SettingsView } from './components/SettingsView';
 import { ProfileView } from './components/ProfileView';
 import { SupridoDashboard } from './components/suprido/SupridoDashboard';
+import { EmergencySolicitation } from './components/suprido/EmergencySolicitation';
+import { JurySolicitation } from './components/suprido/JurySolicitation';
 import { LoginPage } from './components/LoginPage';
 import { DASHBOARD_STATS } from './constants';
 import { MessageSquare, Loader2 } from 'lucide-react';
@@ -127,7 +129,11 @@ const App: React.FC = () => {
           </div>
         );
       case 'suprido_dashboard':
-        return <SupridoDashboard />;
+        return <SupridoDashboard onNavigate={setActiveTab} />;
+      case 'solicitation_emergency':
+        return <EmergencySolicitation onNavigate={setActiveTab} />;
+      case 'solicitation_jury':
+        return <JurySolicitation onNavigate={setActiveTab} />;
       case 'solicitations':
         return <SolicitationsView />;
       case 'accountability':

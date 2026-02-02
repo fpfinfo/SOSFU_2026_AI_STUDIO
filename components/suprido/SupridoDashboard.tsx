@@ -1,168 +1,257 @@
-import React, { useState } from 'react';
-import { Siren, Gavel, FileText, CheckSquare, Plus, Search, Filter, ArrowRight, Clock } from 'lucide-react';
-import { SolicitationModal } from './SolicitationModal';
+import React, { useState, useEffect } from 'react';
+import { Siren, Gavel, FileText, CheckSquare, Clock, AlertTriangle, Search, Filter, ChevronRight, MoreVertical, DollarSign, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
-export const SupridoDashboard: React.FC = () => {
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [initialType, setInitialType] = useState<'EMERGENCY' | 'JURY' | null>(null);
+interface SupridoDashboardProps {
+    onNavigate: (page: string) => void;
+}
 
-    const openSolicitation = (type: 'EMERGENCY' | 'JURY') => {
-        setInitialType(type);
-        setIsModalOpen(true);
+export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }) => {
+    const [loading, setLoading] = useState(true);
+    
+    // Dados Reais
+    const [stats, setStats] = useState({ receivedYear: 0, inAnalysis: 0, pendingAccountability: 0 });
+    const [processes, setProcesses] = useState<any[]>([]);
+    const [filterTerm, setFilterTerm] = useState('');
+
+    useEffect(() => {
+        fetchDashboardData();
+    }, []);
+
+    const fetchDashboardData = async () => {
+        setLoading(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            // 1. Buscar Solicitações do Usuário
+            const { data: solicitations, error: solError } = await supabase
+                .from('solicitations')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (solError) throw solError;
+
+            // 2. Buscar PCs do Usuário
+            const { data: accountabilities, error: accError } = await supabase
+                .from('accountabilities')
+                .select('*')
+                .eq('requester_id', user.id);
+
+            if (accError) throw accError;
+
+            // Calcular Estatísticas
+            const received = solicitations
+                ?.filter(s => s.status === 'PAID')
+                .reduce((acc, curr) => acc + Number(curr.value), 0) || 0;
+            
+            const analysis = solicitations
+                ?.filter(s => s.status === 'PENDING')
+                .reduce((acc, curr) => acc + Number(curr.value), 0) || 0;
+
+            const pendingPC = accountabilities?.filter(a => ['LATE', 'CORRECTION', 'ANALYSIS'].includes(a.status)).length || 0;
+
+            setStats({
+                receivedYear: received,
+                inAnalysis: analysis,
+                pendingAccountability: pendingPC,
+            });
+
+            setProcesses(solicitations || []);
+
+        } catch (error) {
+            console.error("Erro ao carregar dashboard:", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
+    // Helper para extrair tipo do campo unit (já que não temos coluna type ainda)
+    const getProcessType = (unit: string) => {
+        if (unit?.includes('EMERGENCIAL')) return { label: 'EMERGENCIAL', color: 'bg-red-50 text-red-600 border-red-100' };
+        if (unit?.includes('JÚRI')) return { label: 'EXTRA-JÚRI', color: 'bg-blue-50 text-blue-600 border-blue-100' };
+        return { label: 'ORDINÁRIO', color: 'bg-gray-50 text-gray-600 border-gray-100' };
+    };
+
+    const filteredProcesses = processes.filter(p => 
+        p.process_number.toLowerCase().includes(filterTerm.toLowerCase()) ||
+        p.unit?.toLowerCase().includes(filterTerm.toLowerCase())
+    );
+
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-96 gap-4">
+                <Loader2 className="w-10 h-10 text-slate-800 animate-spin" />
+                <p className="text-gray-500 font-medium">Carregando portal...</p>
+            </div>
+        );
+    }
+
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12 font-sans">
             
-            {/* Welcome Banner */}
-            <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl p-8 mb-8 text-white shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+            {/* Header Dark (Portal do Suprido) */}
+            <div className="bg-[#1e293b] rounded-2xl p-8 mb-8 shadow-sm relative overflow-hidden text-white border border-slate-700">
                 <div className="relative z-10">
-                    <h2 className="text-2xl font-bold mb-2">Portal do Suprido</h2>
-                    <p className="text-gray-300 max-w-xl">
+                    <h1 className="text-3xl font-bold mb-2 tracking-tight">Portal do Suprido</h1>
+                    <p className="text-slate-300 max-w-2xl text-sm leading-relaxed">
                         Gerencie suas solicitações de suprimento de fundos, acompanhe aprovações e realize prestações de contas de forma simples e rápida.
                     </p>
                 </div>
+                {/* Decorative background element */}
+                <div className="absolute right-0 top-0 h-full w-1/2 bg-gradient-to-l from-blue-600/10 to-transparent pointer-events-none"></div>
+                <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"></div>
             </div>
 
-            {/* Quick Actions */}
-            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 ml-1">Nova Solicitação Extraordinária</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                {/* Card Emergency */}
-                <button 
-                    onClick={() => openSolicitation('EMERGENCY')}
-                    className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-lg hover:border-red-200 transition-all group text-left relative overflow-hidden"
-                >
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Siren size={80} className="text-red-500" />
-                    </div>
-                    <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center text-red-600 mb-4 group-hover:scale-110 transition-transform">
-                        <Siren size={24} />
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-800 mb-1">Extra-Emergencial</h3>
-                    <p className="text-sm text-gray-500 mb-4 pr-10">
-                        Para despesas urgentes e imprevisíveis que exigem atendimento imediato.
-                    </p>
-                    <div className="inline-flex items-center gap-2 text-sm font-bold text-red-600 group-hover:translate-x-1 transition-transform">
-                        Iniciar Solicitação <ArrowRight size={16} />
-                    </div>
-                </button>
-
-                {/* Card Jury */}
-                <button 
-                    onClick={() => openSolicitation('JURY')}
-                    className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-lg hover:border-blue-200 transition-all group text-left relative overflow-hidden"
-                >
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Gavel size={80} className="text-blue-500" />
-                    </div>
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 mb-4 group-hover:scale-110 transition-transform">
-                        <Gavel size={24} />
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-800 mb-1">Extra-Júri</h3>
-                    <p className="text-sm text-gray-500 mb-4 pr-10">
-                        Para custeio de alimentação e logística em sessões do Tribunal do Júri.
-                    </p>
-                    <div className="inline-flex items-center gap-2 text-sm font-bold text-blue-600 group-hover:translate-x-1 transition-transform">
-                        Iniciar Solicitação <ArrowRight size={16} />
-                    </div>
-                </button>
-            </div>
-
-            {/* Pendências e Prestação de Contas */}
-            <div className="flex items-center justify-between mb-4">
-                 <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider ml-1">Meus Processos e Prestação de Contas</h3>
-                 <button className="text-sm text-blue-600 font-bold hover:underline">Ver Histórico Completo</button>
-            </div>
-            
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                {/* Toolbar */}
-                <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-gray-50/50">
-                    <div className="relative w-full sm:w-80">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                        <input 
-                            type="text" 
-                            placeholder="Buscar processo..." 
-                            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-400"
-                        />
-                    </div>
-                    <div className="flex gap-2">
-                        <button className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-50">
-                            <Filter size={14} /> Filtros
-                        </button>
-                    </div>
-                </div>
-
-                {/* List */}
-                <div className="divide-y divide-gray-100">
-                    {/* Item 1 - Pendente PC */}
-                    <div className="p-4 hover:bg-gray-50 transition-colors flex flex-col md:flex-row items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 flex-shrink-0">
-                            <Clock size={20} />
+            {/* Nova Solicitação Cards */}
+            <div className="mb-10">
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Nova Solicitação Extraordinária</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Card Emergencial */}
+                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all group cursor-pointer relative overflow-hidden" onClick={() => onNavigate('solicitation_emergency')}>
+                         <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 duration-500">
+                            <Siren size={120} className="text-red-500" />
                         </div>
-                        <div className="flex-1 min-w-0 text-center md:text-left">
-                            <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-                                <h4 className="font-bold text-gray-800 text-sm">SF-2024/045 - Suprimento Júri</h4>
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 uppercase border border-blue-100">Extra-Júri</span>
+                        <div className="relative z-10">
+                            <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center text-red-500 mb-4 group-hover:scale-105 transition-transform">
+                                <Siren size={24} />
                             </div>
-                            <p className="text-xs text-gray-500">Aprovado em 12/02/2024 • Valor: R$ 4.500,50</p>
+                            <h4 className="text-lg font-bold text-gray-800 mb-1">Extra-Emergencial</h4>
+                            <p className="text-sm text-gray-500 mb-4 max-w-xs">
+                                Para despesas urgentes e imprevisíveis que exigem atendimento imediato.
+                            </p>
+                            <span className="text-xs font-bold text-red-600 flex items-center gap-1 group-hover:gap-2 transition-all">
+                                Iniciar Solicitação <ChevronRight size={14} />
+                            </span>
                         </div>
-                        <div className="flex flex-col items-end gap-1">
-                            <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded">Aguardando Prestação de Contas</span>
-                            <span className="text-[10px] text-gray-400">Prazo: 10 dias restantes</span>
-                        </div>
-                        <button className="px-4 py-2 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-gray-800 shadow-sm whitespace-nowrap">
-                            Prestar Contas
-                        </button>
                     </div>
 
-                    {/* Item 2 - Em Análise */}
-                    <div className="p-4 hover:bg-gray-50 transition-colors flex flex-col md:flex-row items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 flex-shrink-0">
-                            <FileText size={20} />
+                    {/* Card Júri */}
+                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all group cursor-pointer relative overflow-hidden" onClick={() => onNavigate('solicitation_jury')}>
+                        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 duration-500">
+                            <Gavel size={120} className="text-blue-500" />
                         </div>
-                        <div className="flex-1 min-w-0 text-center md:text-left">
-                            <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-                                <h4 className="font-bold text-gray-800 text-sm">SF-2024/102 - Reparo Hidráulico</h4>
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-600 uppercase border border-red-100">Emergencial</span>
+                        <div className="relative z-10">
+                            <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-500 mb-4 group-hover:scale-105 transition-transform">
+                                <Gavel size={24} />
                             </div>
-                            <p className="text-xs text-gray-500">Solicitado em 15/02/2024 • Valor: R$ 800,00</p>
+                            <h4 className="text-lg font-bold text-gray-800 mb-1">Extra-Júri</h4>
+                            <p className="text-sm text-gray-500 mb-4 max-w-xs">
+                                Para custeio de alimentação e logística em sessões do Tribunal do Júri.
+                            </p>
+                            <span className="text-xs font-bold text-blue-600 flex items-center gap-1 group-hover:gap-2 transition-all">
+                                Iniciar Solicitação <ChevronRight size={14} />
+                            </span>
                         </div>
-                        <div className="flex flex-col items-end gap-1">
-                            <span className="text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-1 rounded">Em Análise Técnica</span>
-                        </div>
-                        <button className="px-4 py-2 bg-white border border-gray-200 text-gray-600 text-xs font-bold rounded-lg hover:bg-gray-50 shadow-sm whitespace-nowrap">
-                            Ver Detalhes
-                        </button>
-                    </div>
-                     {/* Item 3 - PC Enviada */}
-                     <div className="p-4 hover:bg-gray-50 transition-colors flex flex-col md:flex-row items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 flex-shrink-0">
-                            <CheckSquare size={20} />
-                        </div>
-                        <div className="flex-1 min-w-0 text-center md:text-left">
-                            <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-                                <h4 className="font-bold text-gray-800 text-sm">PC-2023/998 - Material de Consumo</h4>
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-600 uppercase border border-purple-100">Prestação de Contas</span>
-                            </div>
-                            <p className="text-xs text-gray-500">Enviada em 20/02/2024</p>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                            <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded">Em Análise Financeira</span>
-                        </div>
-                        <button className="px-4 py-2 bg-white border border-gray-200 text-gray-600 text-xs font-bold rounded-lg hover:bg-gray-50 shadow-sm whitespace-nowrap">
-                            Acompanhar
-                        </button>
                     </div>
                 </div>
             </div>
 
-            <SolicitationModal 
-                isOpen={isModalOpen} 
-                onClose={() => setIsModalOpen(false)} 
-                initialType={initialType} 
-            />
+            {/* Meus Processos */}
+            <div>
+                <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Meus Processos e Prestação de Contas</h3>
+                    <button className="text-xs font-bold text-blue-600 hover:underline">Ver Histórico Completo</button>
+                </div>
 
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    {/* Search Bar */}
+                    <div className="p-4 border-b border-gray-100 flex gap-3">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                            <input 
+                                type="text" 
+                                placeholder="Buscar processo..." 
+                                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-300 focus:outline-none transition-all"
+                                value={filterTerm}
+                                onChange={(e) => setFilterTerm(e.target.value)}
+                            />
+                        </div>
+                        <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                            <Filter size={16} />
+                            Filtros
+                        </button>
+                    </div>
+
+                    <div className="divide-y divide-gray-100">
+                        {filteredProcesses.length === 0 ? (
+                            <div className="p-8 text-center text-gray-400 text-sm">
+                                Nenhuma solicitação encontrada.
+                            </div>
+                        ) : (
+                            filteredProcesses.map((proc) => {
+                                const typeInfo = getProcessType(proc.unit);
+                                const isPaid = proc.status === 'PAID';
+                                const isPending = proc.status === 'PENDING';
+                                
+                                return (
+                                    <div key={proc.id} className="p-6 hover:bg-slate-50 transition-colors group flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <div className="flex items-start gap-4">
+                                            {/* Icon */}
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                                isPaid ? 'bg-orange-100 text-orange-600' :
+                                                isPending ? 'bg-yellow-100 text-yellow-600' :
+                                                'bg-blue-100 text-blue-600'
+                                            }`}>
+                                                {isPaid ? <Clock size={20} /> : <FileText size={20} />}
+                                            </div>
+                                            
+                                            {/* Content */}
+                                            <div>
+                                                <div className="flex items-center gap-3 mb-1">
+                                                    <h4 className="text-sm font-bold text-gray-900">{proc.process_number} - {typeInfo.label === 'EXTRA-JÚRI' ? 'Suprimento Júri' : 'Suprimento Emergencial'}</h4>
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${typeInfo.color}`}>
+                                                        {typeInfo.label}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-gray-500">
+                                                    {isPaid ? 'Aprovado em ' : 'Solicitado em '} 
+                                                    {new Date(proc.date).toLocaleDateString('pt-BR')} • 
+                                                    Valor: <span className="font-semibold text-gray-700">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proc.value)}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Status & Actions */}
+                                        <div className="flex items-center justify-between md:justify-end gap-6 w-full md:w-auto">
+                                            <div className="text-right">
+                                                {isPaid ? (
+                                                    <p className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-lg inline-block">
+                                                        Aguardando Prestação de Contas
+                                                    </p>
+                                                ) : isPending ? (
+                                                     <p className="text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-1 rounded-lg inline-block">
+                                                        Em Análise Técnica
+                                                    </p>
+                                                ) : (
+                                                    <p className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg inline-block">
+                                                        Processamento
+                                                    </p>
+                                                )}
+                                                
+                                                {isPaid && (
+                                                    <p className="text-[10px] text-gray-400 mt-1">Prazo: 15 dias restantes</p>
+                                                )}
+                                            </div>
+
+                                            {isPaid ? (
+                                                <button className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-black transition-colors shadow-sm">
+                                                    Prestar Contas
+                                                </button>
+                                            ) : (
+                                                <button className="px-4 py-2 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+                                                    Ver Detalhes
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };
