@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Users, Shield, Clock, DollarSign, Bell } from 'lucide-react';
+import { Settings, Users, Shield, Clock, Bell } from 'lucide-react';
 import { GeneralSettings } from './settings/GeneralSettings';
 import { UsersSettings } from './settings/UsersSettings';
 import { RolesSettings } from './settings/RolesSettings';
@@ -12,7 +12,6 @@ export const SettingsView: React.FC = () => {
         { id: 'users', label: 'Usuários e Permissões', icon: Users },
         { id: 'roles', label: 'Gestão de Perfis', icon: Shield },
         { id: 'sla', label: 'Prazos e SLA', icon: Clock },
-        { id: 'rates', label: 'Tabela de Diárias', icon: DollarSign },
         { id: 'notifications', label: 'Notificações', icon: Bell },
     ];
 
@@ -56,7 +55,7 @@ export const SettingsView: React.FC = () => {
                     {activeSection === 'users' && <UsersSettings />}
                     {activeSection === 'roles' && <RolesSettings />}
                     
-                    {['sla', 'rates', 'notifications'].includes(activeSection) && (
+                    {['sla', 'notifications'].includes(activeSection) && (
                         <div className="flex flex-col items-center justify-center h-full text-gray-400">
                             <Settings size={48} className="mb-4 opacity-20" />
                             <h3 className="text-lg font-semibold">Configuração em Desenvolvimento</h3>

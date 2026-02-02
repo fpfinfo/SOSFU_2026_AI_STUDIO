@@ -31,6 +31,7 @@ export enum TabCategory {
 export interface Solicitation {
   id: string;
   processNumber: string;
+  type?: 'EMERGENCY' | 'JURY' | 'ORDINARY'; // Novo campo
   beneficiary: string;
   unit: string;
   value: number;

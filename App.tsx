@@ -7,6 +7,7 @@ import { SolicitationsView } from './components/SolicitationsView';
 import { AccountabilityView } from './components/AccountabilityView';
 import { SettingsView } from './components/SettingsView';
 import { ProfileView } from './components/ProfileView';
+import { SupridoDashboard } from './components/suprido/SupridoDashboard';
 import { LoginPage } from './components/LoginPage';
 import { DASHBOARD_STATS } from './constants';
 import { MessageSquare } from 'lucide-react';
@@ -18,10 +19,16 @@ function App() {
 
   useEffect(() => {
     // Check active session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setIsLoading(false);
-    });
+    supabase.auth.getSession()
+        .then(({ data: { session } }) => {
+            setSession(session);
+            setIsLoading(false);
+        })
+        .catch((err) => {
+            console.error('Error checking session:', err);
+            // Garante que o loading termine mesmo com erro, permitindo que a LoginPage apareça (ou fique em estado deslogado)
+            setIsLoading(false);
+        });
 
     // Listen for changes on auth state (sign in, sign out, etc.)
     const {
@@ -55,7 +62,7 @@ function App() {
       
       <main className="max-w-[1600px] mx-auto px-6 pt-6">
         
-        {/* Dashboard View */}
+        {/* Dashboard View (Admin/Técnico) */}
         {activeTab === 'dashboard' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             
@@ -70,6 +77,9 @@ function App() {
             <TeamTable />
           </div>
         )}
+
+        {/* Módulo Suprido */}
+        {activeTab === 'suprido_dashboard' && <SupridoDashboard />}
 
         {/* Solicitations View */}
         {activeTab === 'solicitations' && <SolicitationsView />}

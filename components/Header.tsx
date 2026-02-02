@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, User, Settings, LogOut, ChevronDown, LayoutDashboard, FileText, CheckSquare, PieChart } from 'lucide-react';
+import { Bell, User, Settings, LogOut, ChevronDown, LayoutDashboard, FileText, CheckSquare, PieChart, Briefcase } from 'lucide-react';
 import { CURRENT_USER } from '../constants';
 import { supabase } from '../lib/supabase';
 
@@ -15,6 +15,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
 
   const tabs = [
     { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard },
+    { id: 'suprido_dashboard', label: 'Portal do Suprido', icon: Briefcase },
     { id: 'solicitations', label: 'Gestão de Solicitações', icon: FileText },
     { id: 'accountability', label: 'Gestão de Prestação de Contas', icon: CheckSquare },
     { id: 'reports', label: 'Relatórios', icon: PieChart },
@@ -33,7 +34,15 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+        await supabase.auth.signOut();
+    } catch (error) {
+        console.error('Erro no logout:', error);
+    } finally {
+        // Força recarregamento para limpar estado e redirecionar para login
+        // Isso resolve problemas onde o signOut falha por erro de rede (Failed to fetch)
+        window.location.reload();
+    }
   };
 
   return (
