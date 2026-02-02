@@ -58,6 +58,8 @@ export const LoginPage: React.FC = () => {
                     throw new Error('E-mail ou senha incorretos.');
                 } else if (authError.message.includes('Email not confirmed')) {
                      throw new Error('E-mail não confirmado. Verifique sua caixa de entrada.');
+                } else if (authError.message.includes('Failed to fetch')) {
+                     throw new Error('Falha na conexão com o servidor. Verifique sua internet.');
                 } else {
                     throw authError;
                 }
@@ -65,7 +67,11 @@ export const LoginPage: React.FC = () => {
         }
         // Success is handled by the onAuthStateChange listener in App.tsx
     } catch (err: any) {
-        setError(err.message || 'Ocorreu um erro inesperado. Tente novamente.');
+        let errorMessage = err.message || 'Ocorreu um erro inesperado. Tente novamente.';
+        if (errorMessage === 'Failed to fetch') {
+            errorMessage = 'Falha na conexão com o servidor. Verifique sua internet.';
+        }
+        setError(errorMessage);
     } finally {
         setLoading(false);
     }

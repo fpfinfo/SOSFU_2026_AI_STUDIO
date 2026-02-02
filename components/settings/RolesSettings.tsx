@@ -24,7 +24,6 @@ interface Profile {
 }
 
 // Configuração VISUAL dos Papéis (Mapeamento Slug -> Estilo)
-// A lógica de negócio agora vem do banco (dperfil), aqui fica apenas o estilo.
 const ROLE_STYLES: Record<string, { icon: any; color: string; bg: string; border: string }> = {
   'ADMIN': { icon: Crown, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
   'PRESIDENCIA': { icon: Gavel, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' },
@@ -44,7 +43,7 @@ export const RolesSettings: React.FC = () => {
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
-    const [selectedRoleId, setSelectedRoleId] = useState<string>(''); // Agora armazena o UUID do perfil
+    const [selectedRoleId, setSelectedRoleId] = useState<string>(''); // Armazena o UUID do perfil selecionado
     const [saving, setSaving] = useState(false);
 
     // 1. Fetch Perfis Disponíveis (Tabela dperfil)
@@ -105,6 +104,7 @@ export const RolesSettings: React.FC = () => {
     // Ações do Modal
     const handleOpenEdit = (profile: Profile) => {
         setSelectedProfile(profile);
+        // Garante que o ID do perfil atual esteja selecionado, ou string vazia se nulo
         setSelectedRoleId(profile.perfil_id || ''); 
         setIsModalOpen(true);
     };
@@ -113,7 +113,7 @@ export const RolesSettings: React.FC = () => {
         if (!selectedProfile || !selectedRoleId) return;
         setSaving(true);
         try {
-            // Atualiza o perfil_id, não mais uma string 'role'
+            // Atualiza o perfil_id
             const { error } = await supabase
                 .from('profiles')
                 .update({ perfil_id: selectedRoleId }) 
@@ -124,6 +124,9 @@ export const RolesSettings: React.FC = () => {
             // Recarrega para garantir dados frescos com o join correto
             await fetchProfiles(); 
             setIsModalOpen(false);
+            
+            // Se o usuário alterou o próprio perfil, pode ser necessário recarregar a página para atualizar o menu
+            // Mas o App.tsx trata a mudança na próxima navegação/sessão
         } catch (error) {
             console.error('Erro ao atualizar papel:', error);
             alert('Erro ao atualizar. Tente novamente.');
