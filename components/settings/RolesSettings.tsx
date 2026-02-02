@@ -1,47 +1,79 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Plus, Crown, Gavel, Scale, FileBadge, User, Search, Filter, Edit3, Check, X, Loader2, DollarSign } from 'lucide-react';
+import { Shield, Crown, Gavel, Scale, FileBadge, User, Search, Filter, Edit3, Check, X, Loader2, DollarSign } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
-// Definição dos tipos
+// Tipo para a nova tabela de perfil
+interface DPerfil {
+    id: string;
+    slug: string;
+    name: string;
+    description: string;
+}
+
+// Tipo atualizado para o Profile com o relacionamento
 interface Profile {
   id: string;
   full_name: string;
   email: string;
   matricula: string;
-  role: string | null;
   status: string;
   avatar_url: string | null;
+  perfil_id: string;
+  // O Supabase retorna o objeto relacionado aqui
+  dperfil?: DPerfil; 
 }
 
-// Configuração visual dos Papéis - SODPA alterado para SOSFU
-const ROLE_CONFIG: Record<string, { label: string; icon: any; color: string; bg: string; border: string }> = {
-  'ADMIN': { label: 'Administrador', icon: Crown, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
-  'PRESIDENCIA': { label: 'Presidência', icon: Gavel, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' },
-  'SEFIN': { label: 'SEFIN', icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-  'AJSEFIN': { label: 'AJSEFIN', icon: Scale, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200' },
-  'SGP': { label: 'SGP', icon: User, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
-  'SOSFU': { label: 'SOSFU', icon: FileBadge, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
-  'SERVIDOR': { label: 'Servidor', icon: User, color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-200' },
+// Configuração VISUAL dos Papéis (Mapeamento Slug -> Estilo)
+// A lógica de negócio agora vem do banco (dperfil), aqui fica apenas o estilo.
+const ROLE_STYLES: Record<string, { icon: any; color: string; bg: string; border: string }> = {
+  'ADMIN': { icon: Crown, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
+  'PRESIDENCIA': { icon: Gavel, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' },
+  'SEFIN': { icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+  'AJSEFIN': { icon: Scale, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200' },
+  'SGP': { icon: User, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
+  'SOSFU': { icon: FileBadge, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
+  'SERVIDOR': { icon: User, color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-200' },
 };
 
 export const RolesSettings: React.FC = () => {
     const [profiles, setProfiles] = useState<Profile[]>([]);
+    const [availableRoles, setAvailableRoles] = useState<DPerfil[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
-    const [newRole, setNewRole] = useState<string>('SERVIDOR');
+    const [selectedRoleId, setSelectedRoleId] = useState<string>(''); // Agora armazena o UUID do perfil
     const [saving, setSaving] = useState(false);
 
-    // Fetch Data
+    // 1. Fetch Perfis Disponíveis (Tabela dperfil)
+    const fetchAvailableRoles = async () => {
+        const { data, error } = await supabase
+            .from('dperfil')
+            .select('*')
+            .order('name');
+        
+        if (data) setAvailableRoles(data);
+        if (error) console.error("Erro ao buscar dperfil:", error);
+    };
+
+    // 2. Fetch Usuários com Relacionamento
     const fetchProfiles = async () => {
         setLoading(true);
         try {
+            // JOIN: Traz dados da tabela dperfil associada
             const { data, error } = await supabase
                 .from('profiles')
-                .select('*')
+                .select(`
+                    *,
+                    dperfil:perfil_id (
+                        id,
+                        slug,
+                        name,
+                        description
+                    )
+                `)
                 .order('full_name');
             
             if (error) throw error;
@@ -54,12 +86,13 @@ export const RolesSettings: React.FC = () => {
     };
 
     useEffect(() => {
+        fetchAvailableRoles();
         fetchProfiles();
     }, []);
 
-    // Estatísticas Dinâmicas
-    const getRoleCount = (roleKey: string) => {
-        return profiles.filter(p => (p.role || 'SERVIDOR') === roleKey).length;
+    // Estatísticas Dinâmicas baseadas no slug vindo do relacionamento
+    const getRoleCount = (roleSlug: string) => {
+        return profiles.filter(p => p.dperfil?.slug === roleSlug).length;
     };
 
     // Filtragem
@@ -72,25 +105,24 @@ export const RolesSettings: React.FC = () => {
     // Ações do Modal
     const handleOpenEdit = (profile: Profile) => {
         setSelectedProfile(profile);
-        setNewRole(profile.role || 'SERVIDOR');
+        setSelectedRoleId(profile.perfil_id || ''); 
         setIsModalOpen(true);
     };
 
     const handleSaveRole = async () => {
-        if (!selectedProfile) return;
+        if (!selectedProfile || !selectedRoleId) return;
         setSaving(true);
         try {
+            // Atualiza o perfil_id, não mais uma string 'role'
             const { error } = await supabase
                 .from('profiles')
-                .update({ role: newRole })
+                .update({ perfil_id: selectedRoleId }) 
                 .eq('id', selectedProfile.id);
 
             if (error) throw error;
             
-            // Atualiza estado local
-            setProfiles(profiles.map(p => 
-                p.id === selectedProfile.id ? { ...p, role: newRole } : p
-            ));
+            // Recarrega para garantir dados frescos com o join correto
+            await fetchProfiles(); 
             setIsModalOpen(false);
         } catch (error) {
             console.error('Erro ao atualizar papel:', error);
@@ -113,9 +145,8 @@ export const RolesSettings: React.FC = () => {
                         <Shield size={22} className="text-blue-600" />
                         Gestão de Perfis (RBAC)
                     </h3>
-                    <p className="text-sm text-gray-500 mt-1">Gerencie os papéis, níveis de acesso e permissões dos usuários do sistema.</p>
+                    <p className="text-sm text-gray-500 mt-1">Gerencie os papéis, níveis de acesso e permissões através da tabela <b>dperfil</b>.</p>
                 </div>
-                {/* Botão para buscar usuário na lista */}
                 <button 
                     onClick={() => {
                         const searchInput = document.getElementById('search-users');
@@ -130,20 +161,26 @@ export const RolesSettings: React.FC = () => {
 
             {/* Role Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-8">
-                {Object.entries(ROLE_CONFIG).map(([key, config]) => {
-                    const Icon = config.icon;
-                    const count = getRoleCount(key);
+                {/* Iteramos sobre ROLE_STYLES para manter a ordem visual, mas usamos dados reais */}
+                {Object.entries(ROLE_STYLES).map(([slug, style]) => {
+                    const Icon = style.icon;
+                    const count = getRoleCount(slug);
                     const isActive = count > 0;
+                    // Encontrar o nome real no banco se disponível, senão fallback
+                    const dbRole = availableRoles.find(r => r.slug === slug);
+                    const displayName = dbRole ? dbRole.name : slug;
                     
                     return (
-                        <div key={key} className={`
+                        <div key={slug} className={`
                             border rounded-xl p-3 text-center transition-all duration-200
                             ${isActive ? 'bg-white border-gray-200 shadow-sm hover:shadow-md' : 'bg-gray-50 border-gray-100 opacity-60'}
                         `}>
-                            <div className={`mx-auto w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${config.bg} ${config.color}`}>
+                            <div className={`mx-auto w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${style.bg} ${style.color}`}>
                                 <Icon size={16} />
                             </div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">{key}</p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5 truncate px-1" title={displayName}>
+                                {displayName}
+                            </p>
                             <p className="text-xl font-bold text-gray-800">{count}</p>
                         </div>
                     )
@@ -173,7 +210,7 @@ export const RolesSettings: React.FC = () => {
             <div className="border border-gray-200 rounded-b-xl overflow-hidden bg-white shadow-sm">
                 <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                     <div className="col-span-5">Usuário / Matrícula</div>
-                    <div className="col-span-4">Papel Atual</div>
+                    <div className="col-span-4">Papel Atual (dperfil)</div>
                     <div className="col-span-2 text-center">Status</div>
                     <div className="col-span-1 text-right">Ação</div>
                 </div>
@@ -190,9 +227,12 @@ export const RolesSettings: React.FC = () => {
                         </div>
                     ) : (
                         filteredProfiles.map((user) => {
-                            const userRoleKey = user.role || 'SERVIDOR';
-                            const roleConfig = ROLE_CONFIG[userRoleKey] || ROLE_CONFIG['SERVIDOR'];
-                            const RoleIcon = roleConfig.icon;
+                            // Dados vindos do JOIN
+                            const roleSlug = user.dperfil?.slug || 'SERVIDOR';
+                            const roleName = user.dperfil?.name || 'Servidor';
+                            
+                            const style = ROLE_STYLES[roleSlug] || ROLE_STYLES['SERVIDOR'];
+                            const RoleIcon = style.icon;
 
                             return (
                                 <div key={user.id} className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-gray-50 transition-colors group">
@@ -219,10 +259,10 @@ export const RolesSettings: React.FC = () => {
                                     <div className="col-span-4 flex items-center">
                                         <div className={`
                                             inline-flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg border text-xs font-bold uppercase transition-colors
-                                            ${roleConfig.bg} ${roleConfig.color} ${roleConfig.border}
+                                            ${style.bg} ${style.color} ${style.border}
                                         `}>
                                             <RoleIcon size={14} />
-                                            {userRoleKey}
+                                            {roleName}
                                         </div>
                                     </div>
 
@@ -262,7 +302,7 @@ export const RolesSettings: React.FC = () => {
                         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                             <div>
                                 <h3 className="text-lg font-bold text-gray-800">Editar Permissões</h3>
-                                <p className="text-xs text-gray-500">Alterar nível de acesso do usuário</p>
+                                <p className="text-xs text-gray-500">Selecione um perfil da tabela <b>dperfil</b></p>
                             </div>
                             <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded-full">
                                 <X size={20} />
@@ -288,28 +328,31 @@ export const RolesSettings: React.FC = () => {
                             </div>
 
                             <div className="space-y-4">
-                                <label className="text-sm font-bold text-gray-700">Selecione o Papel (Role)</label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1">
-                                    {Object.entries(ROLE_CONFIG).map(([key, config]) => {
-                                        const isSelected = newRole === key;
-                                        const Icon = config.icon;
+                                <label className="text-sm font-bold text-gray-700">Selecione o Papel (dperfil)</label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1 custom-scrollbar">
+                                    {availableRoles.map((role) => {
+                                        const isSelected = selectedRoleId === role.id;
+                                        // Usa o style map para cores, fallback para cinza se for um novo role sem estilo definido
+                                        const style = ROLE_STYLES[role.slug] || ROLE_STYLES['SERVIDOR'];
+                                        const Icon = style.icon;
+                                        
                                         return (
                                             <button
-                                                key={key}
-                                                onClick={() => setNewRole(key)}
+                                                key={role.id}
+                                                onClick={() => setSelectedRoleId(role.id)}
                                                 className={`
                                                     flex items-center gap-3 p-3 rounded-xl border text-left transition-all relative overflow-hidden
                                                     ${isSelected 
-                                                        ? `border-${config.color.split('-')[1]}-500 bg-${config.color.split('-')[1]}-50 ring-1 ring-${config.color.split('-')[1]}-500` 
+                                                        ? `border-${style.color.split('-')[1]}-500 bg-${style.color.split('-')[1]}-50 ring-1 ring-${style.color.split('-')[1]}-500` 
                                                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}
                                                 `}
                                             >
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${config.bg} ${config.color} flex-shrink-0`}>
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${style.bg} ${style.color} flex-shrink-0`}>
                                                     <Icon size={16} />
                                                 </div>
                                                 <div>
-                                                    <p className={`text-xs font-bold uppercase ${isSelected ? config.color : 'text-gray-700'}`}>{key}</p>
-                                                    <p className="text-[10px] text-gray-500 truncate">{config.label}</p>
+                                                    <p className={`text-xs font-bold uppercase ${isSelected ? style.color : 'text-gray-700'}`}>{role.slug}</p>
+                                                    <p className="text-[10px] text-gray-500 truncate w-32">{role.name}</p>
                                                 </div>
                                                 {isSelected && (
                                                     <div className="absolute top-2 right-2 text-green-500">
@@ -325,7 +368,7 @@ export const RolesSettings: React.FC = () => {
                             <div className="mt-6 p-3 bg-yellow-50 border border-yellow-100 rounded-lg text-xs text-yellow-800 flex gap-2">
                                 <Shield size={14} className="flex-shrink-0 mt-0.5" />
                                 <p>
-                                    Alterar o papel deste usuário modificará imediatamente suas permissões de acesso e visualização no sistema SOSFU.
+                                    Alterar o papel deste usuário modificará imediatamente suas permissões de acesso e visualização nos módulos do sistema.
                                 </p>
                             </div>
                         </div>

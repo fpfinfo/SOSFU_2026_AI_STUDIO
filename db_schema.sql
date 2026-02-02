@@ -1,11 +1,10 @@
 -- 0. CONFIGURAÇÃO INICIAL E LIMPEZA
--- Tenta criar extensão no schema 'extensions' (padrão Supabase) ou 'public'
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Garante permissões no schema public (Essencial para evitar o erro 'Database error querying schema')
+-- Garante permissões no schema public
 GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
 
--- Removemos triggers e funções antigas para evitar conflitos
+-- Removemos triggers e funções antigas
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.handle_new_user();
 
@@ -13,8 +12,23 @@ DROP FUNCTION IF EXISTS public.handle_new_user();
 DROP TABLE IF EXISTS public.accountabilities;
 DROP TABLE IF EXISTS public.solicitations;
 DROP TABLE IF EXISTS public.profiles CASCADE;
+DROP TABLE IF EXISTS public.dperfil CASCADE; -- Nova tabela
 
--- 1. TABELA DE PERFIS
+-- 1. TABELA DE PERFIS DE SISTEMA (dperfil)
+CREATE TABLE public.dperfil (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  slug TEXT UNIQUE NOT NULL, -- Ex: 'ADMIN', 'SOSFU', 'SERVIDOR'
+  name TEXT NOT NULL,        -- Ex: 'Administrador', 'Técnico SOSFU'
+  description TEXT,
+  allowed_modules JSONB DEFAULT '[]'::jsonb, -- Ex: ['dashboard', 'solicitations', 'settings']
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+ALTER TABLE public.dperfil ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.dperfil TO postgres, service_role;
+GRANT SELECT ON TABLE public.dperfil TO authenticated, anon; -- Leitura permitida para carregar UI
+
+-- 2. TABELA DE USUÁRIOS (profiles) COM RELACIONAMENTO
 CREATE TABLE public.profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
@@ -38,20 +52,21 @@ CREATE TABLE public.profiles (
   agencia TEXT,
   conta_corrente TEXT,
   
-  role TEXT DEFAULT 'SERVIDOR',
+  -- Relacionamento com dperfil
+  perfil_id UUID REFERENCES public.dperfil(id),
+  
   status TEXT DEFAULT 'ACTIVE',
   is_verified BOOLEAN DEFAULT FALSE,
-  
   pin TEXT DEFAULT '1234'
 );
 
--- Permissões Explícitas (CRÍTICO)
+-- Permissões Explícitas
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 GRANT ALL ON TABLE public.profiles TO postgres, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.profiles TO authenticated;
 GRANT SELECT, INSERT ON TABLE public.profiles TO anon;
 
--- 2. TABELA DE SOLICITAÇÕES
+-- 3. TABELA DE SOLICITAÇÕES
 CREATE TABLE public.solicitations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -70,7 +85,7 @@ ALTER TABLE public.solicitations ENABLE ROW LEVEL SECURITY;
 GRANT ALL ON TABLE public.solicitations TO postgres, service_role;
 GRANT ALL ON TABLE public.solicitations TO authenticated;
 
--- 3. TABELA DE PRESTAÇÃO DE CONTAS
+-- 4. TABELA DE PRESTAÇÃO DE CONTAS
 CREATE TABLE public.accountabilities (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -89,12 +104,22 @@ ALTER TABLE public.accountabilities ENABLE ROW LEVEL SECURITY;
 GRANT ALL ON TABLE public.accountabilities TO postgres, service_role;
 GRANT ALL ON TABLE public.accountabilities TO authenticated;
 
--- 4. FUNÇÃO TRIGGER PARA NOVO USUÁRIO
--- Simplificada e robusta. Evita erro 500 no signup/login.
+-- 5. FUNÇÃO TRIGGER PARA NOVO USUÁRIO
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_servidor_role_id UUID;
 BEGIN
-  INSERT INTO public.profiles (id, email, full_name, matricula, avatar_url, pin, role)
+  -- Busca o ID do perfil SERVIDOR
+  SELECT id INTO v_servidor_role_id FROM public.dperfil WHERE slug = 'SERVIDOR' LIMIT 1;
+
+  -- Se não existir (caso raro de race condition no seed), tenta pegar qualquer um ou deixa NULL
+  IF v_servidor_role_id IS NULL THEN
+      -- Fallback seguro se a tabela dperfil estiver vazia (não deve ocorrer com o seed correto)
+      RAISE WARNING 'Perfil SERVIDOR não encontrado ao criar usuário.';
+  END IF;
+
+  INSERT INTO public.profiles (id, email, full_name, matricula, avatar_url, pin, perfil_id)
   VALUES (
     new.id, 
     new.email, 
@@ -102,13 +127,11 @@ BEGIN
     'AGUARDANDO', 
     'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/avatar_placeholder.png',
     '1234',
-    'SERVIDOR'
+    v_servidor_role_id
   );
   RETURN new;
 EXCEPTION
   WHEN OTHERS THEN
-    -- Loga erro mas NÃO aborta a transação. Isso permite que o usuário seja criado no Auth 
-    -- mesmo se o perfil falhar (evitando o Erro 500 no Frontend).
     RAISE WARNING 'Erro ao criar perfil para usuário %: %', new.id, SQLERRM;
     RETURN new;
 END;
@@ -119,15 +142,12 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- 5. POLÍTICAS DE SEGURANÇA (RLS)
--- Profiles
+-- 6. POLÍTICAS DE SEGURANÇA (RLS)
 CREATE POLICY "Perfis visíveis para autenticados" ON public.profiles FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Usuários editam próprio perfil" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "System/Anon pode criar perfis" ON public.profiles FOR INSERT WITH CHECK (true);
 
--- Solicitations
 CREATE POLICY "Ver todas solicitações" ON public.solicitations FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Criar solicitações" ON public.solicitations FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- Accountabilities
 CREATE POLICY "Ver todas PC" ON public.accountabilities FOR SELECT USING (auth.role() = 'authenticated');
