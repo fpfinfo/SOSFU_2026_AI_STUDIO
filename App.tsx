@@ -11,7 +11,6 @@ import { SupridoDashboard } from './components/suprido/SupridoDashboard';
 import { LoginPage } from './components/LoginPage';
 import { DASHBOARD_STATS } from './constants';
 import { MessageSquare, Loader2 } from 'lucide-react';
-import { FilterBar } from './components/FilterBar';
 
 // Interface para o perfil do usuário
 interface UserProfile {
@@ -119,7 +118,6 @@ const App: React.FC = () => {
       case 'dashboard':
         return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <FilterBar />
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
                 {DASHBOARD_STATS.map((stat) => (
                   <StatCard key={stat.id} data={stat} />
