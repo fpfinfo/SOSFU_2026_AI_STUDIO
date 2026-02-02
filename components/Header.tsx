@@ -15,7 +15,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, userProf
   // Define os menus disponíveis
   const allTabs = [
     { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard, roles: ['ADMIN', 'SOSFU', 'SEFIN', 'PRESIDENCIA', 'SGP', 'AJSEFIN'] },
-    { id: 'suprido_dashboard', label: 'Portal do Suprido', icon: Briefcase, roles: ['SERVIDOR', 'ADMIN', 'SOSFU'] }, // Admins também podem ver o portal
+    // Portal do Suprido agora é EXCLUSIVO para quem tem perfil SUPRIDO (ou SERVIDOR como fallback)
+    // SOSFU não vê essa aba no seu painel de gestão.
+    { id: 'suprido_dashboard', label: 'Portal do Suprido', icon: Briefcase, roles: ['SUPRIDO', 'SERVIDOR'] }, 
     { id: 'solicitations', label: 'Gestão de Solicitações', icon: FileText, roles: ['ADMIN', 'SOSFU', 'SEFIN'] },
     { id: 'accountability', label: 'Gestão de Contas', icon: CheckSquare, roles: ['ADMIN', 'SOSFU', 'SEFIN'] },
     { id: 'reports', label: 'Relatórios', icon: PieChart, roles: ['ADMIN', 'SOSFU', 'PRESIDENCIA'] },
@@ -113,7 +115,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, userProf
             <div className="text-right hidden md:block group-hover:opacity-80 transition-opacity">
                 <p className="text-xs font-bold text-gray-800 uppercase">{userProfile?.full_name || 'Usuário'}</p>
                 <div className="flex items-center justify-end gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${userRole === 'SUPRIDO' ? 'bg-indigo-500' : 'bg-green-500'}`}></span>
                     <p className="text-[10px] text-gray-500 font-medium">{userProfile?.dperfil?.name || 'Carregando...'}</p>
                 </div>
             </div>

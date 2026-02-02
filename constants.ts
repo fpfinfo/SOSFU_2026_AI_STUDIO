@@ -1,4 +1,4 @@
-import { Analyst, StatCardData, Solicitation, Accountability } from './types';
+import { StatCardData, Solicitation, Accountability } from './types';
 
 export const CURRENT_USER = {
   name: 'FABIO PEREIRA DE FREITAS',
@@ -42,58 +42,6 @@ export const DASHBOARD_STATS: StatCardData[] = [
     details: ['0 Aguardando', '0 Assinados'],
     color: 'yellow',
     iconType: 'shield'
-  }
-];
-
-export const TEAM_MEMBERS: Analyst[] = [
-  {
-    id: '1',
-    name: 'ANDRE EVARISTO BEZERRA LOURENCO',
-    role: 'FINANCE',
-    avatarUrl: 'https://picsum.photos/id/338/64/64',
-    processCount: 0,
-    capacityPercentage: 0,
-    status: 'active'
-  },
-  {
-    id: '2',
-    name: 'FABIO PEREIRA DE FREITAS',
-    role: 'GOVERNANCE',
-    avatarUrl: 'https://picsum.photos/id/1005/64/64',
-    processCount: 11,
-    capacityPercentage: 110,
-    slaAlerts: {
-      count: 2,
-      type: 'delayed'
-    },
-    status: 'active'
-  },
-  {
-    id: '3',
-    name: 'JAIRES COSTA SARRAF',
-    role: 'TAX_ANALYSIS',
-    avatarUrl: 'https://picsum.photos/id/64/64',
-    processCount: 0,
-    capacityPercentage: 0,
-    status: 'active'
-  },
-  {
-    id: '4',
-    name: 'NELSON SILVA ARAUJO',
-    role: 'FINANCE',
-    avatarUrl: 'https://picsum.photos/id/91/64/64',
-    processCount: 0,
-    capacityPercentage: 0,
-    status: 'active'
-  },
-  {
-    id: '5',
-    name: 'REGEANE KELLY HOLANDA DO CARMO',
-    role: 'GOVERNANCE',
-    avatarUrl: 'https://picsum.photos/id/55/64/64',
-    processCount: 0,
-    capacityPercentage: 0,
-    status: 'active'
   }
 ];
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, MapPin, Users, CreditCard, Mail, Briefcase, BadgeCheck, Camera, Save, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -31,7 +31,11 @@ interface UserProfile {
 export const ProfileView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+  
+  // Referência para o input de arquivo oculto
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<UserProfile>({
     id: '',
@@ -85,7 +89,7 @@ export const ProfileView: React.FC = () => {
         const name = data.full_name?.toLowerCase().trim() || '';
 
         if (email.includes('fabio.freitas') || name.includes('fabio pereira de freitas')) {
-             data.dperfil = { name: 'Técnico SOSFU', slug: 'SOSFU' };
+             data.dperfil = { name: 'Equipe Técnica SOSFU', slug: 'SOSFU' };
              if (!data.cargo || data.cargo.trim() === '') data.cargo = 'Analista Judiciário - SOSFU';
              if (data.matricula === 'AGUARDANDO') data.matricula = '203424';
              data.is_verified = true;
@@ -124,6 +128,61 @@ export const ProfileView: React.FC = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Função para lidar com o upload do avatar
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      if (!event.target.files || event.target.files.length === 0) {
+        return;
+      }
+
+      setUploadingAvatar(true);
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${formData.id}/${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      // 1. Upload para o Supabase Storage (Bucket 'avatars')
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // 2. Obter URL pública
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // 3. Atualizar tabela profiles
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', formData.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // 4. Atualizar estado local
+      setFormData(prev => ({ ...prev, avatar_url: publicUrl }));
+      setMessage({ type: 'success', text: 'Foto de perfil atualizada com sucesso!' });
+      
+      setTimeout(() => setMessage(null), 3000);
+
+    } catch (error: any) {
+      console.error('Erro no upload:', error);
+      setMessage({ type: 'error', text: 'Erro ao fazer upload da imagem. Tente novamente.' });
+    } finally {
+      setUploadingAvatar(false);
+      // Limpa o input para permitir selecionar o mesmo arquivo novamente se necessário
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const handleSave = async () => {
@@ -183,7 +242,13 @@ export const ProfileView: React.FC = () => {
       {/* Header Profile Card */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row items-center md:items-start gap-6">
         <div className="relative group">
-            <div className="w-24 h-24 rounded-full p-1 bg-white shadow-md border border-gray-100 flex items-center justify-center bg-gray-100 overflow-hidden">
+            <div className="w-24 h-24 rounded-full p-1 bg-white shadow-md border border-gray-100 flex items-center justify-center bg-gray-100 overflow-hidden relative">
+                {uploadingAvatar ? (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+                        <Loader2 className="w-8 h-8 text-white animate-spin" />
+                    </div>
+                ) : null}
+                
                 {formData.avatar_url ? (
                     <img 
                         src={formData.avatar_url} 
@@ -194,7 +259,22 @@ export const ProfileView: React.FC = () => {
                     <span className="text-2xl font-bold text-gray-400">{getInitials(formData.full_name)}</span>
                 )}
             </div>
-            <button className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full shadow-lg hover:bg-blue-700 transition-transform hover:scale-105">
+            
+            {/* Input de arquivo oculto */}
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleAvatarUpload} 
+                className="hidden" 
+                accept="image/jpeg, image/png, image/webp"
+            />
+
+            <button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingAvatar}
+                className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full shadow-lg hover:bg-blue-700 transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Alterar foto de perfil"
+            >
                 <Camera size={14} />
             </button>
         </div>
