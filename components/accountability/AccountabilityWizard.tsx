@@ -32,6 +32,7 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
     // Dados Principais
     const [pcData, setPcData] = useState<any>(null);
     const [items, setItems] = useState<ExpenseItem[]>([]);
+    const [currentUser, setCurrentUser] = useState<any>(null);
     
     // Formulário de Item
     const [newItem, setNewItem] = useState<ExpenseItem>({
@@ -53,12 +54,15 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
     const fetchData = async () => {
         setLoading(true);
         try {
+            const { data: { user } } = await supabase.auth.getUser();
+            setCurrentUser(user);
+
             // 1. Buscar dados da PC e do Processo
             const { data: pc, error: pcError } = await supabase
                 .from('accountabilities')
                 .select(`
                     *,
-                    solicitation:solicitation_id (value, process_number, beneficiary)
+                    solicitation:solicitation_id (value, process_number, beneficiary, user_id)
                 `)
                 .eq('id', accountabilityId)
                 .single();
@@ -120,8 +124,8 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
 
     const { totalSpent, balance } = calculateTotals();
 
-    // AÇÕES DO SUPRIDO
-    const handleSupridoSubmit = async () => {
+    // AÇÕES DE ENVIO (SUPRIDO OU GESTOR-COMO-SUPRIDO)
+    const handleSubmitPC = async () => {
         if (balance < 0) {
             alert('Atenção: O valor gasto excede o concedido. Verifique os lançamentos.');
             return;
@@ -130,15 +134,21 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
             alert('Adicione pelo menos um item de despesa.');
             return;
         }
-        if (!confirm(`Confirmar envio da Prestação de Contas para o Gestor?\n\nTotal Gasto: R$ ${totalSpent.toFixed(2)}\nSaldo a Devolver: R$ ${balance.toFixed(2)}`)) return;
+        if (!confirm(`Confirmar envio da Prestação de Contas?\n\nTotal Gasto: R$ ${totalSpent.toFixed(2)}\nSaldo a Devolver: R$ ${balance.toFixed(2)}`)) return;
 
         setSubmitting(true);
         try {
+            // LÓGICA DE DESTINO
+            // Se o usuário atual for o DONO e for GESTOR, ele auto-atesta e manda para SOSFU.
+            // Se for SUPRIDO comum, manda para WAITING_MANAGER.
+            const isOwner = pcData.solicitation.user_id === currentUser.id;
+            const nextStatus = (role === 'GESTOR' && isOwner) ? 'WAITING_SOSFU' : 'WAITING_MANAGER';
+
             // Atualiza totais na tabela pai
             await supabase.from('accountabilities').update({
                 total_spent: totalSpent,
                 balance: balance,
-                status: 'WAITING_MANAGER'
+                status: nextStatus
             }).eq('id', accountabilityId);
 
             // Gera documento automático: Balancete
@@ -146,9 +156,20 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                 solicitation_id: pcData.solicitation_id,
                 title: 'BALANCETE DE PRESTAÇÃO DE CONTAS',
                 description: `Relatório financeiro gerado pelo suprido.\nItens: ${items.length}\nTotal: R$ ${totalSpent}`,
-                document_type: 'OTHER', // Poderia ser um tipo específico BALANCE_SHEET
+                document_type: 'OTHER', 
                 status: 'GENERATED'
             });
+
+            // Se for Gestor Auto-Atestando, gera também o atesto da PC
+            if (nextStatus === 'WAITING_SOSFU') {
+                 await supabase.from('process_documents').insert({
+                    solicitation_id: pcData.solicitation_id,
+                    title: 'CERTIDÃO DE ATESTO DE APLICAÇÃO (AUTO)',
+                    description: 'O Gestor (Solicitante) atesta que os recursos foram aplicados corretamente.',
+                    document_type: 'ATTESTATION', 
+                    status: 'SIGNED'
+                });
+            }
 
             onSuccess();
         } catch (e) {
@@ -159,7 +180,7 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
         }
     };
 
-    // AÇÕES DO GESTOR
+    // AÇÕES DE APROVAÇÃO (GESTOR APROVANDO TERCEIRO)
     const handleGestorApprove = async () => {
         if (!confirm('Confirma a regularidade das despesas e emite o Atesto?')) return;
         setSubmitting(true);
@@ -200,7 +221,11 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
 
     if (loading) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin" /></div>;
 
-    const canEdit = role === 'SUPRIDO' && (pcData.status === 'DRAFT' || pcData.status === 'CORRECTION');
+    // Determina se pode editar:
+    // 1. É Suprido comum em modo rascunho
+    // 2. É Gestor editando sua PRÓPRIA conta em modo rascunho
+    const isOwner = currentUser && pcData && pcData.solicitation.user_id === currentUser.id;
+    const canEdit = (role === 'SUPRIDO' || (role === 'GESTOR' && isOwner)) && (pcData.status === 'DRAFT' || pcData.status === 'CORRECTION');
 
     return (
         <div className="flex flex-col h-full bg-slate-50">
@@ -226,7 +251,7 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                 {/* Lado Esquerdo: Lista de Itens */}
                 <div className="flex-1 overflow-y-auto p-8">
                     
-                    {/* Formulário de Adição (Apenas Suprido) */}
+                    {/* Formulário de Adição */}
                     {canEdit && (
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6 animate-in slide-in-from-top-4">
                             <h3 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><Plus size={16}/> Adicionar Despesa</h3>
@@ -324,17 +349,20 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                     </div>
 
                     <div className="mt-8 space-y-3">
-                        {role === 'SUPRIDO' && canEdit && (
+                        {/* Botão de Envio (Habilitado para Suprido E Gestor-Dono) */}
+                        {canEdit && (
                             <button 
-                                onClick={handleSupridoSubmit} 
+                                onClick={handleSubmitPC} 
                                 disabled={submitting}
                                 className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2"
                             >
-                                {submitting ? <Loader2 className="animate-spin"/> : <Send size={18}/>} Enviar p/ Gestor
+                                {submitting ? <Loader2 className="animate-spin"/> : <Send size={18}/>} 
+                                {role === 'GESTOR' ? 'Enviar para SOSFU' : 'Enviar p/ Gestor'}
                             </button>
                         )}
 
-                        {role === 'GESTOR' && pcData.status === 'WAITING_MANAGER' && (
+                        {/* Botão de Aprovação (Apenas Gestor aprovando Terceiro) */}
+                        {role === 'GESTOR' && !isOwner && pcData.status === 'WAITING_MANAGER' && (
                             <button 
                                 onClick={handleGestorApprove}
                                 disabled={submitting}

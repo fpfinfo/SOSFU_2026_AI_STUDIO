@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Siren, Calendar, DollarSign, Bookmark, AlertTriangle, User, Mail, Loader2, CheckCircle2, Link as LinkIcon, AlertCircle, ChevronDown, Sparkles, Pencil } from 'lucide-react';
+import { ArrowLeft, Siren, Calendar, DollarSign, Bookmark, AlertTriangle, User, Mail, Loader2, CheckCircle2, Link as LinkIcon, AlertCircle, ChevronDown, Sparkles, Pencil, ShieldCheck } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { GoogleGenAI } from "@google/genai";
 
@@ -30,6 +30,7 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
     const [managerName, setManagerName] = useState('');
     const [managerEmail, setManagerEmail] = useState('');
     const [isManagerLinked, setIsManagerLinked] = useState(false); 
+    const [isGestorSolicitante, setIsGestorSolicitante] = useState(false); // Flag para identificar se é auto-pedido
 
     const [selectedElemento, setSelectedElemento] = useState('');
     const [description, setDescription] = useState('');
@@ -52,22 +53,33 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                 .order('codigo');
             setElementos(elData || []);
 
-            // 2. Dados do Gestor (Profile)
+            // 2. Dados do Usuário Logado
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 const { data: profile, error } = await supabase
                     .from('profiles')
-                    .select('gestor_nome, gestor_email')
+                    .select('full_name, email, gestor_nome, gestor_email, dperfil:perfil_id(slug)')
                     .eq('id', user.id)
                     .single();
                 
                 if (error) console.error("Erro ao buscar perfil:", error);
 
                 if (profile) {
-                    if (profile.gestor_nome && profile.gestor_email) {
-                        setManagerName(profile.gestor_nome);
-                        setManagerEmail(profile.gestor_email);
+                    const role = profile.dperfil?.slug;
+                    
+                    // Lógica para GESTOR solicitando para si mesmo
+                    if (role === 'GESTOR') {
+                        setIsGestorSolicitante(true);
+                        setManagerName(profile.full_name); // O próprio usuário é o gestor
+                        setManagerEmail(profile.email);
                         setIsManagerLinked(true);
+                    } else {
+                        // Usuário comum (Suprido)
+                        if (profile.gestor_nome && profile.gestor_email) {
+                            setManagerName(profile.gestor_nome);
+                            setManagerEmail(profile.gestor_email);
+                            setIsManagerLinked(true);
+                        }
                     }
                 }
             }
@@ -138,15 +150,18 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
             const elementoDesc = el ? `[ND: ${el.codigo}]` : '';
             const unitInfo = `${profile?.lotacao || 'Gabinete'} ${elementoDesc}`;
 
-            // 1. Criar Solicitação
-            // OBS: Os documentos (Capa/Requerimento) agora são criados automaticamente via Database Trigger (db_auto_docs_trigger.sql)
+            // DECISÃO DE STATUS:
+            // Se for Gestor, vai direto para SOSFU (Auto-Atesto via Trigger).
+            // Se for Suprido, fica Pendente para enviar ao Gestor depois.
+            const initialStatus = isGestorSolicitante ? 'WAITING_SOSFU_ANALYSIS' : 'PENDING';
+
             const { data: solData, error } = await supabase.from('solicitations').insert({
                 process_number: procNum,
                 beneficiary: profile?.full_name || user.email,
                 unit: unitInfo,
                 value: numericValue || 0,
                 date: new Date().toISOString(),
-                status: 'PENDING',
+                status: initialStatus, 
                 user_id: user.id,
                 event_start_date: startDate,
                 event_end_date: endDate,
@@ -184,8 +199,10 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800">Solicitação Enviada!</h2>
                 <p className="text-gray-500 mt-2 text-center max-w-md">
-                    Sua solicitação emergencial foi autuada sob o NUP <strong>{generatedProcessNumber}</strong>. <br/>
-                    O Dossiê Digital foi gerado automaticamente.
+                    {isGestorSolicitante 
+                        ? "Processo autuado, auto-atestado e encaminhado diretamente para análise da SOSFU." 
+                        : "Processo autuado. Acesse os detalhes para tramitar ao seu Gestor."}
+                    <br/>NUP: <strong>{generatedProcessNumber}</strong>
                 </p>
                 <button 
                     onClick={() => onNavigate('process_detail', generatedId)}
@@ -232,12 +249,13 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                 </div>
 
                 {/* Section: Gestor */}
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
-                    {/* Indicador de Vínculo */}
-                    {isManagerLinked && (
-                         <div className="absolute top-0 right-0 bg-blue-50 px-3 py-1 rounded-bl-xl border-b border-l border-blue-100 flex items-center gap-1.5 text-xs font-bold text-blue-600">
-                            <LinkIcon size={12} />
-                            Vinculado ao Perfil
+                <div className={`p-6 rounded-xl border shadow-sm relative overflow-hidden ${isGestorSolicitante ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-gray-200'}`}>
+                    
+                    {/* Indicador de Auto-Gestão */}
+                    {isGestorSolicitante && (
+                         <div className="absolute top-0 right-0 bg-indigo-100 px-3 py-1 rounded-bl-xl border-b border-l border-indigo-200 flex items-center gap-1.5 text-xs font-bold text-indigo-700">
+                            <ShieldCheck size={14} />
+                            Auto-Atesto (Gestor)
                          </div>
                     )}
                     
@@ -290,6 +308,12 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                             </div>
                         </div>
                     </div>
+                    {isGestorSolicitante && (
+                        <p className="text-xs text-indigo-600 mt-3 flex items-center gap-1 font-medium">
+                            <CheckCircle2 size={12} />
+                            Como você é Gestor, a Certidão de Atesto será gerada e assinada automaticamente ao enviar.
+                        </p>
+                    )}
                 </div>
 
                 {/* Section: Detalhes da Despesa */}
@@ -426,7 +450,7 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                         `}
                     >
                         {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <AlertTriangle size={18} />}
-                        Registrar Solicitação
+                        {isGestorSolicitante ? 'Auto-Atestar e Enviar' : 'Registrar Solicitação'}
                     </button>
                 </div>
 

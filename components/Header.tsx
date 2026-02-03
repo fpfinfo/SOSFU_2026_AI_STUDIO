@@ -15,8 +15,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
   
   const allTabs = [
     { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard, roles: ['ADMIN', 'SOSFU', 'SEFIN', 'PRESIDENCIA', 'SGP', 'AJSEFIN'] },
-    { id: 'suprido_dashboard', label: 'Portal do Suprido', icon: Briefcase, roles: ['SUPRIDO', 'SERVIDOR', 'GESTOR'] }, 
-    { id: 'gestor_dashboard', label: 'Atesto de Gestão', icon: Gavel, roles: ['GESTOR', 'ADMIN'] },
+    // REMOVIDO 'GESTOR' DAQUI POIS ELE TEM SEU PRÓPRIO DASHBOARD UNIFICADO
+    { id: 'suprido_dashboard', label: 'Portal do Suprido', icon: Briefcase, roles: ['SUPRIDO', 'SERVIDOR'] }, 
+    { id: 'gestor_dashboard', label: 'Gabinete do Gestor', icon: Gavel, roles: ['GESTOR', 'ADMIN'] },
     { id: 'sefin_dashboard', label: 'Gabinete SEFIN', icon: Scale, roles: ['SEFIN', 'ADMIN'] },
     { id: 'solicitations', label: 'Gestão de Solicitações', icon: FileText, roles: ['ADMIN', 'SOSFU', 'SEFIN'] },
     { id: 'accountability', label: 'Gestão de Contas', icon: CheckSquare, roles: ['ADMIN', 'SOSFU', 'SEFIN'] },
