@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Filter, Search, MoreHorizontal, FileText, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { StatusBadge } from './StatusBadge';
 
 export const SolicitationsView: React.FC = () => {
   const [solicitations, setSolicitations] = useState<any[]>([]);
@@ -35,7 +36,6 @@ export const SolicitationsView: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -58,9 +58,7 @@ export const SolicitationsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Table Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        {/* Toolbar */}
         <div className="p-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
             <div className="relative max-w-sm w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
@@ -121,18 +119,7 @@ export const SolicitationsView: React.FC = () => {
                         {item.date ? new Date(item.date).toLocaleDateString('pt-BR') : '-'}
                     </td>
                     <td className="px-6 py-4">
-                        <span className={`
-                        inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase
-                        ${item.status === 'APPROVED' ? 'bg-green-100 text-green-700' : ''}
-                        ${item.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' : ''}
-                        ${item.status === 'PAID' ? 'bg-blue-100 text-blue-700' : ''}
-                        ${item.status === 'REJECTED' ? 'bg-red-100 text-red-700' : ''}
-                        `}>
-                        {item.status === 'PENDING' && 'Em Análise'}
-                        {item.status === 'APPROVED' && 'Aprovado'}
-                        {item.status === 'PAID' && 'Pago'}
-                        {item.status === 'REJECTED' && 'Rejeitado'}
-                        </span>
+                        <StatusBadge status={item.status} size="sm" />
                     </td>
                     <td className="px-6 py-4 text-right">
                         <button className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-50">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Siren, Gavel, FileText, CheckSquare, Clock, AlertTriangle, Search, Filter, ChevronRight, MoreVertical, DollarSign, Loader2, RefreshCw, AlertCircle, Wallet } from 'lucide-react';
+import { Siren, Gavel, FileText, Clock, Search, ChevronRight, Loader2, Wallet } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { StatusBadge } from '../StatusBadge';
 
 interface SupridoDashboardProps {
     onNavigate: (page: string, processId?: string) => void;
@@ -32,10 +33,8 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
             if (solError) throw solError;
 
             // 2. PCs (Contar PCs pendentes)
-            // Processos PAGOS que ainda não têm PC aprovada
             const paidProcs = solicitations?.filter(s => s.status === 'PAID') || [];
             
-            // Buscar status das PCs associadas
             const { data: pcs } = await supabase
                 .from('accountabilities')
                 .select('solicitation_id, status')
@@ -58,7 +57,6 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
         }
     };
 
-    // Helper
     const getProcessType = (unit: string) => {
         if (unit?.includes('EMERGENCIAL')) return { label: 'EMERGENCIAL', color: 'bg-red-50 text-red-600 border-red-100' };
         if (unit?.includes('JÚRI')) return { label: 'EXTRA-JÚRI', color: 'bg-blue-50 text-blue-600 border-blue-100' };
@@ -96,7 +94,6 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                 </div>
             )}
 
-            {/* Nova Solicitação Cards - Mantido igual ao original */}
             <div className="mb-10">
                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Nova Solicitação Extraordinária</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -119,7 +116,6 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                 </div>
             </div>
 
-            {/* Lista de Processos */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="p-4 border-b border-gray-100 flex gap-3">
                     <div className="relative flex-1">
@@ -151,7 +147,7 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                                             Prestar Contas
                                         </span>
                                     ) : (
-                                        <span className="text-xs font-bold text-gray-400">Em Andamento</span>
+                                        <StatusBadge status={proc.status} size="sm" />
                                     )}
                                 </div>
                             </div>

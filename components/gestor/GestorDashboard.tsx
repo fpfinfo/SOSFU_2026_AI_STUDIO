@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, FileText, Filter, Search, Clock, ChevronRight, UserCheck, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { StatusBadge } from '../StatusBadge';
 
 interface GestorDashboardProps {
     onNavigate: (page: string, processId?: string) => void;
@@ -36,7 +37,8 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
             if (solicitations) {
                 // Filtra Pendentes (WAITING_MANAGER)
                 setPendingProcesses(solicitations.filter(s => s.status === 'WAITING_MANAGER'));
-                // Filtra Histórico (Qualquer outro status)
+                // Filtra Histórico: Tudo que não é WAITING_MANAGER. 
+                // Se for PENDING (Rascunho do Suprido), ainda aparece aqui para o gestor saber que existe, mas com badge cinza.
                 setHistoryProcesses(solicitations.filter(s => s.status !== 'WAITING_MANAGER'));
             }
 
@@ -104,7 +106,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                                 className="bg-white p-5 rounded-xl border border-l-4 border-yellow-400 shadow-sm hover:shadow-md transition-all cursor-pointer group"
                             >
                                 <div className="flex justify-between items-start mb-4">
-                                    <span className="text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-1 rounded uppercase">Aguardando Atesto</span>
+                                    <StatusBadge status="WAITING_MANAGER" size="sm" />
                                     <span className="text-xs text-gray-400">{new Date(proc.created_at).toLocaleDateString()}</span>
                                 </div>
                                 <h4 className="text-lg font-bold text-gray-800 mb-1 group-hover:text-blue-600 transition-colors">{proc.process_number}</h4>
@@ -160,13 +162,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                            proc.status === 'PENDING' ? 'bg-blue-100 text-blue-700' :
-                                            proc.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
-                                            'bg-gray-100 text-gray-600'
-                                        }`}>
-                                            {proc.status === 'PENDING' ? 'Na SOSFU' : proc.status}
-                                        </span>
+                                        <StatusBadge status={proc.status} size="sm" />
                                         <p className="text-[10px] text-gray-400 mt-1">
                                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proc.value)}
                                         </p>
