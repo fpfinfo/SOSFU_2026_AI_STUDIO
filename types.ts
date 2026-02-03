@@ -30,21 +30,37 @@ export enum TabCategory {
 
 export interface Solicitation {
   id: string;
-  processNumber: string;
-  type?: 'EMERGENCY' | 'JURY' | 'ORDINARY'; // Novo campo
+  process_number: string;
+  type?: 'EMERGENCY' | 'JURY' | 'ORDINARY';
   beneficiary: string;
   unit: string;
   value: number;
   date: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'PAID';
+  status: 'PENDING' | 'WAITING_MANAGER' | 'WAITING_SOSFU_ANALYSIS' | 'WAITING_SEFIN_SIGNATURE' | 'WAITING_SOSFU_PAYMENT' | 'WAITING_SUPRIDO_CONFIRMATION' | 'APPROVED' | 'REJECTED' | 'PAID';
+  manager_name?: string;
+  manager_email?: string;
+}
+
+export interface AccountabilityItem {
+    id: string;
+    item_date: string;
+    description: string;
+    supplier: string;
+    doc_number: string;
+    element_code: string;
+    value: number;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 export interface Accountability {
   id: string;
-  processNumber: string;
-  requester: string;
-  value: number;
+  process_number: string; // Vem via join
+  requester: string; // Vem via join
+  value: number; // Valor concedido
+  total_spent: number;
+  balance: number;
   deadline: string;
-  status: 'ANALYSIS' | 'APPROVED' | 'CORRECTION' | 'LATE';
+  status: 'DRAFT' | 'WAITING_MANAGER' | 'WAITING_SOSFU' | 'APPROVED' | 'CORRECTION' | 'LATE';
   daysRemaining: number;
+  items?: AccountabilityItem[];
 }
