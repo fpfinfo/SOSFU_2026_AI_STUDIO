@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Users, ArrowRightLeft, List, Loader2, AlertTriangle, Database, Copy, CheckCircle2, UserPlus } from 'lucide-react';
+import { Users, ArrowRightLeft, List, Loader2, AlertTriangle, Database, Copy, CheckCircle2, UserPlus, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { WorkloadModal } from './WorkloadModal';
 
 interface TeamMember {
   id: string;
@@ -10,6 +11,11 @@ interface TeamMember {
     slug: string;
     name: string;
   };
+  // Campos calculados
+  workloadCount: number;
+  capacity: number; // %
+  slaAlerts: { count: number; type: 'none' | 'warning' | 'delayed' };
+  tasks: any[];
 }
 
 export const TeamTable: React.FC = () => {
@@ -18,15 +24,21 @@ export const TeamTable: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedAnalyst, setSelectedAnalyst] = useState<{id: string, name: string, avatar_url: string | null} | null>(null);
+  const [selectedTasks, setSelectedTasks] = useState<any[]>([]);
+
   useEffect(() => {
-    fetchTeamMembers();
+    fetchTeamData();
   }, []);
 
-  const fetchTeamMembers = async () => {
+  const fetchTeamData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase
+      // 1. Buscar Membros
+      const { data: profiles, error: profileError } = await supabase
         .from('profiles')
         .select(`
             id,
@@ -37,20 +49,101 @@ export const TeamTable: React.FC = () => {
         .in('dperfil.slug', ['SOSFU', 'ADMIN'])
         .order('full_name');
 
-      if (error) throw error;
-      
-      const formattedMembers = (data || []).map((m: any) => ({
-          ...m,
-          dperfil: Array.isArray(m.dperfil) ? m.dperfil[0] : m.dperfil
-      }));
+      if (profileError) throw profileError;
 
-      setMembers(formattedMembers);
+      // 2. Buscar Solicitações Ativas (Não Finalizadas)
+      // Consideramos carga de trabalho tudo que não foi Pago ou Rejeitado (ou seja, está em análise/trâmite)
+      const { data: solicitations, error: solError } = await supabase
+        .from('solicitations')
+        .select('id, analyst_id, process_number, beneficiary, status, created_at')
+        .not('analyst_id', 'is', null)
+        .in('status', ['WAITING_SOSFU_ANALYSIS', 'WAITING_SEFIN_SIGNATURE', 'WAITING_SOSFU_PAYMENT']); // Status que dependem da SOSFU
+
+      if (solError) throw solError;
+
+      // 3. Buscar Prestação de Contas Ativas (Em Análise)
+      const { data: accountabilities, error: accError } = await supabase
+        .from('accountabilities')
+        .select('id, analyst_id, process_number, status, deadline, profiles:requester_id(full_name)')
+        .eq('status', 'WAITING_SOSFU')
+        .not('analyst_id', 'is', null);
+
+      if (accError) throw accError;
+
+      // 4. Processar e Combinar Dados
+      const teamData: TeamMember[] = (profiles || []).map((m: any) => {
+          const memberId = m.id;
+          
+          // Tarefas de Solicitação
+          const mySols = (solicitations || []).filter((s: any) => s.analyst_id === memberId).map((s: any) => {
+              // SLA Lógica: Mais de 3 dias em análise é atraso
+              const daysSinceCreation = Math.floor((new Date().getTime() - new Date(s.created_at).getTime()) / (1000 * 3600 * 24));
+              const isLate = s.status === 'WAITING_SOSFU_ANALYSIS' && daysSinceCreation > 3;
+              
+              return {
+                  id: s.id,
+                  type: 'SOLICITATION',
+                  process_number: s.process_number,
+                  beneficiary: s.beneficiary,
+                  status: s.status,
+                  date_ref: s.created_at,
+                  is_late: isLate
+              };
+          });
+
+          // Tarefas de PC
+          const myAccs = (accountabilities || []).filter((a: any) => a.analyst_id === memberId).map((a: any) => {
+              // SLA Lógica: Passou do deadline
+              const isLate = new Date() > new Date(a.deadline);
+              
+              return {
+                  id: a.id,
+                  type: 'ACCOUNTABILITY',
+                  process_number: a.process_number,
+                  beneficiary: a.profiles?.full_name || 'Desconhecido',
+                  status: a.status,
+                  date_ref: a.deadline,
+                  is_late: isLate
+              };
+          });
+
+          const allTasks = [...mySols, ...myAccs];
+          const totalCount = allTasks.length;
+          
+          // Cálculo de Capacidade (Ex: Max 20 processos simultâneos)
+          const MAX_CAPACITY = 20;
+          const capacity = Math.min(100, Math.round((totalCount / MAX_CAPACITY) * 100));
+
+          // Contagem de SLA
+          const lateCount = allTasks.filter(t => t.is_late).length;
+          let slaType: 'none' | 'warning' | 'delayed' = 'none';
+          if (lateCount > 0) slaType = 'delayed';
+          else if (capacity > 80) slaType = 'warning';
+
+          return {
+              ...m,
+              dperfil: Array.isArray(m.dperfil) ? m.dperfil[0] : m.dperfil,
+              workloadCount: totalCount,
+              capacity: capacity,
+              slaAlerts: { count: lateCount, type: slaType },
+              tasks: allTasks
+          };
+      });
+
+      setMembers(teamData);
+
     } catch (err: any) {
       console.error('Erro ao buscar equipe:', err);
       setError(err.message || 'Erro desconhecido ao carregar equipe.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOpenWorkload = (member: TeamMember) => {
+      setSelectedAnalyst({ id: member.id, name: member.full_name, avatar_url: member.avatar_url });
+      setSelectedTasks(member.tasks);
+      setIsModalOpen(true);
   };
 
   const copySQL = () => {
@@ -106,7 +199,7 @@ GRANT SELECT ON public.dperfil TO anon, authenticated, service_role;`}
             </div>
 
             <div className="mt-6 flex justify-center">
-                <button onClick={fetchTeamMembers} className="text-sm bg-white border border-red-200 hover:bg-red-50 text-red-700 px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2 shadow-sm">
+                <button onClick={fetchTeamData} className="text-sm bg-white border border-red-200 hover:bg-red-50 text-red-700 px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2 shadow-sm">
                     <Loader2 size={14} className={loading ? "animate-spin" : "hidden"} />
                     Tentar Recarregar
                 </button>
@@ -117,9 +210,14 @@ GRANT SELECT ON public.dperfil TO anon, authenticated, service_role;`}
 
   return (
     <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100">
-      <div className="p-6 border-b border-gray-100 flex items-center gap-3">
-        <Users className="text-gray-400" size={20} />
-        <h3 className="text-gray-800 font-bold text-lg uppercase">Gestão da Equipe Técnica</h3>
+      <div className="p-6 border-b border-gray-100 flex items-center gap-3 justify-between">
+        <div className="flex items-center gap-3">
+            <Users className="text-gray-400" size={20} />
+            <h3 className="text-gray-800 font-bold text-lg uppercase">Gestão da Equipe Técnica</h3>
+        </div>
+        <button onClick={fetchTeamData} className="p-2 hover:bg-gray-50 rounded-full text-gray-400 hover:text-blue-600 transition-colors" title="Atualizar Dados">
+            <ArrowRightLeft size={16} className={loading ? "animate-spin" : ""} />
+        </button>
       </div>
 
       <div className="p-2">
@@ -127,15 +225,12 @@ GRANT SELECT ON public.dperfil TO anon, authenticated, service_role;`}
         <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-gray-50/50 rounded-t-lg border-b border-gray-100 text-[10px] font-bold text-blue-400 uppercase tracking-wider">
           <div className="col-span-4 flex items-center gap-1 cursor-pointer hover:text-blue-600">
             Analista / Função 
-            <span className="text-[8px]">⇅</span>
           </div>
           <div className="col-span-4 flex items-center gap-1 cursor-pointer hover:text-blue-600">
             Carga de Trabalho (Processos)
-            <span className="text-[8px]">⇅</span>
           </div>
           <div className="col-span-2 flex items-center gap-1 cursor-pointer hover:text-blue-600">
             Alertas SLA
-            <span className="text-[8px]">⇅</span>
           </div>
           <div className="col-span-2 text-right">
             Ações
@@ -147,7 +242,7 @@ GRANT SELECT ON public.dperfil TO anon, authenticated, service_role;`}
           {loading ? (
              <div className="p-8 flex justify-center items-center text-gray-400 gap-2">
                 <Loader2 className="animate-spin" size={16} />
-                Carregando equipe...
+                Carregando dados da equipe...
              </div>
           ) : members.length === 0 ? (
              <div className="p-12 text-center flex flex-col items-center justify-center text-gray-400 gap-3">
@@ -156,9 +251,6 @@ GRANT SELECT ON public.dperfil TO anon, authenticated, service_role;`}
                 </div>
                 <div>
                     <p className="text-sm font-semibold text-gray-600">Nenhuma equipe técnica encontrada.</p>
-                    <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
-                        Parece que não há usuários com perfil 'SOSFU' ou 'ADMIN'. Vá em Configurações para adicionar membros.
-                    </p>
                 </div>
              </div>
           ) : (
@@ -172,7 +264,7 @@ GRANT SELECT ON public.dperfil TO anon, authenticated, service_role;`}
                                 <img src={member.avatar_url} className="w-full h-full object-cover" />
                             ) : getInitials(member.full_name)}
                         </div>
-                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white bg-green-500"></span>
+                        <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${member.workloadCount > 0 ? 'bg-green-500' : 'bg-gray-300'}`}></span>
                     </div>
                     <div className="min-w-0">
                         <p className="text-xs font-bold text-gray-800 uppercase leading-snug truncate pr-2" title={member.full_name}>
@@ -187,29 +279,46 @@ GRANT SELECT ON public.dperfil TO anon, authenticated, service_role;`}
                 {/* Workload */}
                 <div className="col-span-4">
                     <div className="flex justify-between items-end mb-1">
-                        <span className="text-[10px] font-bold text-gray-500">0 Processos</span>
-                        <span className="text-[10px] font-bold text-blue-500">0% Cap.</span>
+                        <span className={`text-[10px] font-bold ${member.workloadCount > 0 ? 'text-blue-700' : 'text-gray-400'}`}>
+                            {member.workloadCount} Processos
+                        </span>
+                        <span className={`text-[10px] font-bold ${member.capacity > 80 ? 'text-red-500' : 'text-blue-500'}`}>
+                            {member.capacity}% Cap.
+                        </span>
                     </div>
                     <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
                     <div 
-                        className="h-full rounded-full bg-blue-500" 
-                        style={{ width: '0%' }}
+                        className={`h-full rounded-full transition-all duration-500 ${member.capacity > 80 ? 'bg-red-500' : member.capacity > 50 ? 'bg-yellow-500' : 'bg-blue-500'}`} 
+                        style={{ width: `${member.capacity}%` }}
                     ></div>
                     </div>
                 </div>
 
                 {/* SLA Alerts */}
                 <div className="col-span-2">
-                    <span className="text-gray-300 text-xs">-</span>
+                    {member.slaAlerts.type === 'delayed' ? (
+                        <div className="flex items-center gap-1.5 text-red-600 bg-red-50 px-2 py-1 rounded w-fit">
+                            <AlertCircle size={12} />
+                            <span className="text-[10px] font-bold">{member.slaAlerts.count} Atrasados</span>
+                        </div>
+                    ) : member.slaAlerts.type === 'warning' ? (
+                        <div className="flex items-center gap-1.5 text-yellow-600 bg-yellow-50 px-2 py-1 rounded w-fit">
+                            <AlertTriangle size={12} />
+                            <span className="text-[10px] font-bold">Sobrecarga</span>
+                        </div>
+                    ) : (
+                        <span className="text-gray-300 text-xs">-</span>
+                    )}
                 </div>
 
                 {/* Actions */}
                 <div className="col-span-2 flex justify-end gap-2">
-                    <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md border border-gray-200 transition-colors">
+                    <button 
+                        onClick={() => handleOpenWorkload(member)}
+                        className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md border border-gray-200 transition-colors shadow-sm"
+                        title="Ver Lista de Processos"
+                    >
                         <List size={14} />
-                    </button>
-                    <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md border border-gray-200 transition-colors">
-                        <ArrowRightLeft size={14} />
                     </button>
                 </div>
                 </div>
@@ -217,6 +326,13 @@ GRANT SELECT ON public.dperfil TO anon, authenticated, service_role;`}
           )}
         </div>
       </div>
+
+      <WorkloadModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        analyst={selectedAnalyst} 
+        tasks={selectedTasks}
+      />
     </div>
   );
 };

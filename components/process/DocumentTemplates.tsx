@@ -41,8 +41,21 @@ const BaseDocumentLayout: React.FC<{ children: React.ReactNode; docId?: string }
     );
 };
 
+// Helper function to determine process type more robustly
+const getProcessType = (unitStr: string | null) => {
+    const unit = (unitStr || '').toUpperCase();
+    if (unit.includes('JÚRI') || unit.includes('JURI') || unit.includes('PROCESSO:')) {
+        return 'EXTRA-JÚRI';
+    }
+    // Default to Extra-Emergencial/Ordinário for everything else
+    // This fixes the issue where missing tags caused it to fall back to Jury logic previously
+    return 'EXTRA-EMERGENCIAL';
+};
+
 // --- 1. CAPA DO PROCESSO ---
 export const ProcessCoverTemplate: React.FC<DocumentProps> = ({ data }) => {
+  const processType = getProcessType(data.unit);
+
   return (
     <BaseDocumentLayout>
           {/* Process Number Highlight */}
@@ -63,7 +76,7 @@ export const ProcessCoverTemplate: React.FC<DocumentProps> = ({ data }) => {
                 <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Modalidade</p>
                     <p className="text-lg font-bold text-slate-900 uppercase border-b border-gray-200 pb-1">
-                        {(data.unit || '').includes('EMERGENCIAL') ? 'Suprimento Extra-Emergencial' : 'Suprimento Extra-Júri'}
+                        Suprimento {processType}
                     </p>
                 </div>
             </div>
@@ -96,7 +109,7 @@ export const ProcessCoverTemplate: React.FC<DocumentProps> = ({ data }) => {
 
 // --- 2. REQUERIMENTO INICIAL ---
 export const RequestTemplate: React.FC<DocumentProps> = ({ data, user }) => {
-  const isEmergencial = (data.unit || '').includes('EMERGENCIAL');
+  const processType = getProcessType(data.unit);
   
   return (
     <BaseDocumentLayout>
@@ -119,7 +132,7 @@ export const RequestTemplate: React.FC<DocumentProps> = ({ data, user }) => {
 
         <div className="text-justify leading-relaxed space-y-4 text-base">
             <p>
-                Solicito a concessão de Suprimento de Fundos na modalidade <strong>{isEmergencial ? 'EXTRA-EMERGENCIAL' : 'EXTRA-JÚRI'}</strong>, 
+                Solicito a concessão de Suprimento de Fundos na modalidade <strong>{processType}</strong>, 
                 no valor de <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.value)}</strong>, 
                 para atender despesas da unidade <strong>{user.lotacao || 'Unidade Judiciária'}</strong>.
             </p>
@@ -147,7 +160,7 @@ export const AttestationTemplate: React.FC<DocumentProps> = ({ data, user, gesto
     const managerName = data.manager_name || gestor?.full_name || 'GESTOR DA UNIDADE';
     const location = user.municipio ? `COMARCA DE ${user.municipio.toUpperCase()}` : 'CAPITAL';
     const today = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
-    const isEmergencial = (data.unit || '').includes('EMERGENCIAL');
+    const processType = getProcessType(data.unit);
 
     return (
         <BaseDocumentLayout docId={`CERT-${data.process_number.replace(/\D/g,'')}`}>
@@ -169,7 +182,7 @@ export const AttestationTemplate: React.FC<DocumentProps> = ({ data, user, gesto
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                             <span className="block font-bold text-gray-500 text-xs uppercase">Modalidade</span>
-                            <span className="font-semibold text-slate-900">{isEmergencial ? 'Extra-Emergencial' : 'Extra-Júri'}</span>
+                            <span className="font-semibold text-slate-900">{processType}</span>
                         </div>
                         <div>
                             <span className="block font-bold text-gray-500 text-xs uppercase">Valor Aprovado</span>

@@ -345,7 +345,8 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
             });
             
             const finalJustification = `${justification}\n\n${detailedItems}`;
-            const unitInfo = `${comarca} [Processo: ${processNumber}]`;
+            // CORREÇÃO: Adicionando tag [EXTRA-JÚRI]
+            const unitInfo = `${comarca} [Processo: ${processNumber}] [EXTRA-JÚRI]`;
 
             const { data: solData, error } = await supabase.from('solicitations').insert({
                 process_number: procNum,

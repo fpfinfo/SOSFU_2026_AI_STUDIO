@@ -148,7 +148,9 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
 
             const el = elementos.find(e => e.codigo === selectedElemento);
             const elementoDesc = el ? `[ND: ${el.codigo}]` : '';
-            const unitInfo = `${profile?.lotacao || 'Gabinete'} ${elementoDesc}`;
+            
+            // CORREÇÃO: Adicionando a tag [EXTRA-EMERGENCIAL] explicitamente
+            const unitInfo = `${profile?.lotacao || 'Gabinete'} ${elementoDesc} [EXTRA-EMERGENCIAL]`;
 
             // DECISÃO DE STATUS:
             // Se for Gestor, vai direto para SOSFU (Auto-Atesto via Trigger).
@@ -369,12 +371,13 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-gray-700">Data Início</label>
                                 <div className="relative">
-                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
                                     <input 
                                         type="date"
                                         value={startDate}
                                         onChange={e => setStartDate(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
+                                        onClick={(e) => e.currentTarget.showPicker()}
+                                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none cursor-pointer"
                                         required
                                     />
                                 </div>
@@ -382,13 +385,14 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-gray-700">Data Fim</label>
                                 <div className="relative">
-                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
                                     <input 
                                         type="date"
                                         value={endDate}
                                         min={startDate}
                                         onChange={e => setEndDate(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
+                                        onClick={(e) => e.currentTarget.showPicker()}
+                                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none cursor-pointer"
                                         required
                                     />
                                 </div>

@@ -37,6 +37,9 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
   
+  // Dashboard Stats Real
+  const [stats, setStats] = useState(DASHBOARD_STATS);
+  
   // Estado para armazenar o ID do processo selecionado para visualização
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
 
@@ -47,13 +50,14 @@ const App: React.FC = () => {
         setSession(session);
         if (session) {
             fetchUserProfile(session.user.id);
+            if (activeTab === 'dashboard') fetchDashboardStats(session.user.id);
         } else {
             setLoading(false);
         }
       })
       .catch((err) => {
         console.error("Erro crítico ao inicializar sessão:", err);
-        setLoading(false); // Garante que o loading pare mesmo com erro
+        setLoading(false); 
       });
 
     const {
@@ -61,8 +65,8 @@ const App: React.FC = () => {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
-          // Apenas busca o perfil se não estivermos já carregando (evita flash)
           fetchUserProfile(session.user.id);
+          if (activeTab === 'dashboard') fetchDashboardStats(session.user.id);
       } else {
         setUserProfile(null);
         setLoading(false);
@@ -71,6 +75,34 @@ const App: React.FC = () => {
 
     return () => { subscription.unsubscribe(); };
   }, []);
+
+  const fetchDashboardStats = async (userId: string) => {
+      try {
+          // 1. Caixa de Entrada (Solicitações aguardando SOSFU + PC aguardando SOSFU)
+          const { count: inboxSol } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).eq('status', 'WAITING_SOSFU_ANALYSIS');
+          const { count: inboxPC } = await supabase.from('accountabilities').select('*', { count: 'exact', head: true }).eq('status', 'WAITING_SOSFU');
+          
+          // 2. Minha Mesa (Solicitações atribuídas a mim)
+          const { count: mySol } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).eq('analyst_id', userId).neq('status', 'PAID');
+          
+          // 3. Minha Mesa (PCs atribuídas a mim)
+          const { count: myPC } = await supabase.from('accountabilities').select('*', { count: 'exact', head: true }).eq('analyst_id', userId).eq('status', 'WAITING_SOSFU');
+
+          // 4. Fluxo SEFIN (Waiting SEFIN)
+          const { count: sefin } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).eq('status', 'WAITING_SEFIN_SIGNATURE');
+
+          const newStats = [...DASHBOARD_STATS];
+          newStats[0] = { ...newStats[0], count: (inboxSol || 0) + (inboxPC || 0), details: [`${inboxSol} Solicitações`, `${inboxPC} Prest. Contas`] };
+          newStats[1] = { ...newStats[1], count: mySol || 0, details: ['Em análise por mim'] };
+          newStats[2] = { ...newStats[2], count: myPC || 0, details: ['PCs em análise'] };
+          newStats[3] = { ...newStats[3], count: sefin || 0, details: ['Aguardando Ordenador'] };
+
+          setStats(newStats);
+
+      } catch (err) {
+          console.error("Erro ao carregar stats:", err);
+      }
+  };
 
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -88,8 +120,6 @@ const App: React.FC = () => {
 
       if (error) {
         console.error('Error fetching profile:', error);
-        // MODO DE RECUPERAÇÃO: Se falhar ao buscar o perfil (ex: erro de RLS), cria um perfil "fake" de admin
-        // para permitir que o usuário acesse as Configurações e veja o comando SQL de correção.
         setUserProfile({
             id: userId,
             full_name: 'Modo de Recuperação',
@@ -102,10 +132,7 @@ const App: React.FC = () => {
       } else if (data) {
         setUserProfile(data);
         
-        // Lógica de Redirecionamento Inicial baseada no Perfil
         const role = data.dperfil?.slug;
-        
-        // Só redireciona se estiver na tab padrão (dashboard) para evitar sobrescrever navegação do usuário
         if (activeTab === 'dashboard') {
             if (role === 'SUPRIDO' || role === 'SERVIDOR') {
                 setActiveTab('suprido_dashboard');
@@ -123,10 +150,10 @@ const App: React.FC = () => {
     }
   };
 
-  // Função auxiliar de navegação que lida com passagem de ID
   const handleNavigation = (page: string, processId?: string) => {
       if (processId) setSelectedProcessId(processId);
       setActiveTab(page);
+      if (page === 'dashboard' && session) fetchDashboardStats(session.user.id);
   };
 
   if (loading) {
@@ -147,7 +174,7 @@ const App: React.FC = () => {
         return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
-                {DASHBOARD_STATS.map((stat) => (
+                {stats.map((stat) => (
                   <StatCard key={stat.id} data={stat} />
                 ))}
              </div>
@@ -206,7 +233,7 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#F8FAFC]">
       <Header 
         activeTab={activeTab} 
-        onTabChange={setActiveTab}
+        onTabChange={(tab) => handleNavigation(tab)}
         onNavigate={handleNavigation}
         userProfile={userProfile}
       />
