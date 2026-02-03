@@ -1,99 +1,95 @@
--- 0. CRIAÇÃO DA TABELA (Garante que existe antes do trigger)
-CREATE TABLE IF NOT EXISTS public.process_documents (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-  solicitation_id UUID REFERENCES public.solicitations(id) ON DELETE CASCADE NOT NULL,
-  title TEXT NOT NULL,
-  description TEXT,
-  document_type TEXT NOT NULL,
-  status TEXT DEFAULT 'GENERATED',
-  metadata JSONB DEFAULT '{}'::jsonb 
-);
+-- ============================================================
+-- SCRIPT DE CORREÇÃO E AUTOMAÇÃO DO DOSSIÊ DIGITAL
+-- Execute este script completo no SQL Editor do Supabase
+-- ============================================================
 
--- Habilitar RLS
-ALTER TABLE public.process_documents ENABLE ROW LEVEL SECURITY;
+-- 1. LIMPEZA PREVENTIVA
+-- Removemos a função e trigger antigos para garantir que a nova versão seja aplicada
+DROP TRIGGER IF EXISTS trg_generate_docs ON public.solicitations;
+DROP FUNCTION IF EXISTS public.handle_new_solicitation_docs();
 
--- Permissões
-GRANT ALL ON TABLE public.process_documents TO postgres, service_role;
-GRANT ALL ON TABLE public.process_documents TO authenticated;
-
--- Políticas de Segurança (Bloco DO para evitar erro se já existirem)
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'process_documents' AND policyname = 'Ver documentos permitidos') THEN
-        CREATE POLICY "Ver documentos permitidos" ON public.process_documents 
-        FOR SELECT USING (
-          EXISTS (
-            SELECT 1 FROM public.solicitations s
-            WHERE s.id = process_documents.solicitation_id
-            AND (s.user_id = auth.uid() OR 
-                 EXISTS (
-                    SELECT 1 FROM public.profiles p 
-                    JOIN public.dperfil dp ON p.perfil_id = dp.id
-                    WHERE p.id = auth.uid() AND dp.slug IN ('ADMIN', 'SOSFU', 'SEFIN')
-                 )
-            )
-          )
-        );
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'process_documents' AND policyname = 'Criar documentos no fluxo') THEN
-        CREATE POLICY "Criar documentos no fluxo" ON public.process_documents FOR INSERT WITH CHECK (true);
-    END IF;
-END $$;
-
--- 1. FUNÇÃO: Gerar Documentos do Dossiê Automaticamente
+-- 2. CRIAÇÃO DA FUNÇÃO GERADORA
+-- Esta função é chamada automaticamente sempre que uma nova linha entra na tabela 'solicitations'
 CREATE OR REPLACE FUNCTION public.handle_new_solicitation_docs()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Inserir CAPA DO PROCESSO
-  INSERT INTO public.process_documents (solicitation_id, title, description, document_type, status, created_at)
-  VALUES (
-    NEW.id,
-    'CAPA DO PROCESSO',
-    'Identificação oficial do protocolo e metadados estruturais.',
-    'COVER',
-    'GENERATED',
-    NEW.created_at
-  );
+  -- A. GERAÇÃO DA CAPA DO PROCESSO
+  -- Verifica se já existe para evitar duplicidade (em casos de update)
+  IF NOT EXISTS (SELECT 1 FROM public.process_documents WHERE solicitation_id = NEW.id AND document_type = 'COVER') THEN
+      INSERT INTO public.process_documents (
+        solicitation_id, 
+        title, 
+        description, 
+        document_type, 
+        status, 
+        created_at
+      )
+      VALUES (
+        NEW.id,
+        'CAPA DO PROCESSO',
+        'Identificação oficial do protocolo e metadados estruturais.',
+        'COVER',
+        'GENERATED',
+        NEW.created_at
+      );
+  END IF;
 
-  -- Inserir REQUERIMENTO INICIAL
-  INSERT INTO public.process_documents (solicitation_id, title, description, document_type, status, created_at)
-  VALUES (
-    NEW.id,
-    'REQUERIMENTO INICIAL',
-    'Justificativa e plano de aplicação assinado digitalmente.',
-    'REQUEST',
-    'GENERATED',
-    NEW.created_at + interval '1 second' -- Adiciona 1 segundo para ordenação visual
-  );
+  -- B. GERAÇÃO DO REQUERIMENTO INICIAL
+  IF NOT EXISTS (SELECT 1 FROM public.process_documents WHERE solicitation_id = NEW.id AND document_type = 'REQUEST') THEN
+      INSERT INTO public.process_documents (
+        solicitation_id, 
+        title, 
+        description, 
+        document_type, 
+        status, 
+        created_at
+      )
+      VALUES (
+        NEW.id,
+        'REQUERIMENTO INICIAL',
+        'Justificativa e plano de aplicação assinado digitalmente.',
+        'REQUEST',
+        'GENERATED',
+        NEW.created_at + interval '1 second' -- Adiciona 1 segundo para garantir a ordem visual
+      );
+  END IF;
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER; 
+-- 'SECURITY DEFINER' é crucial: permite que a função rode com permissões de admin, 
+-- ignorando restrições de RLS do usuário que está inserindo.
 
--- 2. TRIGGER: Aciona a função após inserir na tabela solicitations
-DROP TRIGGER IF EXISTS trg_generate_docs ON public.solicitations;
+-- 3. CRIAÇÃO DO TRIGGER (GATILHO)
+-- Vincula a função acima à tabela de solicitações
 CREATE TRIGGER trg_generate_docs
   AFTER INSERT ON public.solicitations
   FOR EACH ROW
   EXECUTE PROCEDURE public.handle_new_solicitation_docs();
 
--- 3. CORREÇÃO RETROATIVA (FIX): Gera documentos para quem não tem (incluindo o que deu erro)
--- Insere Capa
-INSERT INTO public.process_documents (solicitation_id, title, description, document_type, status, created_at)
-SELECT s.id, 'CAPA DO PROCESSO', 'Identificação oficial do protocolo (Gerado via Correção).', 'COVER', 'GENERATED', s.created_at
-FROM public.solicitations s
-WHERE NOT EXISTS (
-    SELECT 1 FROM public.process_documents pd 
-    WHERE pd.solicitation_id = s.id AND pd.document_type = 'COVER'
-);
+-- 4. CORREÇÃO RETROATIVA (IMPORTANTÍSSIMO)
+-- Este bloco varre todas as solicitações existentes que porventura ficaram sem documentos
+-- e gera os documentos faltantes agora.
 
--- Insere Requerimento
-INSERT INTO public.process_documents (solicitation_id, title, description, document_type, status, created_at)
-SELECT s.id, 'REQUERIMENTO INICIAL', 'Justificativa e plano de aplicação (Gerado via Correção).', 'REQUEST', 'GENERATED', s.created_at + interval '1 second'
-FROM public.solicitations s
-WHERE NOT EXISTS (
-    SELECT 1 FROM public.process_documents pd 
-    WHERE pd.solicitation_id = s.id AND pd.document_type = 'REQUEST'
-);
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    -- Loop para Capas faltantes
+    FOR r IN SELECT * FROM public.solicitations s 
+             WHERE NOT EXISTS (SELECT 1 FROM public.process_documents pd WHERE pd.solicitation_id = s.id AND pd.document_type = 'COVER')
+    LOOP
+        INSERT INTO public.process_documents (solicitation_id, title, description, document_type, status, created_at)
+        VALUES (r.id, 'CAPA DO PROCESSO', 'Identificação oficial (Gerado via Correção)', 'COVER', 'GENERATED', r.created_at);
+    END LOOP;
+
+    -- Loop para Requerimentos faltantes
+    FOR r IN SELECT * FROM public.solicitations s 
+             WHERE NOT EXISTS (SELECT 1 FROM public.process_documents pd WHERE pd.solicitation_id = s.id AND pd.document_type = 'REQUEST')
+    LOOP
+        INSERT INTO public.process_documents (solicitation_id, title, description, document_type, status, created_at)
+        VALUES (r.id, 'REQUERIMENTO INICIAL', 'Justificativa e plano (Gerado via Correção)', 'REQUEST', 'GENERATED', r.created_at + interval '1 second');
+    END LOOP;
+    
+    RAISE NOTICE 'Script executado com sucesso. Automação reativada e documentos retroativos gerados.';
+END $$;

@@ -87,27 +87,13 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
   const isSEFIN = currentUser?.dperfil?.slug === 'SEFIN' || currentUser?.dperfil?.slug === 'ADMIN';
   const isSuprido = currentUser?.id === processData?.user_id || currentUser?.dperfil?.slug === 'SUPRIDO';
 
-  // --- ACTIONS (Mantendo as existentes e adicionando PC) ---
-
-  // ... (Ações de tramitação existentes mantidas - handleSupridoForwardToManager, etc.) ...
-  // [CÓDIGO OMITIDO PARA BREVIDADE - MANTENHA AS FUNÇÕES EXISTENTES DO ARQUIVO ORIGINAL]
+  // --- ACTIONS ---
   
-  // Placeholder para manter o código compilável se o user não colar o arquivo completo anterior
-  const handleSupridoForwardToManager = async () => {};
-  const handleGestorAction = async () => {};
-  const handleSOSFUGenerateBatch = async () => {};
-  const handleSOSFUForwardToSEFIN = async () => {};
-  const handleSEFINSign = async () => {};
-  const handleSOSFUPay = async () => {};
-  const handleSupridoConfirm = async () => {};
-  const handleNewDoc = async (e: React.FormEvent) => {};
-  
-  // --- AÇÃO DE INICIAR PC ---
+  // Apenas a lógica de iniciar PC, as demais são placeholders se o arquivo não for completo
   const handleStartAccountability = async () => {
       if (!isSuprido) return;
       setProcessingAction(true);
       try {
-          // Cria o registro na tabela accountabilities se não existir
           if (!accountabilityData) {
               const { data, error } = await supabase.from('accountabilities').insert({
                   solicitation_id: processId,
@@ -133,21 +119,46 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
       setIsAccountabilityOpen(true);
   };
 
-  // ... (Funções auxiliares de Download/Print mantidas) ...
-  const handlePrint = () => {};
-  const handleDownloadPDF = async () => {};
-  const OfficialHeader = () => (<div/>); 
+  const renderDocumentPreview = () => {
+      if (!previewDoc) return <p className="text-gray-400">Selecione um documento</p>;
+
+      const commonProps = {
+          data: processData,
+          user: userProfile || { full_name: 'Usuário Desconhecido' },
+          gestor: { full_name: processData.manager_name || 'Gestor' },
+          signer: { full_name: 'Ordenador de Despesa' }
+      };
+
+      switch (previewDoc.document_type) {
+          case 'COVER': return <ProcessCoverTemplate {...commonProps} />;
+          case 'REQUEST': return <RequestTemplate {...commonProps} />;
+          case 'ATTESTATION': return <AttestationTemplate {...commonProps} />;
+          case 'GRANT_ACT': return <GrantActTemplate {...commonProps} />;
+          case 'REGULARITY': return <RegularityCertificateTemplate {...commonProps} />;
+          case 'COMMITMENT': return <CommitmentNoteTemplate {...commonProps} />;
+          case 'BANK_ORDER': return <BankOrderTemplate {...commonProps} />;
+          default:
+              return (
+                  <div className="p-16 bg-white min-h-[500px]">
+                      <div className="border-2 border-dashed border-gray-200 rounded-lg p-10 flex flex-col items-center justify-center text-center h-full">
+                          <FileText size={48} className="text-gray-300 mb-4" />
+                          <h2 className="text-xl font-bold text-gray-700 mb-2">{previewDoc.title}</h2>
+                          <p className="text-gray-500 whitespace-pre-wrap max-w-lg">{previewDoc.description}</p>
+                      </div>
+                  </div>
+              );
+      }
+  };
 
   if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
   if (!processData) return <div>Processo não encontrado.</div>;
 
-  // Determinar qual role está vendo o modal de PC
   const pcRole = isSOSFU ? 'SOSFU' : isGestor ? 'GESTOR' : 'SUPRIDO';
 
   return (
     <div className="bg-[#F8FAFC] min-h-screen pb-12 relative animate-in fade-in">
       
-      {/* MODAL DE PRESTAÇÃO DE CONTAS (WIZARD) */}
+      {/* MODAL DE PRESTAÇÃO DE CONTAS */}
       {isAccountabilityOpen && accountabilityData && (
           <div className="fixed inset-0 z-[60] bg-white animate-in slide-in-from-bottom-10">
               <AccountabilityWizard 
@@ -181,10 +192,6 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
         </div>
 
         <div className="flex items-center gap-3">
-            {/* Lógica de Botões Existente (Resumida) */}
-            {/* ...botões de tramitação do fluxo de concessão... */}
-
-            {/* BOTÃO DE PRESTAÇÃO DE CONTAS */}
             {processData.status === 'PAID' && (
                 <>
                     {!accountabilityData && isSuprido && (
@@ -219,13 +226,12 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                         <p className="text-sm text-orange-700">Status Atual: <strong>{accountabilityData.status}</strong></p>
                     </div>
                 </div>
-                {/* Gestor Alert */}
+                {/* Alerts */}
                 {isGestor && accountabilityData.status === 'WAITING_MANAGER' && (
                     <button onClick={handleOpenAccountability} className="px-4 py-2 bg-orange-600 text-white rounded-lg font-bold text-sm animate-pulse">
                         Ação Necessária: Analisar Contas
                     </button>
                 )}
-                {/* SOSFU Alert */}
                 {isSOSFU && accountabilityData.status === 'WAITING_SOSFU' && (
                     <button onClick={handleOpenAccountability} className="px-4 py-2 bg-orange-600 text-white rounded-lg font-bold text-sm animate-pulse">
                         Ação Necessária: Auditar Contas
@@ -254,27 +260,32 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
         {activeTab === 'DOSSIER' && (
             <div className="grid grid-cols-12 gap-6 h-[calc(100vh-350px)] min-h-[600px]">
-                {/* ... (Mesmo código de visualização de documentos anterior) ... */}
+                {/* LISTA LATERAL DE DOCUMENTOS */}
                 <div className="col-span-4 bg-white rounded-xl border border-gray-200 overflow-y-auto p-2 space-y-2">
-                    {documents.map((doc, idx) => (
-                        <button key={doc.id} onClick={() => setPreviewDoc(doc)} className={`w-full text-left p-4 rounded-lg border flex items-center gap-3 ${previewDoc?.id === doc.id ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>
-                            <div className={`w-10 h-10 rounded flex items-center justify-center font-bold text-xs text-white ${doc.document_type === 'GRANT_ACT' ? 'bg-emerald-500' : doc.document_type === 'COMMITMENT' ? 'bg-purple-500' : 'bg-blue-500'}`}>{doc.document_type.substring(0,3)}</div>
-                            <div className="flex-1 min-w-0"><p className="text-[10px] font-bold text-gray-400">Fls. {idx+1}</p><p className="text-xs font-bold truncate text-gray-700">{doc.title}</p></div>
-                        </button>
-                    ))}
-                </div>
-                <div className="col-span-8 bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden">
-                     {/* Preview Container Placeholder - O código completo do preview deve ser mantido aqui */}
-                     <div className="flex-1 flex items-center justify-center text-gray-400">
-                        {previewDoc ? (
-                            <div className="p-8 w-full h-full overflow-auto">
-                                {/* Aqui renderiza os templates. Mantido simples para o XML update */}
-                                <h2 className="text-xl font-bold text-gray-800 text-center mb-4">{previewDoc.title}</h2>
-                                <div className="max-w-2xl mx-auto bg-white shadow p-8 border min-h-[500px]">
-                                    <p className="whitespace-pre-wrap">{previewDoc.description}</p>
+                    {documents.length === 0 ? (
+                        <div className="p-8 text-center text-gray-400 text-sm">Nenhum documento gerado.</div>
+                    ) : (
+                        documents.map((doc, idx) => (
+                            <button key={doc.id} onClick={() => setPreviewDoc(doc)} className={`w-full text-left p-4 rounded-lg border flex items-center gap-3 transition-colors ${previewDoc?.id === doc.id ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-200' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>
+                                <div className={`w-10 h-10 rounded flex items-center justify-center font-bold text-xs text-white flex-shrink-0 ${doc.document_type === 'COVER' ? 'bg-blue-900' : doc.document_type === 'REQUEST' ? 'bg-blue-600' : doc.document_type === 'GRANT_ACT' ? 'bg-emerald-500' : 'bg-gray-400'}`}>
+                                    {doc.document_type.substring(0,3)}
                                 </div>
-                            </div>
-                        ) : <p>Selecione um documento</p>}
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Fls. {idx+1}</p>
+                                    <p className="text-xs font-bold truncate text-gray-700">{doc.title}</p>
+                                </div>
+                                {previewDoc?.id === doc.id && <ChevronRight size={16} className="text-blue-500" />}
+                            </button>
+                        ))
+                    )}
+                </div>
+
+                {/* ÁREA DE PREVIEW */}
+                <div className="col-span-8 bg-gray-100/50 rounded-xl border border-gray-200 flex flex-col overflow-hidden relative">
+                     <div className="flex-1 overflow-auto flex justify-center p-8 custom-scrollbar">
+                        <div className="w-full max-w-[210mm] min-h-[297mm] bg-white shadow-lg origin-top transition-transform">
+                            {renderDocumentPreview()}
+                        </div>
                      </div>
                 </div>
             </div>
