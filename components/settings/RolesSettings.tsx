@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Crown, Gavel, Scale, FileBadge, User, Search, Filter, Edit3, Check, X, Loader2, DollarSign, Plus, RefreshCw, AlertCircle, ChevronDown, CircleUser } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { Shield, Crown, Gavel, Scale, FileBadge, User, Search, Filter, Edit3, Check, X, Loader2, DollarSign, Plus, RefreshCw, AlertCircle, ChevronDown, CircleUser, WifiOff } from 'lucide-react';
+import { supabase, isMock } from '../../lib/supabase';
 
 // Tipo para a nova tabela de perfil
 interface DPerfil {
@@ -10,7 +10,7 @@ interface DPerfil {
     description: string;
 }
 
-// Tipo atualizado para o Profile com o relacionamento
+// Tipo atualizado para o Profile
 interface Profile {
   id: string;
   full_name: string;
@@ -22,7 +22,6 @@ interface Profile {
   dperfil?: DPerfil; 
 }
 
-// Configuração VISUAL dos Papéis (Cores baseadas no print)
 const ROLE_STYLES: Record<string, { label: string; color: string; ring: string }> = {
   'ADMIN': { label: 'Admin', color: 'text-red-600', ring: 'ring-red-100' },
   'SEFIN': { label: 'SEFIN', color: 'text-emerald-600', ring: 'ring-emerald-100' },
@@ -55,30 +54,22 @@ export const RolesSettings: React.FC = () => {
     const [modalSearchResults, setModalSearchResults] = useState<Profile[]>([]);
     const [isSearching, setIsSearching] = useState(false);
 
-    // 1. Fetch Perfis Disponíveis
     const fetchAvailableRoles = async () => {
         try {
-            const { data, error } = await supabase
-                .from('dperfil')
-                .select('*')
-                .order('name');
-            
-            if (error) {
-                console.error('Erro ao buscar papéis (dperfil):', error);
-                return;
-            }
-            if (data) {
-                setAvailableRoles(data);
-            }
+            const { data, error } = await supabase.from('dperfil').select('*').order('name');
+            if (error) console.error('Erro ao buscar papéis:', error);
+            if (data) setAvailableRoles(data);
         } catch (err) {
-            console.error('Erro inesperado ao buscar papéis:', err);
+            console.error('Erro inesperado roles:', err);
         }
     };
 
-    // 2. Fetch Usuários com Relacionamento
     const fetchProfiles = async () => {
         setLoading(true);
         try {
+            await new Promise(resolve => setTimeout(resolve, 600)); // Delay para UX
+
+            // SELECT Seguro: Traz todos os perfis, mesmo que dperfil seja null
             const { data, error } = await supabase
                 .from('profiles')
                 .select(`
@@ -101,13 +92,18 @@ export const RolesSettings: React.FC = () => {
         }
     };
 
+    const handleRefresh = () => {
+        fetchAvailableRoles(); 
+        fetchProfiles(); 
+    };
+
     useEffect(() => {
         fetchAvailableRoles();
         fetchProfiles();
     }, []);
 
     const getRoleCount = (roleSlug: string) => {
-        return profiles.filter(p => p.dperfil?.slug === roleSlug).length;
+        return profiles.filter(p => (p.dperfil?.slug || 'SERVIDOR') === roleSlug).length;
     };
 
     const filteredProfiles = profiles.filter(profile => {
@@ -115,60 +111,44 @@ export const RolesSettings: React.FC = () => {
                               (profile.email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
                               (profile.matricula?.toLowerCase() || '').includes(searchTerm.toLowerCase());
         
-        const matchesRole = selectedRoleFilter === 'ALL' || profile.dperfil?.slug === selectedRoleFilter;
+        const currentRole = profile.dperfil?.slug || 'SERVIDOR';
+        const matchesRole = selectedRoleFilter === 'ALL' || currentRole === selectedRoleFilter;
 
         return matchesSearch && matchesRole;
     });
 
-    // Busca de usuários para o Modal (Igual UsersSettings)
     const handleSearchUsers = async (query: string) => {
         setModalSearchQuery(query);
-        
-        // Se o usuário começar a digitar, limpamos a seleção anterior para evitar conflito visual
         if (selectedUser) {
             setSelectedUser(null);
             setSelectedRoleId('');
         }
-
         if (query.length < 3) {
             setModalSearchResults([]);
             return;
         }
-
         setIsSearching(true);
         try {
-            const { data, error } = await supabase
+            const { data } = await supabase
                 .from('profiles')
-                .select(`
-                    *,
-                    dperfil:perfil_id (id, slug, name)
-                `)
+                .select(`*, dperfil:perfil_id (id, slug, name)`)
                 .or(`full_name.ilike.%${query}%,email.ilike.%${query}%,matricula.ilike.%${query}%`)
                 .limit(5);
-
-            if (error) {
-                console.error('Erro Supabase na busca:', error);
-                throw error;
-            }
-            
             setModalSearchResults(data || []);
         } catch (error) {
-            console.error('Erro na busca:', error);
+            console.error('Erro busca:', error);
         } finally {
             setIsSearching(false);
         }
     };
 
-    // Ações do Modal
     const handleOpenModal = (userToEdit?: Profile) => {
         setSaveError(null);
-        // Tenta buscar novamente ao abrir o modal para garantir dados frescos
         fetchAvailableRoles();
-
         if (userToEdit) {
             setSelectedUser(userToEdit);
             setSelectedRoleId(userToEdit.perfil_id || '');
-            setModalSearchQuery(userToEdit.full_name); // Preenche busca com nome
+            setModalSearchQuery(userToEdit.full_name);
         } else {
             setSelectedUser(null);
             setSelectedRoleId('');
@@ -189,36 +169,58 @@ export const RolesSettings: React.FC = () => {
                 .eq('id', selectedUser.id);
 
             if (error) {
-                // Tratamento de erro RLS comum
-                if (error.code === '42501') {
-                     throw new Error('Permissão negada. Verifique se você é Administrador ou SOSFU.');
-                }
+                if (error.code === '42501') throw new Error('Permissão negada. Verifique se você é Administrador ou SOSFU.');
                 throw error;
             }
-            
-            await fetchProfiles(); // Atualiza a tabela principal
+            await fetchProfiles();
             setIsModalOpen(false);
         } catch (error: any) {
-            console.error('Erro ao atualizar papel:', error);
-            setSaveError(error.message || 'Erro ao atualizar. Tente novamente.');
+            console.error('Erro update:', error);
+            setSaveError(error.message || 'Erro ao atualizar.');
         } finally {
             setSaving(false);
         }
     };
 
-    const getInitials = (name: string) => {
-        return (name || 'U').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-    };
+    const getInitials = (name: string) => (name || 'U').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
 
     return (
         <div className="animate-in fade-in duration-300 relative font-sans">
-             {/* Header Section */}
+             
+             {/* Mock Warning Banner */}
+             {isMock && (
+                 <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-xl flex items-center gap-3 animate-pulse">
+                     <WifiOff className="text-orange-600" size={24} />
+                     <div className="flex-1">
+                         <h4 className="text-sm font-bold text-orange-800">Modo de Demonstração Ativo</h4>
+                         <p className="text-xs text-orange-700 mt-1">
+                             Você está vendo dados simulados (apenas 3 usuários). As chaves de API não foram detectadas. 
+                             Para ver os 8 usuários reais do banco, vá em <strong>Configurações &gt; Geral</strong> e insira suas credenciais.
+                         </p>
+                     </div>
+                 </div>
+             )}
+
              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                 <div>
-                    <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                        Gestão de Perfis (RBAC)
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-1">Controle de papéis e permissões dos usuários</p>
+                    <div className="flex items-center gap-3">
+                        <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                            Gestão de Perfis (RBAC)
+                        </h3>
+                        <button 
+                            onClick={handleRefresh} 
+                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all"
+                            title="Recarregar lista"
+                            disabled={loading}
+                        >
+                            <RefreshCw size={18} className={loading ? 'animate-spin text-blue-600' : ''} />
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                        <p className="text-xs text-gray-500">Controle de papéis e permissões dos usuários</p>
+                        <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                        <p className="text-xs font-bold text-gray-600">Total: {profiles.length} cadastrados</p>
+                    </div>
                 </div>
                 <button 
                     onClick={() => handleOpenModal()}
@@ -229,59 +231,24 @@ export const RolesSettings: React.FC = () => {
                 </button>
             </div>
 
-            {/* Stats Cards - Horizontal Clean Layout */}
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3 mb-6">
-                {['ADMIN', 'SEFIN', 'AJSEFIN', 'SOSFU', 'SGP', 'GESTOR', 'SUPRIDO'].map((slug) => {
+                {['ADMIN', 'SEFIN', 'SOSFU', 'SUPRIDO', 'SERVIDOR'].map((slug) => {
                     const count = getRoleCount(slug);
                     const style = ROLE_STYLES[slug] || ROLE_STYLES['SERVIDOR'];
                     return (
                         <div key={slug} className="bg-white border border-gray-100 rounded-xl p-3 text-center shadow-sm hover:shadow-md transition-shadow">
-                            <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${style.color}`}>
-                                {count}
-                            </p>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase">
-                                {style.label}
-                            </p>
+                            <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${style.color}`}>{count}</p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase">{style.label}</p>
                         </div>
                     );
                 })}
             </div>
 
-            {/* Search & Filter Bar */}
-            <div className="flex flex-col md:flex-row gap-3 mb-6">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                    <input 
-                        type="text" 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Buscar por nome, matrícula ou email..." 
-                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                    />
-                </div>
-                <div className="w-full md:w-48">
-                    <div className="relative">
-                        <select 
-                            value={selectedRoleFilter}
-                            onChange={(e) => setSelectedRoleFilter(e.target.value)}
-                            className="w-full pl-4 pr-10 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 appearance-none cursor-pointer font-medium text-gray-600"
-                        >
-                            <option value="ALL">Todos os papéis</option>
-                            {availableRoles.map(role => (
-                                <option key={role.id} value={role.slug}>{role.name}</option>
-                            ))}
-                        </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-                    </div>
-                </div>
-            </div>
-
-            {/* Users List - Card Layout */}
+            {/* List */}
             <div className="space-y-2">
                 {loading ? (
-                    <div className="p-12 flex justify-center items-center text-gray-500 gap-2 bg-white rounded-xl border border-gray-100">
-                        <Loader2 size={20} className="animate-spin" />
-                        Carregando usuários...
+                    <div className="p-12 flex justify-center items-center text-gray-500 gap-2 bg-white rounded-xl border border-gray-100 animate-pulse">
+                        <Loader2 size={20} className="animate-spin text-blue-600" /> Carregando usuários...
                     </div>
                 ) : filteredProfiles.length === 0 ? (
                     <div className="p-12 text-center text-gray-500 text-sm bg-white rounded-xl border border-gray-100">
@@ -289,6 +256,7 @@ export const RolesSettings: React.FC = () => {
                     </div>
                 ) : (
                     filteredProfiles.map((user) => {
+                        // Fallback para SERVIDOR se dperfil for null (usuário órfão)
                         const roleSlug = user.dperfil?.slug || 'SERVIDOR';
                         const style = ROLE_STYLES[roleSlug] || ROLE_STYLES['SERVIDOR'];
                         const initials = getInitials(user.full_name);
@@ -297,11 +265,7 @@ export const RolesSettings: React.FC = () => {
                             <div key={user.id} className="group bg-white border border-gray-100 rounded-lg p-3 flex items-center justify-between hover:border-blue-200 hover:shadow-sm transition-all">
                                 <div className="flex items-center gap-4">
                                     <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0">
-                                        {user.avatar_url ? (
-                                            <img src={user.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
-                                        ) : (
-                                            initials
-                                        )}
+                                        {user.avatar_url ? <img src={user.avatar_url} alt="" className="w-full h-full rounded-full object-cover" /> : initials}
                                     </div>
                                     <div className="min-w-0">
                                         <p className="font-bold text-gray-800 text-sm uppercase truncate">{user.full_name}</p>
@@ -312,179 +276,77 @@ export const RolesSettings: React.FC = () => {
                                         </p>
                                     </div>
                                 </div>
-                                
-                                <div className="flex items-center gap-3">
-                                    <button 
-                                        onClick={() => handleOpenModal(user)}
-                                        className={`
-                                            flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wide transition-colors
-                                            bg-white border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600
-                                        `}
-                                    >
-                                        <span className={`w-2 h-2 rounded-full ${style.color.replace('text-', 'bg-')}`}></span>
-                                        {user.dperfil?.slug || 'SERVIDOR'}
-                                    </button>
-                                </div>
+                                <button 
+                                    onClick={() => handleOpenModal(user)}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wide transition-colors bg-white border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600`}
+                                >
+                                    <span className={`w-2 h-2 rounded-full ${style.color.replace('text-', 'bg-')}`}></span>
+                                    {user.dperfil?.name || 'Servidor (Sem Perfil)'}
+                                </button>
                             </div>
                         );
                     })
                 )}
             </div>
 
-            {/* MODAL "CONCEDER PAPEL" (Blue Header Style) */}
+            {/* MODAL */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
-                        
-                        {/* Header Azul */}
                         <div className="bg-blue-600 px-6 py-4 flex items-center justify-between">
                             <div className="flex items-center gap-2 text-white">
                                 <Shield size={20} className="text-blue-100" />
                                 <h3 className="text-base font-bold">Conceder Novo Papel</h3>
                             </div>
-                            <button onClick={() => setIsModalOpen(false)} className="text-white/70 hover:text-white p-1 hover:bg-white/10 rounded-full transition-colors">
-                                <X size={20} />
-                            </button>
+                            <button onClick={() => setIsModalOpen(false)} className="text-white/70 hover:text-white p-1 hover:bg-white/10 rounded-full transition-colors"><X size={20} /></button>
                         </div>
-
-                        {/* Body */}
                         <div className="p-6 space-y-6">
-                            {/* Erro */}
-                            {saveError && (
-                                <div className="p-3 bg-red-50 text-red-600 rounded-lg border border-red-100 text-xs font-medium flex items-center gap-2">
-                                    <AlertCircle size={14} />
-                                    {saveError}
-                                </div>
-                            )}
-
-                            {/* 1. Buscar Servidor */}
+                            {saveError && <div className="p-3 bg-red-50 text-red-600 rounded-lg border border-red-100 text-xs font-medium flex items-center gap-2"><AlertCircle size={14} />{saveError}</div>}
+                            
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Buscar Servidor</label>
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                    <input 
-                                        type="text" 
-                                        value={modalSearchQuery}
-                                        onChange={(e) => handleSearchUsers(e.target.value)}
-                                        placeholder="Digite nome, matrícula ou email..." 
-                                        className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                                    />
-                                    {isSearching && (
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                            <Loader2 size={16} className="animate-spin text-blue-500" />
-                                        </div>
-                                    )}
+                                    <input type="text" value={modalSearchQuery} onChange={(e) => handleSearchUsers(e.target.value)} placeholder="Digite nome, matrícula ou email..." className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
+                                    {isSearching && <div className="absolute right-3 top-1/2 -translate-y-1/2"><Loader2 size={16} className="animate-spin text-blue-500" /></div>}
                                 </div>
-
-                                {/* Dropdown de Resultados da Busca */}
                                 {modalSearchQuery.length >= 3 && !selectedUser && (
                                     <div className="absolute z-10 w-[calc(100%-3rem)] mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                                        {modalSearchResults.length === 0 && !isSearching ? (
-                                            <div className="p-4 text-center text-sm text-gray-500">Nenhum servidor encontrado.</div>
-                                        ) : (
-                                            modalSearchResults.map(user => (
-                                                <button 
-                                                    key={user.id}
-                                                    onClick={() => {
-                                                        setSelectedUser(user);
-                                                        setModalSearchQuery('');
-                                                        setModalSearchResults([]);
-                                                        if (user.perfil_id) setSelectedRoleId(user.perfil_id);
-                                                    }}
-                                                    className="w-full text-left p-3 flex items-center gap-3 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0"
-                                                >
-                                                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 text-xs font-bold">
-                                                        {getInitials(user.full_name)}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-semibold text-gray-800">{user.full_name}</p>
-                                                        <p className="text-xs text-gray-500">{user.email}</p>
-                                                    </div>
-                                                </button>
-                                            ))
-                                        )}
+                                        {modalSearchResults.map(user => (
+                                            <button key={user.id} onClick={() => { setSelectedUser(user); setModalSearchQuery(''); setModalSearchResults([]); if (user.perfil_id) setSelectedRoleId(user.perfil_id); }} className="w-full text-left p-3 flex items-center gap-3 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0">
+                                                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 text-xs font-bold">{getInitials(user.full_name)}</div>
+                                                <div><p className="text-sm font-semibold text-gray-800">{user.full_name}</p><p className="text-xs text-gray-500">{user.email}</p></div>
+                                            </button>
+                                        ))}
                                     </div>
                                 )}
                             </div>
 
-                            {/* Cartão do Usuário Selecionado */}
                             {selectedUser && (
                                 <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-100 rounded-lg animate-in fade-in slide-in-from-top-2">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-blue-600 font-bold border border-blue-100">
-                                            {selectedUser.avatar_url ? (
-                                                <img src={selectedUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
-                                            ) : getInitials(selectedUser.full_name)}
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-blue-900 line-clamp-1">{selectedUser.full_name}</p>
-                                            <p className="text-xs text-blue-600">{selectedUser.email}</p>
-                                        </div>
+                                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-blue-600 font-bold border border-blue-100">{getInitials(selectedUser.full_name)}</div>
+                                        <div><p className="text-sm font-bold text-blue-900 line-clamp-1">{selectedUser.full_name}</p><p className="text-xs text-blue-600">{selectedUser.email}</p></div>
                                     </div>
-                                    <button 
-                                        onClick={() => { setSelectedUser(null); setModalSearchQuery(''); setSelectedRoleId(''); }}
-                                        className="text-blue-400 hover:text-blue-600 p-1"
-                                    >
-                                        <X size={16} />
-                                    </button>
+                                    <button onClick={() => { setSelectedUser(null); setModalSearchQuery(''); setSelectedRoleId(''); }} className="text-blue-400 hover:text-blue-600 p-1"><X size={16} /></button>
                                 </div>
                             )}
 
-                            {/* 2. Papel a Conceder */}
                             <div className="space-y-2">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Papel a Conceder</label>
-                                    <button 
-                                        onClick={fetchAvailableRoles} 
-                                        className="text-[10px] text-blue-600 hover:underline flex items-center gap-1"
-                                    >
-                                        <RefreshCw size={10} /> Atualizar
-                                    </button>
-                                </div>
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Papel a Conceder</label>
                                 <div className="relative">
-                                    <select 
-                                        value={selectedRoleId}
-                                        onChange={(e) => setSelectedRoleId(e.target.value)}
-                                        disabled={!selectedUser}
-                                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 appearance-none cursor-pointer disabled:bg-gray-50 disabled:text-gray-400 font-medium text-gray-700"
-                                    >
+                                    <select value={selectedRoleId} onChange={(e) => setSelectedRoleId(e.target.value)} disabled={!selectedUser} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 appearance-none cursor-pointer disabled:bg-gray-50 disabled:text-gray-400 font-medium text-gray-700">
                                         <option value="">Selecione um papel...</option>
-                                        {availableRoles.map(role => (
-                                            <option key={role.id} value={role.id}>
-                                                {role.name} - {role.description}
-                                            </option>
-                                        ))}
+                                        {availableRoles.map(role => (<option key={role.id} value={role.id}>{role.name}</option>))}
                                     </select>
                                     <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" size={16} />
                                 </div>
                             </div>
                         </div>
-
-                        {/* Footer */}
                         <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
-                            <button 
-                                onClick={() => setIsModalOpen(false)}
-                                className="px-5 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
-                            >
-                                Cancelar
-                            </button>
-                            <button 
-                                onClick={handleSaveRole}
-                                disabled={saving || !selectedUser || !selectedRoleId}
-                                className={`
-                                    px-6 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg shadow-sm 
-                                    hover:bg-blue-700 transition-all flex items-center gap-2
-                                    ${(saving || !selectedUser || !selectedRoleId) ? 'opacity-70 cursor-not-allowed' : ''}
-                                `}
-                            >
-                                {saving ? (
-                                    <>
-                                        <Loader2 size={16} className="animate-spin" />
-                                        Salvando...
-                                    </>
-                                ) : (
-                                    'Confirmar'
-                                )}
+                            <button onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-200 rounded-lg transition-colors">Cancelar</button>
+                            <button onClick={handleSaveRole} disabled={saving || !selectedUser || !selectedRoleId} className={`px-6 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 transition-all flex items-center gap-2 ${(saving || !selectedUser || !selectedRoleId) ? 'opacity-70 cursor-not-allowed' : ''}`}>
+                                {saving ? <><Loader2 size={16} className="animate-spin" /> Salvando...</> : 'Confirmar'}
                             </button>
                         </div>
                     </div>

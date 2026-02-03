@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Clock, ArrowRightLeft, List, Loader2 } from 'lucide-react';
+import { Users, ArrowRightLeft, List, Loader2, AlertTriangle, Database, Copy, CheckCircle2, UserPlus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface TeamMember {
@@ -15,15 +15,17 @@ interface TeamMember {
 export const TeamTable: React.FC = () => {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     fetchTeamMembers();
   }, []);
 
   const fetchTeamMembers = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      // Busca apenas usuários que tenham perfil SOSFU ou ADMIN
-      // Ignora SUPRIDO, GESTOR, etc.
       const { data, error } = await supabase
         .from('profiles')
         .select(`
@@ -37,15 +39,81 @@ export const TeamTable: React.FC = () => {
 
       if (error) throw error;
       
-      setMembers(data || []);
-    } catch (error) {
-      console.error('Erro ao buscar equipe para dashboard:', error);
+      const formattedMembers = (data || []).map((m: any) => ({
+          ...m,
+          dperfil: Array.isArray(m.dperfil) ? m.dperfil[0] : m.dperfil
+      }));
+
+      setMembers(formattedMembers);
+    } catch (err: any) {
+      console.error('Erro ao buscar equipe:', err);
+      setError(err.message || 'Erro desconhecido ao carregar equipe.');
     } finally {
       setLoading(false);
     }
   };
 
+  const copySQL = () => {
+    const sql = `ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.dperfil DISABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.profiles TO anon, authenticated, service_role;
+GRANT SELECT ON public.dperfil TO anon, authenticated, service_role;`;
+    navigator.clipboard.writeText(sql);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const getInitials = (name: string) => (name || 'U').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+
+  if (error) {
+      return (
+        <div className="mt-8 bg-red-50 rounded-xl shadow-sm border border-red-200 p-6">
+            <div className="flex flex-col items-center justify-center text-red-600 gap-2 mb-4">
+                <AlertTriangle size={32} />
+                <h3 className="font-bold text-lg">Erro de Permissões no Banco</h3>
+                <p className="text-sm text-center max-w-md mb-2">
+                    O sistema encontrou um bloqueio de segurança (RLS Recursivo).
+                    <br/>
+                    Para corrigir, execute o comando abaixo no painel do Supabase.
+                </p>
+                <div className="bg-white p-2 rounded border border-red-200 text-[10px] font-mono text-red-500 w-full max-w-lg overflow-x-auto">
+                    {error}
+                </div>
+            </div>
+
+            <div className="bg-white rounded-lg border border-red-200 p-4 max-w-2xl mx-auto relative shadow-inner bg-gray-50">
+                <div className="flex items-center gap-2 mb-2 text-gray-800 font-bold text-sm">
+                    <Database size={16} />
+                    <span>SQL de Correção Automática</span>
+                </div>
+                
+                <div className="relative">
+                    <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-gray-700">
+{`-- CORREÇÃO DE PERMISSÕES (RLS)
+ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.dperfil DISABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.profiles TO anon, authenticated, service_role;
+GRANT SELECT ON public.dperfil TO anon, authenticated, service_role;`}
+                    </pre>
+                    <button 
+                        onClick={copySQL}
+                        className="absolute top-2 right-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded flex items-center gap-1 transition-colors shadow-lg"
+                    >
+                        {copied ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+                        {copied ? 'Copiado!' : 'Copiar SQL'}
+                    </button>
+                </div>
+            </div>
+
+            <div className="mt-6 flex justify-center">
+                <button onClick={fetchTeamMembers} className="text-sm bg-white border border-red-200 hover:bg-red-50 text-red-700 px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2 shadow-sm">
+                    <Loader2 size={14} className={loading ? "animate-spin" : "hidden"} />
+                    Tentar Recarregar
+                </button>
+            </div>
+        </div>
+      );
+  }
 
   return (
     <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100">
@@ -82,8 +150,16 @@ export const TeamTable: React.FC = () => {
                 Carregando equipe...
              </div>
           ) : members.length === 0 ? (
-             <div className="p-8 text-center text-gray-400 text-sm">
-                Nenhuma equipe técnica configurada. Acesse Configurações para adicionar.
+             <div className="p-12 text-center flex flex-col items-center justify-center text-gray-400 gap-3">
+                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-gray-300">
+                    <Users size={24} />
+                </div>
+                <div>
+                    <p className="text-sm font-semibold text-gray-600">Nenhuma equipe técnica encontrada.</p>
+                    <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
+                        Parece que não há usuários com perfil 'SOSFU' ou 'ADMIN'. Vá em Configurações para adicionar membros.
+                    </p>
+                </div>
              </div>
           ) : (
             members.map((member) => (
@@ -108,7 +184,7 @@ export const TeamTable: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Workload (Placeholder Realista - 0 por enquanto) */}
+                {/* Workload */}
                 <div className="col-span-4">
                     <div className="flex justify-between items-end mb-1">
                         <span className="text-[10px] font-bold text-gray-500">0 Processos</span>

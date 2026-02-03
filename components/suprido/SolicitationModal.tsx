@@ -115,8 +115,13 @@ export const SolicitationModal: React.FC<SolicitationModalProps> = ({ isOpen, on
         const elementoDesc = el ? `[ND: ${el.codigo}]` : '';
 
         // Construir info para o campo Unit
-        const typeLabel = activeType === 'EMERGENCY' ? 'EXTRA-EMERGENCIAL' : 'EXTRA-JÚRI';
         const unitInfo = `${profile?.lotacao || 'Gabinete'} ${elementoDesc}`;
+
+        // Lógica de Justificativa
+        let finalJustification = description;
+        if (activeType === 'JURY' && !description) {
+             finalJustification = `Despesas para Sessão do Júri - Processo Judicial: ${processRef}`;
+        }
 
         const { error } = await supabase.from('solicitations').insert({
             process_number: procNum,
@@ -130,7 +135,8 @@ export const SolicitationModal: React.FC<SolicitationModalProps> = ({ isOpen, on
             event_start_date: startDate || null,
             event_end_date: endDate || null,
             manager_name: managerName,
-            manager_email: managerEmail
+            manager_email: managerEmail,
+            justification: finalJustification // <--- AQUI: Salvando a justificativa
         });
 
         if (error) throw error;

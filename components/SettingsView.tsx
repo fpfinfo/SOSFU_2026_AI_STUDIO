@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Settings, Users, Shield, Clock, Bell } from 'lucide-react';
+import { Settings, Users, Shield, Clock, Bell, Sliders } from 'lucide-react';
 import { GeneralSettings } from './settings/GeneralSettings';
 import { UsersSettings } from './settings/UsersSettings';
 import { RolesSettings } from './settings/RolesSettings';
+import { ParametersSettings } from './settings/ParametersSettings';
 
 export const SettingsView: React.FC = () => {
-    const [activeSection, setActiveSection] = useState('general');
+    const [activeSection, setActiveSection] = useState('parameters'); // Alterado para iniciar em parametros para facilitar teste
 
     const menuItems = [
+        { id: 'parameters', label: 'Parâmetros', icon: Sliders },
         { id: 'general', label: 'Geral', icon: Settings },
         { id: 'users', label: 'Usuários e Permissões', icon: Users },
         { id: 'roles', label: 'Gestão de Perfis', icon: Shield },
@@ -51,6 +53,7 @@ export const SettingsView: React.FC = () => {
             {/* Content Area */}
             <div className="flex-1">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 min-h-[600px]">
+                    {activeSection === 'parameters' && <ParametersSettings />}
                     {activeSection === 'general' && <GeneralSettings />}
                     {activeSection === 'users' && <UsersSettings />}
                     {activeSection === 'roles' && <RolesSettings />}

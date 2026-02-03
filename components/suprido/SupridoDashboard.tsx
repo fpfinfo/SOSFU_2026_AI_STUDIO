@@ -3,7 +3,7 @@ import { Siren, Gavel, FileText, CheckSquare, Clock, AlertTriangle, Search, Filt
 import { supabase } from '../../lib/supabase';
 
 interface SupridoDashboardProps {
-    onNavigate: (page: string) => void;
+    onNavigate: (page: string, processId?: string) => void;
 }
 
 export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }) => {
@@ -186,7 +186,7 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                                 const isPending = proc.status === 'PENDING';
                                 
                                 return (
-                                    <div key={proc.id} className="p-6 hover:bg-slate-50 transition-colors group flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div key={proc.id} onClick={() => onNavigate('process_detail', proc.id)} className="p-6 hover:bg-slate-50 transition-colors group flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer">
                                         <div className="flex items-start gap-4">
                                             {/* Icon */}
                                             <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
@@ -200,7 +200,7 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                                             {/* Content */}
                                             <div>
                                                 <div className="flex items-center gap-3 mb-1">
-                                                    <h4 className="text-sm font-bold text-gray-900">{proc.process_number} - {typeInfo.label === 'EXTRA-JÚRI' ? 'Suprimento Júri' : 'Suprimento Emergencial'}</h4>
+                                                    <h4 className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{proc.process_number} - {typeInfo.label === 'EXTRA-JÚRI' ? 'Suprimento Júri' : 'Suprimento Emergencial'}</h4>
                                                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${typeInfo.color}`}>
                                                         {typeInfo.label}
                                                     </span>
@@ -240,9 +240,9 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                                                     Prestar Contas
                                                 </button>
                                             ) : (
-                                                <button className="px-4 py-2 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+                                                <div className="px-4 py-2 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-lg group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-colors shadow-sm">
                                                     Ver Detalhes
-                                                </button>
+                                                </div>
                                             )}
                                         </div>
                                     </div>

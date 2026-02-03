@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Siren, Calendar, DollarSign, Bookmark, AlertTriangle, User, Mail, Loader2, CheckCircle2, Link as LinkIcon, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Siren, Calendar, DollarSign, Bookmark, AlertTriangle, User, Mail, Loader2, CheckCircle2, Link as LinkIcon, AlertCircle, ChevronDown, Sparkles, Pencil } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { GoogleGenAI } from "@google/genai";
 
 interface EmergencySolicitationProps {
-    onNavigate: (page: string) => void;
+    onNavigate: (page: string, processId?: string) => void;
 }
 
 interface ElementoDespesa {
@@ -16,6 +17,10 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
     const [step, setStep] = useState(1);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [generatedProcessNumber, setGeneratedProcessNumber] = useState('');
+    const [generatedId, setGeneratedId] = useState('');
+    
+    // AI State
+    const [isGeneratingAI, setIsGeneratingAI] = useState(false);
     
     // Data Loading
     const [elementos, setElementos] = useState<ElementoDespesa[]>([]);
@@ -24,7 +29,7 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
     // Form Fields
     const [managerName, setManagerName] = useState('');
     const [managerEmail, setManagerEmail] = useState('');
-    const [isManagerLinked, setIsManagerLinked] = useState(false); // Novo estado para controlar vínculo
+    const [isManagerLinked, setIsManagerLinked] = useState(false); 
 
     const [selectedElemento, setSelectedElemento] = useState('');
     const [description, setDescription] = useState('');
@@ -59,7 +64,6 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                 if (error) console.error("Erro ao buscar perfil:", error);
 
                 if (profile) {
-                    // Verifica se tem dados para vincular
                     if (profile.gestor_nome && profile.gestor_email) {
                         setManagerName(profile.gestor_nome);
                         setManagerEmail(profile.gestor_email);
@@ -71,6 +75,47 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
             console.error("Erro geral:", error);
         } finally {
             setLoadingData(false);
+        }
+    };
+
+    const handleGenerateAI = async () => {
+        if (!selectedElemento || !value || !startDate) {
+            alert("Por favor, preencha o Elemento de Despesa, Valor e Data de Início antes de gerar a justificativa.");
+            return;
+        }
+
+        setIsGeneratingAI(true);
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            
+            const elementoDesc = elementos.find(e => e.codigo === selectedElemento)?.descricao || selectedElemento;
+            
+            const prompt = `
+                Atue como um servidor público do Tribunal de Justiça do Estado do Pará.
+                Escreva uma justificativa formal, técnica e concisa (máximo 400 caracteres) para uma Solicitação de Suprimento de Fundos Extra-Emergencial.
+                
+                Dados da Solicitação:
+                - Elemento de Despesa: ${selectedElemento} - ${elementoDesc}
+                - Valor Estimado: R$ ${value}
+                - Período: ${startDate} a ${endDate || 'a definir'}
+                
+                A justificativa deve explicar a necessidade urgente da aquisição/serviço para o bom andamento das atividades jurisdicionais.
+                Não use saudações. Texto corrido e direto.
+            `;
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: prompt,
+            });
+
+            if (response.text) {
+                setDescription(response.text.trim());
+            }
+        } catch (error) {
+            console.error("Erro ao gerar IA:", error);
+            alert("Não foi possível gerar a justificativa automaticamente. Tente novamente.");
+        } finally {
+            setIsGeneratingAI(false);
         }
     };
 
@@ -93,7 +138,9 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
             const elementoDesc = el ? `[ND: ${el.codigo}]` : '';
             const unitInfo = `${profile?.lotacao || 'Gabinete'} ${elementoDesc}`;
 
-            const { error } = await supabase.from('solicitations').insert({
+            // 1. Criar Solicitação
+            // OBS: Os documentos (Capa/Requerimento) agora são criados automaticamente via Database Trigger (db_auto_docs_trigger.sql)
+            const { data: solData, error } = await supabase.from('solicitations').insert({
                 process_number: procNum,
                 beneficiary: profile?.full_name || user.email,
                 unit: unitInfo,
@@ -104,12 +151,14 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                 event_start_date: startDate,
                 event_end_date: endDate,
                 manager_name: managerName,
-                manager_email: managerEmail
-            });
+                manager_email: managerEmail,
+                justification: description
+            }).select('id').single();
 
             if (error) throw error;
-
+            
             setGeneratedProcessNumber(procNum);
+            setGeneratedId(solData.id);
             setStep(2);
         } catch (error: any) {
             alert("Erro: " + error.message);
@@ -135,13 +184,14 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800">Solicitação Enviada!</h2>
                 <p className="text-gray-500 mt-2 text-center max-w-md">
-                    Sua solicitação emergencial foi registrada sob o protocolo <strong>{generatedProcessNumber}</strong> e encaminhada para análise imediata do gestor <strong>{managerName}</strong>.
+                    Sua solicitação emergencial foi autuada sob o NUP <strong>{generatedProcessNumber}</strong>. <br/>
+                    O Dossiê Digital foi gerado automaticamente.
                 </p>
                 <button 
-                    onClick={() => onNavigate('suprido_dashboard')}
+                    onClick={() => onNavigate('process_detail', generatedId)}
                     className="mt-8 px-8 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-colors"
                 >
-                    Voltar ao Painel
+                    Visualizar Dossiê Digital
                 </button>
             </div>
         );
@@ -249,40 +299,33 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                     </h3>
                     
                     <div className="space-y-6">
+                         {/* 1. Elemento de Despesa */}
                          <div className="space-y-2">
                             <label className="text-sm font-bold text-gray-700">Classificação da Despesa (Elemento)</label>
-                            <select 
-                                value={selectedElemento}
-                                onChange={e => setSelectedElemento(e.target.value)}
-                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none appearance-none"
-                                required
-                            >
-                                <option value="">Selecione a natureza da despesa...</option>
-                                <optgroup label="Material de Consumo (3.3.90.30)">
-                                    {elementos.filter(e => e.codigo.startsWith('3.3.90.30')).map(e => (
-                                        <option key={e.id} value={e.codigo}>{e.codigo} - {e.descricao.replace('Material de Consumo - ', '')}</option>
-                                    ))}
-                                </optgroup>
-                                <optgroup label="Serviços e Outros">
-                                    {elementos.filter(e => !e.codigo.startsWith('3.3.90.30')).map(e => (
-                                        <option key={e.id} value={e.codigo}>{e.codigo} - {e.descricao}</option>
-                                    ))}
-                                </optgroup>
-                            </select>
+                            <div className="relative">
+                                <select 
+                                    value={selectedElemento}
+                                    onChange={e => setSelectedElemento(e.target.value)}
+                                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none appearance-none cursor-pointer"
+                                    required
+                                >
+                                    <option value="">Selecione a natureza da despesa...</option>
+                                    <optgroup label="Material de Consumo (3.3.90.30)">
+                                        {elementos.filter(e => e.codigo.startsWith('3.3.90.30')).map(e => (
+                                            <option key={e.id} value={e.codigo}>{e.codigo} - {e.descricao.replace('Material de Consumo - ', '')}</option>
+                                        ))}
+                                    </optgroup>
+                                    <optgroup label="Serviços e Outros">
+                                        {elementos.filter(e => !e.codigo.startsWith('3.3.90.30')).map(e => (
+                                            <option key={e.id} value={e.codigo}>{e.codigo} - {e.descricao}</option>
+                                        ))}
+                                    </optgroup>
+                                </select>
+                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                            </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="text-sm font-bold text-gray-700">Objeto da Despesa (Justificativa)</label>
-                            <textarea 
-                                value={description}
-                                onChange={e => setDescription(e.target.value)}
-                                rows={3}
-                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none resize-none"
-                                placeholder="Descreva detalhadamente a necessidade urgente..."
-                                required
-                            />
-                        </div>
-
+                        {/* 2. Valores e Datas */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-gray-700">Valor Estimado (R$)</label>
@@ -293,7 +336,7 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                                         step="0.01"
                                         value={value}
                                         onChange={e => setValue(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
+                                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
                                         placeholder="0,00"
                                         required
                                     />
@@ -307,7 +350,7 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                                         type="date"
                                         value={startDate}
                                         onChange={e => setStartDate(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
+                                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
                                         required
                                     />
                                 </div>
@@ -321,11 +364,46 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                                         value={endDate}
                                         min={startDate}
                                         onChange={e => setEndDate(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
+                                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
                                         required
                                     />
                                 </div>
                             </div>
+                        </div>
+
+                        {/* 3. Justificativa (Agora no final + Botão IA) */}
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-end">
+                                <label className="text-sm font-bold text-gray-700">Objeto da Despesa (Justificativa)</label>
+                                <button
+                                    type="button"
+                                    onClick={handleGenerateAI}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-bold hover:bg-purple-100 transition-colors border border-purple-100 mb-1 shadow-sm"
+                                >
+                                    {isGeneratingAI ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                                    Sugerir com IA
+                                </button>
+                            </div>
+                            <div className="relative">
+                                <textarea 
+                                    value={description}
+                                    onChange={e => setDescription(e.target.value)}
+                                    rows={4}
+                                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none resize-none placeholder-gray-400 leading-relaxed"
+                                    placeholder="Descreva detalhadamente a necessidade urgente ou clique em 'Sugerir com IA'..."
+                                    required
+                                />
+                                {description && (
+                                    <div className="absolute bottom-3 right-3 text-xs text-gray-400 flex items-center gap-1 bg-white/80 px-2 py-1 rounded">
+                                        <Pencil size={10} />
+                                        Texto editável
+                                    </div>
+                                )}
+                            </div>
+                            <p className="text-[11px] text-gray-500 italic mt-1 flex items-center gap-1">
+                                <AlertCircle size={10} />
+                                Dica: A sugestão da IA é apenas um esboço. Revise e edite conforme a realidade da sua unidade.
+                            </p>
                         </div>
                     </div>
                 </div>
