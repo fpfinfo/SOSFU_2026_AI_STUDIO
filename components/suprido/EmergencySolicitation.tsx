@@ -68,7 +68,7 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                     const role = profile.dperfil?.slug;
                     
                     // Lógica para GESTOR solicitando para si mesmo
-                    if (role === 'GESTOR') {
+                    if (role === 'GESTOR' || role === 'ADMIN') {
                         setIsGestorSolicitante(true);
                         setManagerName(profile.full_name); // O próprio usuário é o gestor
                         setManagerEmail(profile.email);
@@ -153,9 +153,10 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
             const unitInfo = `${profile?.lotacao || 'Gabinete'} ${elementoDesc} [EXTRA-EMERGENCIAL]`;
 
             // DECISÃO DE STATUS:
-            // Se for Gestor, vai direto para SOSFU (Auto-Atesto via Trigger).
-            // Se for Suprido, fica Pendente para enviar ao Gestor depois.
-            const initialStatus = isGestorSolicitante ? 'WAITING_SOSFU_ANALYSIS' : 'PENDING';
+            // ALTERAÇÃO IMPORTANTE: Mesmo se for Gestor, colocamos como WAITING_MANAGER.
+            // Isso garante que ele caia na tela de "Aguardando Atesto", veja a certidão (ou emita se falhar)
+            // e clique explicitamente em "Tramitar" para enviar à SOSFU.
+            const initialStatus = isGestorSolicitante ? 'WAITING_MANAGER' : 'PENDING';
 
             const { data: solData, error } = await supabase.from('solicitations').insert({
                 process_number: procNum,
@@ -199,10 +200,10 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                 <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-6">
                     <CheckCircle2 size={48} />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800">Solicitação Enviada!</h2>
+                <h2 className="text-2xl font-bold text-gray-800">Solicitação Registrada!</h2>
                 <p className="text-gray-500 mt-2 text-center max-w-md">
                     {isGestorSolicitante 
-                        ? "Processo autuado, auto-atestado e encaminhado diretamente para análise da SOSFU." 
+                        ? "Processo criado. Acesse o dossiê para conferir o Auto-Atesto e tramitar para a SOSFU." 
                         : "Processo autuado. Acesse os detalhes para tramitar ao seu Gestor."}
                     <br/>NUP: <strong>{generatedProcessNumber}</strong>
                 </p>
@@ -313,7 +314,7 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                     {isGestorSolicitante && (
                         <p className="text-xs text-indigo-600 mt-3 flex items-center gap-1 font-medium">
                             <CheckCircle2 size={12} />
-                            Como você é Gestor, a Certidão de Atesto será gerada e assinada automaticamente ao enviar.
+                            Como você é Gestor, a Certidão de Atesto será gerada automaticamente.
                         </p>
                     )}
                 </div>
@@ -370,32 +371,28 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-gray-700">Data Início</label>
-                                <div className="relative">
-                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-                                    <input 
-                                        type="date"
-                                        value={startDate}
-                                        onChange={e => setStartDate(e.target.value)}
-                                        onClick={(e) => e.currentTarget.showPicker()}
-                                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none cursor-pointer"
-                                        required
-                                    />
-                                </div>
+                                <input 
+                                    type="date"
+                                    value={startDate}
+                                    onChange={e => setStartDate(e.target.value)}
+                                    onClick={(e) => e.currentTarget.showPicker()}
+                                    className="w-full p-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none cursor-pointer"
+                                    style={{ colorScheme: 'light' }}
+                                    required
+                                />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-gray-700">Data Fim</label>
-                                <div className="relative">
-                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-                                    <input 
-                                        type="date"
-                                        value={endDate}
-                                        min={startDate}
-                                        onChange={e => setEndDate(e.target.value)}
-                                        onClick={(e) => e.currentTarget.showPicker()}
-                                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none cursor-pointer"
-                                        required
-                                    />
-                                </div>
+                                <input 
+                                    type="date"
+                                    value={endDate}
+                                    min={startDate}
+                                    onChange={e => setEndDate(e.target.value)}
+                                    onClick={(e) => e.currentTarget.showPicker()}
+                                    className="w-full p-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none cursor-pointer"
+                                    style={{ colorScheme: 'light' }}
+                                    required
+                                />
                             </div>
                         </div>
 

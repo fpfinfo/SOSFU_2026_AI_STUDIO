@@ -196,10 +196,12 @@ const App: React.FC = () => {
             <ProcessDetailView 
                 processId={selectedProcessId} 
                 onBack={() => {
+                    // Lógica inteligente de "Voltar" baseada no papel
                     const role = userProfile?.dperfil?.slug;
                     if (role === 'SEFIN') return setActiveTab('sefin_dashboard');
                     if (role === 'GESTOR') return setActiveTab('gestor_dashboard');
                     if (role === 'SUPRIDO') return setActiveTab('suprido_dashboard');
+                    if (role === 'SOSFU' || role === 'ADMIN') return setActiveTab('solicitations');
                     return setActiveTab('dashboard');
                 }} 
             />
@@ -207,7 +209,7 @@ const App: React.FC = () => {
             <div>Erro: Processo não selecionado</div>
         );
       case 'solicitations':
-        return <SolicitationsView />;
+        return <SolicitationsView onNavigate={handleNavigation} />;
       case 'accountability':
         return <AccountabilityView />;
       case 'settings':

@@ -199,9 +199,10 @@ export const SolicitationModal: React.FC<SolicitationModalProps> = ({ isOpen, on
             </label>
             <input 
                 type="date" 
-                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm text-gray-600"
+                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm text-gray-600 cursor-pointer"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                onClick={(e) => e.currentTarget.showPicker()}
                 required
             />
         </div>
@@ -212,10 +213,11 @@ export const SolicitationModal: React.FC<SolicitationModalProps> = ({ isOpen, on
             </label>
             <input 
                 type="date" 
-                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm text-gray-600"
+                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm text-gray-600 cursor-pointer"
                 value={endDate}
                 min={startDate}
                 onChange={(e) => setEndDate(e.target.value)}
+                onClick={(e) => e.currentTarget.showPicker()}
                 required
             />
         </div>

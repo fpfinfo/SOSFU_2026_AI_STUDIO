@@ -33,9 +33,9 @@ BEGIN
     NEW.id, 'REQUERIMENTO INICIAL', 'Justificativa e plano de aplicação assinado digitalmente.', 'REQUEST', 'GENERATED', NEW.created_at + interval '1 second'
   );
 
-  -- C. LÓGICA DE AUTO-ATESTO (SE FOR GESTOR)
-  -- Se o solicitante já é o Gestor, ele auto-atesta a necessidade no momento do pedido.
-  IF v_role_slug = 'GESTOR' THEN
+  -- C. LÓGICA DE AUTO-ATESTO (SE FOR GESTOR OU ADMIN)
+  -- Se o solicitante já é o Gestor (ou Admin agindo como tal), ele auto-atesta a necessidade no momento do pedido.
+  IF v_role_slug IN ('GESTOR', 'ADMIN') THEN
       INSERT INTO public.process_documents (
         solicitation_id, title, description, document_type, status, created_at, metadata
       ) VALUES (

@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Filter, Search, MoreHorizontal, FileText, Loader2, UserPlus, Inbox, List, User } from 'lucide-react';
+import { Plus, Filter, Search, MoreHorizontal, FileText, Loader2, UserPlus, Inbox, List, User, Eye, FolderOpen } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { StatusBadge } from './StatusBadge';
 import { AssignModal } from './AssignModal';
 
-export const SolicitationsView: React.FC = () => {
+interface SolicitationsViewProps {
+    onNavigate?: (page: string, processId?: string) => void;
+}
+
+export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate }) => {
   const [activeTab, setActiveTab] = useState<'INBOX' | 'ALL'>('INBOX');
   const [solicitations, setSolicitations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +69,12 @@ export const SolicitationsView: React.FC = () => {
       setSelectedProcessId(procId);
       setCurrentAnalystId(currAnalystId);
       setIsAssignModalOpen(true);
+  };
+
+  const handleViewDetails = (id: string) => {
+      if (onNavigate) {
+          onNavigate('process_detail', id);
+      }
   };
 
   // Lógica de Filtragem de Abas
@@ -164,7 +174,7 @@ export const SolicitationsView: React.FC = () => {
                   </tr>
               ) : (
                 filteredSolicitations.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50 transition-colors group">
+                    <tr key={item.id} className="hover:bg-gray-50 transition-colors group cursor-pointer" onClick={() => handleViewDetails(item.id)}>
                     <td className="px-6 py-4">
                         <span className="font-bold text-gray-800 text-sm">{item.process_number}</span>
                         <div className="text-[10px] text-gray-400 mt-0.5">{new Date(item.created_at).toLocaleDateString()}</div>
@@ -206,9 +216,16 @@ export const SolicitationsView: React.FC = () => {
                         </button>
                     </td>
                     <td className="px-6 py-4 text-right">
-                        <button className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-50">
-                            <MoreHorizontal size={18} />
-                        </button>
+                        <div className="flex justify-end gap-2">
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); handleViewDetails(item.id); }}
+                                className="text-gray-500 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
+                                title="Ver Detalhes do Processo"
+                            >
+                                <Eye size={16} />
+                                <span className="hidden md:inline">Detalhes</span>
+                            </button>
+                        </div>
                     </td>
                     </tr>
                 ))
