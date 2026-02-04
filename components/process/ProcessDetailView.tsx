@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, FileText, FolderOpen, Eye, Plus, Loader2, Send, CheckCircle2, ChevronRight, X, Stamp, Check, UserX, AlertTriangle, FileCheck, Edit3, Save, Printer, Type, Gavel, Wallet, ClipboardCheck, Settings, PenTool, FilePlus, ShieldCheck, PlayCircle, Building2, CreditCard, User, AlertCircle, CalendarClock, Info, Sparkles } from 'lucide-react';
+
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { ArrowLeft, FileText, FolderOpen, Eye, Plus, Loader2, Send, CheckCircle2, ChevronRight, X, Stamp, Check, UserX, AlertTriangle, FileCheck, Edit3, Save, Printer, Type, Gavel, Wallet, ClipboardCheck, Settings, PenTool, FilePlus, ShieldCheck, PlayCircle, Building2, CreditCard, User, AlertCircle, CalendarClock, Info, Sparkles, Scale, Calculator, Users, Clock, Copy, Download, Layers, LayoutList, File } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ProcessCoverTemplate, RequestTemplate, AttestationTemplate, GrantActTemplate, RegularityCertificateTemplate, CommitmentNoteTemplate, BankOrderTemplate, LiquidationNoteTemplate, GenericDocumentTemplate } from './DocumentTemplates';
 import { StatusBadge } from '../StatusBadge';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 interface ProcessDetailViewProps {
   processId: string;
@@ -12,20 +15,50 @@ interface ProcessDetailViewProps {
 // Novos tipos de abas
 type TabType = 'OVERVIEW' | 'DOSSIER' | 'JURY_ADJUSTMENTS' | 'EXECUTION' | 'ANALYSIS';
 
+interface JuryItem {
+    id: string;
+    category: 'PARTICIPANT' | 'EXPENSE';
+    item_name: string;
+    element_code?: string;
+    qty_requested: number;
+    unit_price_requested: number;
+    total_requested: number;
+    qty_approved: number;
+    unit_price_approved: number;
+    total_approved: number;
+}
+
+const DOCUMENT_TYPES = [
+    "Memorando",
+    "Ofício",
+    "Despacho",
+    "Certidão",
+    "Decisão",
+    "Portaria",
+    "Requerimento",
+    "Minuta",
+    "Outros"
+];
+
 export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId, onBack }) => {
   const [activeTab, setActiveTab] = useState<TabType>('DOSSIER'); 
   const [processData, setProcessData] = useState<any>(null);
-  const [accountabilityData, setAccountabilityData] = useState<any>(null); // Novo estado para dados da PC
+  const [accountabilityData, setAccountabilityData] = useState<any>(null); 
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   
+  // Jury Adjustment States
+  const [juryItems, setJuryItems] = useState<JuryItem[]>([]);
+  const [loadingJury, setLoadingJury] = useState(false);
+  const [savingJury, setSavingJury] = useState(false);
+  
   // States para Modais e Ações
   const [isNewDocOpen, setIsNewDocOpen] = useState(false);
   const [isTramitarOpen, setIsTramitarOpen] = useState(false);
-  const [isCreditModalOpen, setIsCreditModalOpen] = useState(false); // Modal SOSFU
-  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false); // Modal Suprido
+  const [isCreditModalOpen, setIsCreditModalOpen] = useState(false); 
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false); 
   const [tramitacaoSuccess, setTramitacaoSuccess] = useState(false);
   const [processingAction, setProcessingAction] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<any>(null);
@@ -40,11 +73,16 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
   const [hasAttestation, setHasAttestation] = useState(false);
 
   // Novo Documento
-  const [newDocType, setNewDocType] = useState('Memorando');
+  const [newDocType, setNewDocType] = useState('Despacho');
   const [newDocContent, setNewDocContent] = useState('');
 
   // Estados da Aba Execução
   const [executionDocs, setExecutionDocs] = useState<any[]>([]);
+
+  // Estados de Visualização e PDF
+  const [viewMode, setViewMode] = useState<'SINGLE' | 'ALL'>('SINGLE');
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+  const dossierContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchProcessData();
@@ -54,7 +92,6 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
     if (documents.length > 0 && !previewDoc) {
         setPreviewDoc(documents[documents.length - 1]);
     }
-    // Filtra documentos de execução para a lista
     setExecutionDocs(documents.filter(d => ['GRANT_ACT', 'REGULARITY', 'COMMITMENT', 'LIQUIDATION', 'BANK_ORDER'].includes(d.document_type)));
   }, [documents]);
 
@@ -70,7 +107,6 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
         const { data: solicitation, error: solError } = await supabase.from('solicitations').select('*').eq('id', processId).single();
         if (solError) throw solError;
 
-        // Se estiver PAGO, busca dados da accountability para mostrar o prazo correto
         if (solicitation.status === 'PAID') {
             const { data: accData } = await supabase
                 .from('accountabilities')
@@ -80,25 +116,15 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
             setAccountabilityData(accData);
         }
 
-        // Lógica para enriquecer os dados com a descrição do Elemento de Despesa
         let enrichedSolicitation = { ...solicitation, elementCode: '3.3.90.30.99', elementDesc: 'Despesas Variáveis' };
         
-        // Tenta extrair o código do campo Unit (formato esperado: ".... [ND: 3.3.90.30.02] ...")
         const elementMatch = solicitation.unit?.match(/ND:\s*([\d.]+)/);
         if (elementMatch && elementMatch[1]) {
             const code = elementMatch[1];
             enrichedSolicitation.elementCode = code;
             
-            // Busca descrição na tabela delemento
-            const { data: elData } = await supabase
-                .from('delemento')
-                .select('descricao')
-                .eq('codigo', code)
-                .single();
-            
-            if (elData) {
-                enrichedSolicitation.elementDesc = elData.descricao;
-            }
+            const { data: elData } = await supabase.from('delemento').select('descricao').eq('codigo', code).single();
+            if (elData) enrichedSolicitation.elementDesc = elData.descricao;
         }
 
         setProcessData(enrichedSolicitation);
@@ -114,6 +140,17 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
             const { data: profile } = await supabase.from('profiles').select('*').eq('id', solicitation.user_id).single();
             setUserProfile(profile);
         }
+
+        // Verifica se é Júri para carregar itens (Verifica Prefixo OU Unidade)
+        const isJury = (solicitation.process_number || '').includes('TJPA-JUR') || 
+                       (solicitation.unit || '').toUpperCase().includes('JÚRI') ||
+                       (solicitation.unit || '').toUpperCase().includes('JURI');
+
+        if (isJury) {
+            // Passamos a justificativa para tentar recuperar dados se a tabela estiver vazia
+            await fetchOrInitJuryItems(processId, solicitation.justification);
+        }
+
     } catch (err) {
         console.error("Erro ao carregar processo:", err);
     } finally {
@@ -121,16 +158,209 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
     }
   };
 
+  // --- LÓGICA DE ITENS DO JÚRI (REFATORADA PARA RECUPERAÇÃO) ---
+  const fetchOrInitJuryItems = async (solicitationId: string, justificationText?: string) => {
+      setLoadingJury(true);
+      try {
+          // 1. Tenta buscar itens já salvos
+          const { data, error } = await supabase
+            .from('solicitation_items')
+            .select('*')
+            .eq('solicitation_id', solicitationId)
+            .order('category', { ascending: false })
+            .order('item_name');
+          
+          if (!error && data && data.length > 0) {
+              setJuryItems(data);
+          } else {
+              // 2. Se não existir, parseia o texto da justificativa (Fonte da Verdade Legada)
+              console.log("Itens não encontrados no BD. Iniciando recuperação via Justificativa...");
+              
+              const recoveredExpenses: any[] = [];
+              const recoveredParticipants: any[] = [];
+
+              if (justificationText) {
+                  const lines = justificationText.split('\n');
+                  
+                  lines.forEach(line => {
+                      const cleanLine = line.trim();
+                      if (!cleanLine) return;
+
+                      // REGEX EXPENSE
+                      // Formato esperado: "Nome do Item [ND: 3.3.90.30.01]: 26 x R$ 30.00 = R$ 780.00"
+                      const expenseRegex = /^(.*?)\[ND:\s*([\d\.]+)\]:\s*(\d+)\s*x\s*R\$\s*([\d\.,]+)/i;
+                      const expenseMatch = cleanLine.match(expenseRegex);
+
+                      if (expenseMatch) {
+                          const name = expenseMatch[1].trim();
+                          const code = expenseMatch[2].trim();
+                          const qty = parseInt(expenseMatch[3]);
+                          // Trata valor (remove pontos de milhar, troca vírgula por ponto)
+                          const priceStr = expenseMatch[4].replace(/\./g, '').replace(',', '.'); 
+                          const price = parseFloat(priceStr);
+
+                          if (!isNaN(qty) && !isNaN(price)) {
+                              recoveredExpenses.push({
+                                  category: 'EXPENSE',
+                                  item_name: name,
+                                  element_code: code,
+                                  qty_requested: qty,
+                                  unit_price_requested: price,
+                                  qty_approved: 0, // Inicia zerado para aprovação manual
+                                  unit_price_approved: price,
+                                  total_approved: 0
+                              });
+                          }
+                      }
+
+                      // REGEX PARTICIPANTS
+                      // Formato esperado: "- Jurados: 7"
+                      const participantRegex = /^-\s*(.*?):\s*(\d+)$/;
+                      const participantMatch = cleanLine.match(participantRegex);
+                      
+                      // Filtra para garantir que é uma categoria conhecida (evita pegar bullets de texto)
+                      const knownCategories = ['Servidor', 'Réu', 'Jurado', 'Testemunha', 'Defensor', 'Promotor', 'Policia'];
+                      
+                      if (participantMatch) {
+                          const name = participantMatch[1].trim();
+                          const qty = parseInt(participantMatch[2]);
+                          
+                          if (knownCategories.some(cat => name.includes(cat))) {
+                              recoveredParticipants.push({
+                                  category: 'PARTICIPANT',
+                                  item_name: name,
+                                  qty_requested: qty,
+                                  qty_approved: 0
+                              });
+                          }
+                      }
+                  });
+              }
+
+              // Se não conseguiu recuperar participantes do texto, usa defaults zerados
+              if (recoveredParticipants.length === 0) {
+                  const defaultParticipantsNames = [
+                      'Servidores', 'Réus', 'Jurados', 'Testemunhas', 'Defensor Público', 'Promotor', 'Polícias'
+                  ];
+                  recoveredParticipants.push(...defaultParticipantsNames.map(name => ({
+                      category: 'PARTICIPANT',
+                      item_name: name,
+                      qty_requested: 0,
+                      qty_approved: 0
+                  })));
+              }
+
+              // 4. Monta o Payload Final
+              const itemsToInsert = [
+                  ...recoveredParticipants.map(p => ({ ...p, solicitation_id: solicitationId })),
+                  ...recoveredExpenses.map(e => ({ ...e, solicitation_id: solicitationId }))
+              ];
+
+              if (itemsToInsert.length > 0) {
+                  // Salva no banco para corrigir o processo permanentemente
+                  const { data: inserted, error: insertError } = await supabase
+                    .from('solicitation_items')
+                    .insert(itemsToInsert)
+                    .select();
+                  
+                  if (insertError) {
+                      console.error("Erro ao salvar itens recuperados:", insertError);
+                  } else if (inserted) {
+                      setJuryItems(inserted as any);
+                  }
+              }
+          }
+      } catch (err) {
+          console.error("Erro jury items:", err);
+      } finally {
+          setLoadingJury(false);
+      }
+  };
+
+  const handleJuryChange = (id: string, field: 'qty_approved' | 'unit_price_approved', value: string) => {
+      const numValue = parseFloat(value) || 0;
+      setJuryItems(prev => prev.map(item => {
+          if (item.id === id) {
+              const updated = { ...item, [field]: numValue };
+              // Recalcula total approved
+              if (item.category === 'EXPENSE') {
+                  updated.total_approved = updated.qty_approved * updated.unit_price_approved;
+              }
+              return updated;
+          }
+          return item;
+      }));
+  };
+
+  const handleReplicateRequested = () => {
+      if (!confirm("Deseja copiar todas as quantidades e valores solicitados para as colunas de aprovado?")) return;
+      
+      setJuryItems(prev => prev.map(item => {
+          const newItem = {
+              ...item,
+              qty_approved: item.qty_requested,
+              unit_price_approved: item.unit_price_requested || 0,
+          };
+          
+          if (item.category === 'EXPENSE') {
+              newItem.total_approved = newItem.qty_approved * newItem.unit_price_approved;
+          }
+          
+          return newItem;
+      }));
+  };
+
+  const saveJuryAdjustments = async () => {
+      setSavingJury(true);
+      try {
+          // 1. Atualiza itens
+          for (const item of juryItems) {
+              await supabase.from('solicitation_items').update({
+                  qty_approved: item.qty_approved,
+                  unit_price_approved: item.unit_price_approved,
+                  total_approved: item.total_approved
+              }).eq('id', item.id);
+          }
+
+          // 2. Calcula novo valor total do processo
+          const newTotal = juryItems
+            .filter(i => i.category === 'EXPENSE')
+            .reduce((acc, curr) => acc + curr.total_approved, 0);
+
+          // 3. Atualiza solicitação
+          await supabase.from('solicitations').update({ value: newTotal }).eq('id', processId);
+          
+          setProcessData((prev: any) => ({ ...prev, value: newTotal }));
+          alert('Ajustes salvos e valor do processo atualizado com sucesso!');
+          
+      } catch (err) {
+          console.error(err);
+          alert('Erro ao salvar ajustes.');
+      } finally {
+          setSavingJury(false);
+      }
+  };
+
+  // Funções de Papel
   const isGestor = currentUser && processData && (
       (processData.manager_email && currentUser.email && processData.manager_email.toLowerCase() === currentUser.email.toLowerCase()) ||
       (currentUser.dperfil?.slug === 'GESTOR' || currentUser.dperfil?.slug === 'ADMIN')
   );
   const isSuprido = currentUser?.id === processData?.user_id || currentUser?.dperfil?.slug === 'SUPRIDO';
+  const userRole = currentUser?.dperfil?.slug;
+  const isSosfu = ['SOSFU', 'ADMIN'].includes(userRole);
+  const isSefin = ['SEFIN', 'ADMIN'].includes(userRole);
+  const isAdmin = userRole === 'ADMIN';
   
-  // Verifica se é um processo de Júri
-  const isJuryProcess = processData?.unit?.toUpperCase().includes('JÚRI');
+  // CORREÇÃO DA LÓGICA DE IDENTIFICAÇÃO DO JÚRI
+  const isJuryProcess = useMemo(() => {
+      if (!processData) return false;
+      const procNum = (processData.process_number || '').toUpperCase();
+      const unit = (processData.unit || '').toUpperCase();
+      // O número do processo é o identificador mais forte (TJPA-JUR), mas mantemos o fallback da unidade.
+      return procNum.includes('TJPA-JUR') || unit.includes('JÚRI') || unit.includes('JURI');
+  }, [processData]);
 
-  // Helpers para Verificar Documentos Específicos
   const findDoc = (type: string) => documents.find(d => d.document_type === type);
   const isSigned = (type: string) => findDoc(type)?.status === 'SIGNED';
   const isGenerated = (type: string) => !!findDoc(type);
@@ -138,161 +368,266 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
   // --- LÓGICA DE CÁLCULO DE PRAZO (ART. 4) ---
   const calculateDeadline = () => {
       if (!processData) return { deadline: new Date(), baseDate: new Date() };
-
-      // Regra: Parágrafo único do art. 4º da Portaria
-      // "O prazo para prestação de contas é de 15 dias contados do término do período de aplicação."
-      
-      let baseDate = new Date(); // Fallback para hoje (recebimento)
-
+      let baseDate = new Date(); 
       if (processData.event_end_date) {
-          // Se existe uma data fim de evento/aplicação definida na solicitação
-          // Parse manual da string 'YYYY-MM-DD' para evitar problemas de timezone
           const [y, m, d] = processData.event_end_date.split('-').map(Number);
           baseDate = new Date(y, m - 1, d);
       }
-
       const deadline = new Date(baseDate);
       deadline.setDate(deadline.getDate() + 15);
-      
       return { deadline, baseDate };
   };
 
-  // --- AÇÕES DE CONFIRMAÇÃO DE PAGAMENTO (SOSFU) ---
+  const handleOpenCreditModal = () => { if (!isGenerated('BANK_ORDER')) { alert("A Ordem Bancária (OB) precisa ser gerada."); return; } setIsCreditModalOpen(true); };
+  const handleConfirmCreditSent = async () => { setProcessingAction(true); try { await supabase.from('solicitations').update({ status: 'WAITING_SUPRIDO_CONFIRMATION' }).eq('id', processId); await fetchProcessData(); setIsCreditModalOpen(false); } catch (err: any) { alert(err.message); } finally { setProcessingAction(false); } };
+  const handleConfirmReceipt = () => { setIsReceiptModalOpen(true); };
+  const executeReceiptConfirmation = async () => { setProcessingAction(true); try { await supabase.from('solicitations').update({ status: 'PAID' }).eq('id', processId); const { deadline } = calculateDeadline(); await supabase.from('accountabilities').insert({ solicitation_id: processId, process_number: processData.process_number, value: processData.value, requester_id: processData.user_id, deadline: deadline.toISOString(), status: 'DRAFT', total_spent: 0, balance: 0 }); await fetchProcessData(); setIsReceiptModalOpen(false); setActiveTab('ANALYSIS'); } catch (err: any) { alert(err.message); } finally { setProcessingAction(false); } };
 
-  const handleOpenCreditModal = () => {
-      if (!isGenerated('BANK_ORDER')) {
-          alert("A Ordem Bancária (OB) precisa ser gerada antes de liberar o crédito.");
-          return;
-      }
-      setIsCreditModalOpen(true);
-  };
-
-  const handleConfirmCreditSent = async () => {
+  // ... (Other handlers unchanged)
+  const getDefaultContentForEdit = (doc: any) => { if (doc.metadata && doc.metadata.content) return doc.metadata.content; if (doc.document_type === 'REQUEST') return `Solicito a concessão...`; if (doc.document_type === 'ATTESTATION') return `CERTIFICO...`; return ''; };
+  const handleOpenEdit = () => { if (!previewDoc) return; setEditingContent(getDefaultContentForEdit(previewDoc)); setEditTab('WRITE'); setIsEditingDoc(true); };
+  const handleSaveEdit = async () => { setIsEditingDoc(false); };
+  const handleGenerateInstructionDocs = async () => { await fetchProcessData(); };
+  const handleSendToSefin = async () => { await fetchProcessData(); };
+  const handleSefinBatchSign = async () => { await fetchProcessData(); };
+  const handleGeneratePaymentDocs = async () => { await fetchProcessData(); };
+  
+  const handleCreateDocument = async () => {
       setProcessingAction(true);
       try {
-          const { error } = await supabase
-            .from('solicitations')
-            .update({ status: 'WAITING_SUPRIDO_CONFIRMATION' })
-            .eq('id', processId);
+          const { error } = await supabase.from('process_documents').insert({
+              solicitation_id: processId,
+              title: newDocType.toUpperCase(),
+              description: 'Documento avulso gerado pelo usuário.',
+              document_type: 'GENERIC',
+              status: 'GENERATED',
+              metadata: {
+                  content: newDocContent,
+                  subType: newDocType
+              }
+          });
           
           if (error) throw error;
           
           await fetchProcessData();
-          setIsCreditModalOpen(false);
+          setIsNewDocOpen(false);
+          setNewDocContent('');
       } catch (err: any) {
-          alert("Erro ao atualizar status: " + err.message);
+          alert('Erro ao criar documento: ' + err.message);
       } finally {
           setProcessingAction(false);
       }
   };
 
-  // --- AÇÕES DE RECEBIMENTO (SUPRIDO) ---
-
-  const handleConfirmReceipt = () => {
-      setIsReceiptModalOpen(true);
-  };
-
-  const executeReceiptConfirmation = async () => {
+  const handleGenerateAttestation = async () => {
       setProcessingAction(true);
       try {
-          // 1. Atualizar Status para PAID
-          const { error: solError } = await supabase
-            .from('solicitations')
-            .update({ status: 'PAID' })
-            .eq('id', processId);
-          
-          if (solError) throw solError;
+          const { error } = await supabase.from('process_documents').insert({
+              solicitation_id: processId,
+              title: 'CERTIDÃO DE ATESTO (GESTOR)',
+              description: 'Certidão de Atesto emitida eletronicamente pelo Gestor da Unidade.',
+              document_type: 'ATTESTATION',
+              status: 'SIGNED',
+              metadata: {
+                  signer_name: currentUser?.full_name || 'Gestor',
+                  signed_at: new Date().toISOString()
+              }
+          });
 
-          // 2. Criar Registro Inicial de Prestação de Contas (Accountability)
-          // Usa a lógica do Art. 4
-          const { deadline } = calculateDeadline();
+          if (error) throw error;
 
-          const { error: accError } = await supabase
-            .from('accountabilities')
-            .insert({
-                solicitation_id: processId,
-                process_number: processData.process_number,
-                value: processData.value,
-                requester_id: processData.user_id,
-                deadline: deadline.toISOString(),
-                status: 'DRAFT',
-                total_spent: 0,
-                balance: 0
-            });
-
-          if (accError) console.warn("Aviso ao criar PC:", accError);
-
+          // Atualiza estado local para destravar botão Tramitar imediatamente
+          setHasAttestation(true);
           await fetchProcessData();
-          setIsReceiptModalOpen(false);
-          // Força atualização da aba para Análise para ver o novo layout
-          setActiveTab('ANALYSIS');
-          
       } catch (err: any) {
-          alert("Erro ao confirmar recebimento: " + err.message);
+          alert('Erro ao gerar atesto: ' + err.message);
       } finally {
           setProcessingAction(false);
       }
   };
 
-  // ... (Demais funções handleGenerate, handleEdit mantidas) ...
-  // [CÓDIGO MANTIDO PARA BREVIDADE]
-  const getDefaultContentForEdit = (doc: any) => {
-      if (doc.metadata && doc.metadata.content) return doc.metadata.content;
-      const unit = processData.unit || '';
-      const processType = unit.toUpperCase().includes('JÚRI') ? 'EXTRA-JÚRI' : 'EXTRA-EMERGENCIAL';
-      if (doc.document_type === 'REQUEST') return `Solicito a concessão de Suprimento de Fundos...`;
-      if (doc.document_type === 'ATTESTATION') return `CERTIFICO...`;
-      return '';
+  // Lógica de Tramitação Expandida
+  const getNextStatus = (currentStatus: string) => {
+      switch(currentStatus) {
+          case 'PENDING': return 'WAITING_MANAGER';
+          case 'WAITING_MANAGER': return 'WAITING_SOSFU_ANALYSIS';
+          case 'WAITING_SOSFU_ANALYSIS': return 'WAITING_SEFIN_SIGNATURE';
+          case 'WAITING_SEFIN_SIGNATURE': return 'WAITING_SOSFU_PAYMENT';
+          case 'WAITING_SOSFU_PAYMENT': return 'WAITING_SUPRIDO_CONFIRMATION';
+          case 'WAITING_SUPRIDO_CONFIRMATION': return 'PAID';
+          default: return null;
+      }
   };
 
-  const handleOpenEdit = () => { if (!previewDoc) return; setEditingContent(getDefaultContentForEdit(previewDoc)); setEditTab('WRITE'); setIsEditingDoc(true); };
-  const handleSaveEdit = async () => { /* ... Lógica existente ... */ setIsEditingDoc(false); };
-  const handleGenerateInstructionDocs = async () => { /* ... Lógica existente ... */ await fetchProcessData(); };
-  const handleSendToSefin = async () => { /* ... Lógica existente ... */ await fetchProcessData(); };
-  const handleSefinBatchSign = async () => { /* ... Lógica existente ... */ await fetchProcessData(); };
-  const handleGeneratePaymentDocs = async () => { /* ... Lógica existente ... */ await fetchProcessData(); };
-  const handleCreateDocument = async () => { /* ... Lógica existente ... */ await fetchProcessData(); setIsNewDocOpen(false); };
-  const handleGenerateAttestation = async () => { /* ... Lógica existente ... */ await fetchProcessData(); };
-  
-  const handleTramitar = async () => {
-      setProcessingAction(true);
-      setErrorMsg(null);
+  const nextStatus = processData ? getNextStatus(processData.status) : null;
+
+  const canTramitar = processData && nextStatus && (
+      (processData.status === 'PENDING' && (isSuprido || isAdmin)) ||
+      (processData.status === 'WAITING_MANAGER' && (isGestor || isAdmin) && hasAttestation) ||
+      (processData.status === 'WAITING_SOSFU_ANALYSIS' && isSosfu) ||
+      (processData.status === 'WAITING_SEFIN_SIGNATURE' && isSefin) || 
+      (processData.status === 'WAITING_SOSFU_PAYMENT' && isSosfu) ||
+      (processData.status === 'WAITING_SUPRIDO_CONFIRMATION' && (isSuprido || isAdmin))
+  );
+
+  const getTramitarLabel = () => {
+      if (!nextStatus) return 'Tramitar';
+      switch(nextStatus) {
+          case 'WAITING_MANAGER': return 'Enviar para Gestor';
+          case 'WAITING_SOSFU_ANALYSIS': return 'Enviar para SOSFU';
+          case 'WAITING_SEFIN_SIGNATURE': return 'Enviar para Ordenador';
+          case 'WAITING_SOSFU_PAYMENT': return 'Liberar Pagamento';
+          case 'WAITING_SUPRIDO_CONFIRMATION': return 'Confirmar Depósito';
+          case 'PAID': return 'Confirmar Recebimento';
+          default: return 'Próxima Etapa';
+      }
+  };
+
+  const handleTramitar = async () => { 
+      setProcessingAction(true); 
+      setErrorMsg(null); 
+      try { 
+          if (!nextStatus) throw new Error("Status final atingido ou inválido.");
+          
+          await supabase.from('solicitations').update({ status: nextStatus }).eq('id', processId); 
+          
+          setTramitacaoSuccess(true); 
+          setTimeout(async () => { 
+              setIsTramitarOpen(false); 
+              setTramitacaoSuccess(false); 
+              await fetchProcessData(); 
+              onBack(); 
+          }, 1500); 
+      } catch (err: any) { 
+          setProcessingAction(false); 
+          setErrorMsg(err.message); 
+      } 
+  };
+
+  // --- PDF GENERATION LOGIC ---
+  const handleDownloadPdf = async (all: boolean = false) => {
+      setPdfGenerating(true);
       try {
-          let updatePayload: any = {};
-          if (processData.status === 'PENDING') {
-             updatePayload = { status: 'WAITING_MANAGER' }; 
-          } else if (processData.status === 'WAITING_MANAGER') {
-             updatePayload = { status: 'WAITING_SOSFU_ANALYSIS' };
+          // Seleciona o elemento a ser capturado
+          // Se for "all", pegamos o container de scroll que tem todos os docs (quando em viewMode 'ALL')
+          // Se for "single", pegamos apenas o documento visível
+          
+          const element = document.querySelector('#dossier-preview-container') as HTMLElement;
+          if (!element) throw new Error("Elemento de documento não encontrado");
+
+          // Configuração do PDF (A4)
+          const pdf = new jsPDF('p', 'mm', 'a4');
+          const pdfWidth = 210;
+          const pdfHeight = 297;
+
+          // Se for modo "ALL", precisamos garantir que todos estejam renderizados
+          // A função assume que o usuário já está no modo correto visualmente, ou força a renderização
+          
+          // Captura com html2canvas
+          const canvas = await html2canvas(element, {
+              scale: 2, // Melhora resolução
+              useCORS: true, // Para imagens externas
+              logging: false,
+              windowWidth: element.scrollWidth,
+              windowHeight: element.scrollHeight
+          });
+
+          const imgData = canvas.toDataURL('image/jpeg', 0.95);
+          const imgProps = pdf.getImageProperties(imgData);
+          
+          // Calcula altura proporcional para caber na largura A4
+          const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+          
+          // Lógica de Paginação: Se a imagem for maior que uma página A4, quebra
+          let heightLeft = imgHeight;
+          let position = 0;
+
+          // Primeira página
+          pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
+          heightLeft -= pdfHeight;
+
+          // Páginas subsequentes (se necessário - útil para modo ALL)
+          while (heightLeft > 0) {
+              position = heightLeft - imgHeight; // Sobe a imagem
+              pdf.addPage();
+              pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
+              heightLeft -= pdfHeight;
           }
-          await supabase.from('solicitations').update(updatePayload).eq('id', processId);
-          setTramitacaoSuccess(true);
-          setTimeout(async () => { setIsTramitarOpen(false); setTramitacaoSuccess(false); await fetchProcessData(); onBack(); }, 1500);
-      } catch (err: any) { setProcessingAction(false); setErrorMsg(err.message); }
+
+          const filename = all 
+              ? `Processo_${processData.process_number}_Completo.pdf` 
+              : `Documento_${previewDoc?.title || 'Doc'}.pdf`;
+              
+          pdf.save(filename);
+
+      } catch (err) {
+          console.error("Erro ao gerar PDF:", err);
+          alert("Erro ao gerar PDF. Tente novamente.");
+      } finally {
+          setPdfGenerating(false);
+      }
+  };
+
+  const handlePrint = () => {
+      const printContent = document.getElementById('dossier-preview-container');
+      const winPrint = window.open('', '', 'left=0,top=0,width=800,height=900,toolbar=0,scrollbars=0,status=0');
+      if (printContent && winPrint) {
+          winPrint.document.write(`
+            <html>
+              <head>
+                <title>Impressão - ${processData.process_number}</title>
+                <link href="https://cdn.tailwindcss.com" rel="stylesheet">
+                <style>
+                    body { margin: 0; padding: 20px; font-family: sans-serif; }
+                    @media print { 
+                        body { padding: 0; }
+                        /* Esconde elementos que não são o documento */
+                    }
+                </style>
+              </head>
+              <body>
+                ${printContent.innerHTML}
+              </body>
+            </html>
+          `);
+          winPrint.document.close();
+          winPrint.focus();
+          setTimeout(() => {
+              winPrint.print();
+              winPrint.close();
+          }, 500);
+      }
   };
 
   const renderDocumentPreview = (overrideDoc?: any) => {
       const docToRender = overrideDoc || previewDoc;
-      if (!docToRender) return <div>Selecione um documento</div>;
+      if (!docToRender) return <div className="p-10 text-center text-gray-400">Selecione um documento</div>;
       const commonProps = { data: processData, user: userProfile || {}, gestor: {}, signer: {}, content: docToRender.metadata?.content, subType: docToRender.metadata?.subType, document: docToRender };
+      
+      let Component;
       switch (docToRender.document_type) {
-          case 'COVER': return <ProcessCoverTemplate {...commonProps} />;
-          case 'REQUEST': return <RequestTemplate {...commonProps} />;
-          case 'ATTESTATION': return <AttestationTemplate {...commonProps} />;
-          case 'GRANT_ACT': return <GrantActTemplate {...commonProps} />;
-          case 'REGULARITY': return <RegularityCertificateTemplate {...commonProps} />;
-          case 'COMMITMENT': return <CommitmentNoteTemplate {...commonProps} />;
-          case 'LIQUIDATION': return <LiquidationNoteTemplate {...commonProps} />;
-          case 'BANK_ORDER': return <BankOrderTemplate {...commonProps} />;
-          default: return <GenericDocumentTemplate {...commonProps} />;
+          case 'COVER': Component = <ProcessCoverTemplate {...commonProps} />; break;
+          case 'REQUEST': Component = <RequestTemplate {...commonProps} />; break;
+          case 'ATTESTATION': Component = <AttestationTemplate {...commonProps} />; break;
+          case 'GRANT_ACT': Component = <GrantActTemplate {...commonProps} />; break;
+          case 'REGULARITY': Component = <RegularityCertificateTemplate {...commonProps} />; break;
+          case 'COMMITMENT': Component = <CommitmentNoteTemplate {...commonProps} />; break;
+          case 'LIQUIDATION': Component = <LiquidationNoteTemplate {...commonProps} />; break;
+          case 'BANK_ORDER': Component = <BankOrderTemplate {...commonProps} />; break;
+          default: Component = <GenericDocumentTemplate {...commonProps} />; break;
       }
+
+      return (
+          <div className="bg-white shadow-lg w-[210mm] min-h-[297mm] mx-auto mb-8 last:mb-0 relative">
+              {Component}
+          </div>
+      );
   };
 
   if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
   if (!processData) return <div>Processo não encontrado.</div>;
 
   const showGenerateAttestation = isGestor && !hasAttestation && !['PAID', 'REJECTED'].includes(processData.status);
-  const canTramitar = (isSuprido && processData.status === 'PENDING') || (isGestor && ['WAITING_MANAGER'].includes(processData.status) && hasAttestation);
-  let tramitarLabel = processData.status === 'PENDING' ? 'Enviar para Gestor' : 'Tramitar para SOSFU';
   const canEditCurrentDoc = previewDoc && ['REQUEST', 'ATTESTATION', 'GENERIC'].includes(previewDoc.document_type);
 
   const DocumentRow = ({ docKey, label, type }: { docKey: string, label: string, type: string }) => {
@@ -310,7 +645,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
               </div>
               <div>
                   {doc ? (
-                      <button onClick={() => { setPreviewDoc(doc); setActiveTab('DOSSIER'); }} className="text-[10px] font-bold px-3 py-1 rounded-full border bg-green-50 text-green-700 border-green-200">Visualizar</button>
+                      <button onClick={() => { setPreviewDoc(doc); setActiveTab('DOSSIER'); setViewMode('SINGLE'); }} className="text-[10px] font-bold px-3 py-1 rounded-full border bg-green-50 text-green-700 border-green-200">Visualizar</button>
                   ) : <span className="text-[10px] text-gray-400 font-medium italic">Pendente</span>}
               </div>
           </div>
@@ -319,38 +654,85 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
   const calculatedDeadlineObj = calculateDeadline();
 
+  // Cálculos do Júri (Agora usando requested como base)
+  const totalSolicitadoJuri = juryItems.filter(i => i.category === 'EXPENSE').reduce((acc, curr) => acc + (curr.total_requested || 0), 0);
+  const totalAprovadoJuri = juryItems.filter(i => i.category === 'EXPENSE').reduce((acc, curr) => acc + (curr.total_approved || 0), 0);
+  const diferencaJuri = totalAprovadoJuri - totalSolicitadoJuri;
+
   return (
     <div className="bg-[#F8FAFC] min-h-screen pb-12 relative animate-in fade-in">
       
-      {/* BANNER DE CONFIRMAÇÃO DO SUPRIDO */}
-      {isSuprido && processData.status === 'WAITING_SUPRIDO_CONFIRMATION' && (
-          <div className="bg-emerald-600 text-white p-6 md:p-8 shadow-xl animate-in slide-in-from-top-4 relative overflow-hidden z-50">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/30 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
-              <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
-                  <div className="flex items-center gap-6">
-                      <div className="p-4 bg-white/20 rounded-2xl border border-white/10 animate-pulse">
-                          <Wallet size={36} className="text-white" />
-                      </div>
-                      <div>
-                          <h2 className="text-3xl font-bold tracking-tight mb-1">Recurso Liberado!</h2>
-                          <p className="text-emerald-100 text-sm md:text-base leading-relaxed max-w-2xl">
-                              A Ordem Bancária foi emitida. Verifique sua conta e confirme o recebimento para iniciar a execução da despesa.
-                          </p>
-                      </div>
-                  </div>
-                  <button 
-                      onClick={handleConfirmReceipt}
-                      disabled={processingAction}
-                      className="bg-white text-emerald-700 px-8 py-4 rounded-xl font-bold shadow-lg hover:bg-emerald-50 transition-all flex items-center gap-3 active:scale-95 transform hover:-translate-y-1"
-                  >
-                      {processingAction ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
-                      Confirmar Recebimento
-                  </button>
-              </div>
+      {/* ... Modais ... */}
+      {isEditingDoc && (
+          <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4">
+             <div className="bg-white rounded-xl w-full max-w-6xl h-[90vh] flex flex-col">
+                 <div className="p-4 border-b flex justify-between"><h3 className="font-bold">Editor</h3><button onClick={() => setIsEditingDoc(false)}><X/></button></div>
+                 <div className="flex-1 p-4"><textarea className="w-full h-full border p-2" value={editingContent} onChange={e => setEditingContent(e.target.value)}/></div>
+                 <div className="p-4 border-t flex justify-end"><button onClick={handleSaveEdit} className="bg-blue-600 text-white px-4 py-2 rounded">Salvar</button></div>
+             </div>
           </div>
       )}
-
-      {/* MODAL DE CONFIRMAÇÃO DO SUPRIDO */}
+      {isNewDocOpen && ( 
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+                  <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                      <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                          <FilePlus size={18} className="text-blue-600"/> Novo Documento
+                      </h3>
+                      <button onClick={() => setIsNewDocOpen(false)} className="p-1 hover:bg-gray-200 rounded-full text-gray-500 transition-colors"><X size={18} /></button>
+                  </div>
+                  <div className="p-6 space-y-4">
+                      <div>
+                          <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Tipo de Documento</label>
+                          <select 
+                              value={newDocType} 
+                              onChange={e => setNewDocType(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          >
+                              {DOCUMENT_TYPES.map(type => (
+                                  <option key={type} value={type} className="text-gray-900 bg-white">{type}</option>
+                              ))}
+                          </select>
+                      </div>
+                      <div>
+                          <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Conteúdo</label>
+                          <textarea 
+                              value={newDocContent} 
+                              onChange={e => setNewDocContent(e.target.value)}
+                              rows={6}
+                              placeholder="Digite o conteúdo do documento..."
+                              className="w-full p-3 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none text-gray-900"
+                          />
+                      </div>
+                  </div>
+                  <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2">
+                      <button onClick={() => setIsNewDocOpen(false)} className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-200 rounded-lg">Cancelar</button>
+                      <button 
+                          onClick={handleCreateDocument}
+                          disabled={processingAction}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 flex items-center gap-2"
+                      >
+                          {processingAction ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>} Criar Documento
+                      </button>
+                  </div>
+              </div>
+          </div> 
+      )}
+      {isTramitarOpen && ( 
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+              <div className="bg-white p-6 rounded w-96">
+                  {tramitacaoSuccess ? <div className="text-center text-green-600 font-bold">Tramitado com Sucesso!</div> : 
+                  <>
+                    <h3 className="font-bold mb-4">Tramitar Processo?</h3>
+                    <p className="text-sm text-gray-500 mb-6">Confirma o envio para a etapa: <strong>{getTramitarLabel()}</strong>?</p>
+                    <div className="flex justify-end gap-2">
+                        <button onClick={() => setIsTramitarOpen(false)} className="px-4 py-2 bg-gray-100 rounded text-sm font-bold">Cancelar</button>
+                        <button onClick={handleTramitar} className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-bold">Confirmar</button>
+                    </div>
+                  </>}
+              </div>
+          </div> 
+      )}
       {isReceiptModalOpen && (
           <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-0 overflow-hidden flex flex-col">
@@ -369,20 +751,11 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                           <div>
                               <h4 className="font-bold text-blue-900 text-sm">Prazo de Prestação de Contas</h4>
                               <p className="text-xs text-blue-700 mt-2 leading-relaxed text-justify">
-                                  Em conformidade com o <strong>Parágrafo Único do Art. 4º</strong> da Portaria de Suprimento de Fundos, o prazo para prestação de contas encerra-se 15 (quinze) dias após o término do período de aplicação.
+                                  Em conformidade com o <strong>Parágrafo Único do Art. 4º</strong> da Portaria de Suprimento de Fundos, o prazo encerra-se 15 dias após o término da aplicação.
                               </p>
-                              
-                              <div className="mt-3 space-y-1">
-                                  {processData.event_end_date && (
-                                      <div className="flex justify-between text-xs text-blue-800">
-                                          <span>Fim da Aplicação (Evento):</span>
-                                          <span className="font-bold">{new Date(processData.event_end_date.split('-').map(Number).join('-')).toLocaleDateString()}</span>
-                                      </div>
-                                  )}
-                                  <div className="flex justify-between text-xs font-bold text-blue-900 bg-blue-100/50 px-2 py-1 rounded border border-blue-200 mt-1">
-                                      <span>Prazo Fatal (Art. 4º):</span>
-                                      <span>{calculatedDeadlineObj.deadline.toLocaleDateString()}</span>
-                                  </div>
+                              <div className="flex justify-between text-xs font-bold text-blue-900 bg-blue-100/50 px-2 py-1 rounded border border-blue-200 mt-1">
+                                  <span>Prazo Fatal (Art. 4º):</span>
+                                  <span>{calculatedDeadlineObj.deadline.toLocaleDateString()}</span>
                               </div>
                           </div>
                       </div>
@@ -410,63 +783,6 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
           </div>
       )}
 
-      {/* MODAL DE CONFIRMAÇÃO DE CRÉDITO (SOSFU) */}
-      {isCreditModalOpen && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative overflow-hidden">
-                  <div className="flex items-center gap-3 mb-4 text-indigo-600">
-                      <div className="p-3 bg-indigo-50 rounded-full"><Wallet size={24} /></div>
-                      <h3 className="text-xl font-bold text-gray-800">Confirmar Liberação</h3>
-                  </div>
-                  <div className="space-y-4 mb-6">
-                      <p className="text-sm text-gray-600 leading-relaxed">
-                          Você está confirmando que a <strong>Ordem Bancária (OB)</strong> foi processada e o recurso enviado ao banco.
-                      </p>
-                      <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-800 flex items-start gap-2">
-                          <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
-                          <div>
-                              O status do processo mudará para <strong>Aguardando Confirmação do Suprido</strong>. O prazo de prestação de contas iniciará assim que o suprido confirmar o recebimento.
-                          </div>
-                      </div>
-                  </div>
-                  <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-                      <button onClick={() => setIsCreditModalOpen(false)} className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg text-sm transition-colors">Cancelar</button>
-                      <button onClick={handleConfirmCreditSent} disabled={processingAction} className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 flex items-center gap-2 shadow-lg shadow-indigo-200 text-sm transition-all transform active:scale-95">
-                          {processingAction ? <Loader2 className="animate-spin" size={16}/> : <CheckCircle2 size={16}/>}
-                          Confirmar Envio
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* OUTROS MODAIS (Edição, Novo Doc, Tramitar) */}
-      {/* ... (Mantidos do código anterior, simplificados aqui para XML) ... */}
-      {isEditingDoc && (
-          <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4">
-             <div className="bg-white rounded-xl w-full max-w-6xl h-[90vh] flex flex-col">
-                 <div className="p-4 border-b flex justify-between"><h3 className="font-bold">Editor</h3><button onClick={() => setIsEditingDoc(false)}><X/></button></div>
-                 <div className="flex-1 p-4"><textarea className="w-full h-full border p-2" value={editingContent} onChange={e => setEditingContent(e.target.value)}/></div>
-                 <div className="p-4 border-t flex justify-end"><button onClick={handleSaveEdit} className="bg-blue-600 text-white px-4 py-2 rounded">Salvar</button></div>
-             </div>
-          </div>
-      )}
-      {isNewDocOpen && ( <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center"><div className="bg-white p-6 rounded">Modal Novo Doc (Placeholder) <button onClick={() => setIsNewDocOpen(false)}>Fechar</button></div></div> )}
-      {isTramitarOpen && ( 
-          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
-              <div className="bg-white p-6 rounded w-96">
-                  {tramitacaoSuccess ? <div className="text-center text-green-600 font-bold">Tramitado com Sucesso!</div> : 
-                  <>
-                    <h3 className="font-bold mb-4">Tramitar Processo?</h3>
-                    <div className="flex justify-end gap-2">
-                        <button onClick={() => setIsTramitarOpen(false)} className="px-4 py-2 bg-gray-100 rounded">Cancelar</button>
-                        <button onClick={handleTramitar} className="px-4 py-2 bg-blue-600 text-white rounded">Confirmar</button>
-                    </div>
-                  </>}
-              </div>
-          </div> 
-      )}
-
       {/* HEADER E NAVEGAÇÃO */}
       <div className="bg-white border-b border-gray-200 sticky top-16 z-30 px-8 py-4 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-4">
@@ -480,18 +796,44 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
             </div>
         </div>
         <div className="flex items-center gap-3">
-            {showGenerateAttestation && <button onClick={handleGenerateAttestation} className="px-4 py-2 bg-yellow-500 text-white rounded font-bold text-sm">Emitir Atesto</button>}
-            {canTramitar && <button onClick={() => setIsTramitarOpen(true)} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold text-sm">{tramitarLabel}</button>}
-            <button onClick={() => setIsNewDocOpen(true)} className="px-4 py-2 border rounded font-bold text-sm">Novo Doc</button>
+            {showGenerateAttestation && (
+                <button 
+                    onClick={handleGenerateAttestation} 
+                    disabled={processingAction}
+                    className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded font-bold text-sm flex items-center gap-2 shadow-sm transition-all"
+                >
+                    {processingAction ? <Loader2 className="animate-spin" size={16}/> : <Stamp size={16}/>}
+                    Emitir Atesto
+                </button>
+            )}
+            
+            {canTramitar && (
+                <button 
+                    onClick={() => setIsTramitarOpen(true)} 
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-bold text-sm shadow-sm transition-all flex items-center gap-2"
+                >
+                    <Send size={16}/> {getTramitarLabel()}
+                </button>
+            )}
+            
+            <button 
+                onClick={() => setIsNewDocOpen(true)} 
+                className="px-4 py-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 rounded font-bold text-sm shadow-sm transition-all flex items-center gap-2"
+            >
+                <FilePlus size={16}/> Novo Doc
+            </button>
         </div>
       </div>
 
       <div className="max-w-[1600px] mx-auto px-8 py-8">
         {/* TABS */}
         <div className="flex gap-1 border-b border-gray-200 mb-8 overflow-x-auto">
-            {['OVERVIEW', 'DOSSIER', 'EXECUTION', 'ANALYSIS'].map(t => (
+            {['OVERVIEW', 'DOSSIER', isJuryProcess ? 'JURY_ADJUSTMENTS' : null, 'EXECUTION', 'ANALYSIS'].filter(Boolean).map(t => (
                 <button key={t} onClick={() => setActiveTab(t as any)} className={`px-4 py-2 text-sm font-bold border-b-2 ${activeTab === t ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400'}`}>
-                    {t === 'OVERVIEW' ? 'Visão Geral' : t === 'DOSSIER' ? 'Dossiê Digital' : t === 'EXECUTION' ? 'Execução' : 'Análise Técnica'}
+                    {t === 'OVERVIEW' ? 'Visão Geral' : 
+                     t === 'DOSSIER' ? 'Dossiê Digital' : 
+                     t === 'JURY_ADJUSTMENTS' ? 'Ajuste Júri' :
+                     t === 'EXECUTION' ? 'Execução' : 'Análise Técnica'}
                 </button>
             ))}
         </div>
@@ -503,27 +845,312 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                     <h3 className="font-bold text-gray-800 mb-4">Justificativa</h3>
                     <div className="bg-gray-50 p-4 rounded text-sm text-gray-600">{processData.justification}</div>
                 </div>
-                <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm"><p className="text-xs font-bold text-gray-400">Valor</p><p className="text-3xl font-bold text-emerald-600">R$ {processData.value}</p></div>
+                <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm"><p className="text-xs font-bold text-gray-400">Valor</p><p className="text-3xl font-bold text-emerald-600">R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(processData.value)}</p></div>
             </div>
         )}
 
         {activeTab === 'DOSSIER' && (
-            <div className="grid grid-cols-12 gap-6 h-[600px]">
-                <div className="col-span-4 bg-white rounded-xl border p-2 overflow-y-auto">
-                    {documents.map((doc, idx) => (
-                        <button key={doc.id} onClick={() => setPreviewDoc(doc)} className={`w-full text-left p-3 rounded mb-1 ${previewDoc?.id === doc.id ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50'}`}>
-                            <span className="text-xs font-bold text-gray-400 block">DOC {idx+1}</span>
-                            <span className="text-sm font-bold">{doc.title}</span>
-                        </button>
-                    ))}
+            <div className="grid grid-cols-12 gap-6 h-[750px]">
+                {/* Lista de Documentos */}
+                <div className="col-span-4 bg-white rounded-xl border border-gray-200 flex flex-col h-full overflow-hidden">
+                    <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                        <h3 className="font-bold text-gray-700 text-sm flex items-center gap-2">
+                            <FolderOpen size={16}/> Documentos ({documents.length})
+                        </h3>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                        {documents.map((doc, idx) => (
+                            <button 
+                                key={doc.id} 
+                                onClick={() => { setPreviewDoc(doc); setViewMode('SINGLE'); }} 
+                                className={`w-full text-left p-3 rounded-lg transition-all border ${
+                                    previewDoc?.id === doc.id && viewMode === 'SINGLE'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm' 
+                                    : 'hover:bg-gray-50 border-transparent text-gray-600'
+                                }`}
+                            >
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <span className="text-[10px] font-bold text-gray-400 block mb-0.5 uppercase tracking-wide">DOC {String(idx+1).padStart(2, '0')}</span>
+                                        <span className="text-sm font-bold block leading-tight">{doc.title}</span>
+                                    </div>
+                                    {doc.status === 'SIGNED' && <Stamp size={14} className="text-emerald-500 opacity-50" />}
+                                </div>
+                            </button>
+                        ))}
+                    </div>
                 </div>
-                <div className="col-span-8 bg-gray-100 rounded-xl border flex flex-col relative overflow-hidden">
-                    <div className="absolute top-4 right-4 z-10">{canEditCurrentDoc && <button onClick={handleOpenEdit} className="bg-white px-3 py-1 rounded shadow text-xs font-bold">Editar</button>}</div>
-                    <div className="flex-1 overflow-auto p-8 flex justify-center"><div className="bg-white shadow-lg w-[210mm] min-h-[297mm] scale-75 origin-top">{renderDocumentPreview()}</div></div>
+
+                {/* Área de Visualização */}
+                <div className="col-span-8 bg-slate-100 rounded-xl border border-gray-200 flex flex-col relative overflow-hidden h-full">
+                    
+                    {/* Toolbar de Ações */}
+                    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 flex items-center gap-2 bg-white/90 backdrop-blur shadow-lg border border-gray-200 p-1.5 rounded-xl transition-all hover:scale-105">
+                        <button 
+                            onClick={() => setViewMode(viewMode === 'SINGLE' ? 'ALL' : 'SINGLE')}
+                            className={`p-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'ALL' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-600'}`}
+                            title={viewMode === 'ALL' ? 'Voltar para modo único' : 'Ver todos os documentos'}
+                        >
+                            {viewMode === 'ALL' ? <FileText size={16}/> : <LayoutList size={16}/>}
+                            {viewMode === 'ALL' ? 'Visualizar Único' : 'Modo Leitura'}
+                        </button>
+                        
+                        <div className="w-px h-4 bg-gray-300 mx-1"></div>
+
+                        <button onClick={handlePrint} className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg" title="Imprimir">
+                            <Printer size={16}/>
+                        </button>
+                        
+                        <button 
+                            onClick={() => handleDownloadPdf(viewMode === 'ALL')} 
+                            disabled={pdfGenerating}
+                            className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg disabled:opacity-50" 
+                            title={viewMode === 'ALL' ? "Baixar Processo Completo" : "Baixar Este Documento"}
+                        >
+                            {pdfGenerating ? <Loader2 className="animate-spin" size={16}/> : <Download size={16}/>}
+                        </button>
+
+                        {canEditCurrentDoc && viewMode === 'SINGLE' && (
+                            <>
+                                <div className="w-px h-4 bg-gray-300 mx-1"></div>
+                                <button onClick={handleOpenEdit} className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg font-bold text-xs flex items-center gap-1">
+                                    <Edit3 size={14}/> Editar
+                                </button>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Container de Preview (Scrollable) */}
+                    <div className="flex-1 overflow-y-auto p-8 pt-20 flex justify-center custom-scrollbar" id="dossier-scroll-area">
+                        <div 
+                            id="dossier-preview-container" 
+                            ref={dossierContainerRef}
+                            className={`transition-all duration-300 ${viewMode === 'ALL' ? 'space-y-8' : ''}`}
+                        >
+                            {viewMode === 'ALL' ? (
+                                // Modo Leitura: Renderiza TODOS os documentos em sequência
+                                documents.map((doc, idx) => (
+                                    <div key={doc.id} className="relative group">
+                                        {/* Separador Visual */}
+                                        <div className="absolute -left-12 top-0 bottom-0 flex flex-col items-center justify-center opacity-30 group-hover:opacity-100 transition-opacity">
+                                            <div className="text-xs font-bold text-gray-400 -rotate-90 whitespace-nowrap mb-2">DOC {idx + 1}</div>
+                                            <div className="w-px h-full bg-gray-300"></div>
+                                        </div>
+                                        {renderDocumentPreview(doc)}
+                                    </div>
+                                ))
+                            ) : (
+                                // Modo Único
+                                renderDocumentPreview()
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
         )}
 
+        {/* NOVA ABA: AJUSTE JÚRI */}
+        {activeTab === 'JURY_ADJUSTMENTS' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+                
+                {/* Header Ajuste */}
+                <div className="bg-orange-600 rounded-xl p-6 text-white shadow-lg flex justify-between items-center">
+                    <div>
+                        <h2 className="text-2xl font-bold flex items-center gap-3"><Scale /> Ajuste de Quantidades Aprovadas</h2>
+                        <p className="text-orange-100 text-sm">Revise e ajuste as quantidades antes de iniciar a execução da despesa</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-xs font-bold uppercase opacity-80">Processo</p>
+                        <p className="font-bold">{processData.process_number}</p>
+                    </div>
+                </div>
+
+                <div className="flex justify-between items-center bg-blue-50 p-3 rounded-lg border border-blue-100">
+                    <div className="flex items-center gap-2 text-xs text-blue-800">
+                        <Clock size={14} />
+                        <span>Última alteração: {new Date().toLocaleString()} por Sistema</span>
+                    </div>
+                    <button 
+                        onClick={handleReplicateRequested}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-white text-blue-600 text-xs font-bold rounded shadow-sm border border-blue-200 hover:bg-blue-100 transition-colors"
+                        title="Preenche as colunas 'Aprovada' com os valores 'Solicitados' para agilizar"
+                    >
+                        <Copy size={14} />
+                        Replicar Solicitado
+                    </button>
+                </div>
+
+                {loadingJury ? (
+                    <div className="p-12 text-center"><Loader2 className="animate-spin inline-block text-orange-600" /> Carregando itens...</div>
+                ) : (
+                    <>
+                        {/* Tabela Participantes */}
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                            <div className="p-4 border-b border-gray-100 bg-gray-50 flex gap-3 items-center">
+                                <div className="p-2 bg-blue-100 text-blue-600 rounded"><Users size={16}/></div>
+                                <div>
+                                    <h3 className="font-bold text-gray-800 text-sm">Participantes</h3>
+                                    <p className="text-xs text-gray-500">Compare as quantidades solicitadas com as aprovadas</p>
+                                </div>
+                            </div>
+                            <table className="w-full text-left">
+                                <thead className="bg-gray-50 text-[10px] font-bold text-gray-400 uppercase">
+                                    <tr>
+                                        <th className="px-6 py-3">Categoria</th>
+                                        <th className="px-6 py-3 text-center">Qtd Solicitada</th>
+                                        <th className="px-6 py-3 text-center bg-blue-50 text-blue-600 border-x border-blue-100">Qtd Aprovada</th>
+                                        <th className="px-6 py-3 text-center">Diferença</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 text-sm">
+                                    {juryItems.filter(i => i.category === 'PARTICIPANT').map(item => {
+                                        const diff = item.qty_approved - item.qty_requested;
+                                        return (
+                                            <tr key={item.id} className="hover:bg-gray-50">
+                                                <td className="px-6 py-3 font-bold text-gray-700">{item.item_name}</td>
+                                                <td className="px-6 py-3 text-center font-medium">{item.qty_requested}</td>
+                                                <td className="px-6 py-3 text-center bg-blue-50/30 border-x border-blue-50">
+                                                    <input 
+                                                        type="number" 
+                                                        className="w-20 text-center border border-blue-200 rounded py-1 px-2 font-bold text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                                        value={item.qty_approved}
+                                                        onChange={e => handleJuryChange(item.id, 'qty_approved', e.target.value)}
+                                                    />
+                                                </td>
+                                                <td className="px-6 py-3 text-center">
+                                                    <span className={`px-2 py-1 rounded text-xs font-bold ${diff < 0 ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                        {diff}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Tabela Itens da Projeção */}
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                            <div className="p-4 border-b border-gray-100 bg-gray-50 flex gap-3 items-center">
+                                <div className="p-2 bg-emerald-100 text-emerald-600 rounded"><Calculator size={16}/></div>
+                                <div>
+                                    <h3 className="font-bold text-gray-800 text-sm">Itens da Projeção</h3>
+                                    <p className="text-xs text-gray-500">Valores financeiros que impactam o total do processo</p>
+                                </div>
+                            </div>
+                            <table className="w-full text-left">
+                                <thead className="bg-gray-50 text-[10px] font-bold text-gray-400 uppercase">
+                                    <tr>
+                                        <th className="px-6 py-3">Descrição</th>
+                                        <th className="px-6 py-3">Elemento</th>
+                                        <th className="px-6 py-3 text-right">Vl. Unit.</th>
+                                        <th className="px-6 py-3 text-center">Qtd Solic.</th>
+                                        <th className="px-6 py-3 text-center bg-blue-50 text-blue-600 border-l border-blue-100">Vl. Unit. Aprov.</th>
+                                        <th className="px-6 py-3 text-center bg-blue-50 text-blue-600 border-r border-blue-100">Qtd Aprov.</th>
+                                        <th className="px-6 py-3 text-right">Total Solic.</th>
+                                        <th className="px-6 py-3 text-right font-bold text-blue-700">Total Aprov.</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 text-xs">
+                                    {juryItems.filter(i => i.category === 'EXPENSE').map(item => (
+                                        <tr key={item.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-3 font-medium text-gray-700">{item.item_name}</td>
+                                            <td className="px-6 py-3 text-gray-500">{item.element_code}</td>
+                                            <td className="px-6 py-3 text-right">
+                                                {/* Exibe o preço solicitado real recuperado ou o default */}
+                                                R$ {item.unit_price_requested.toFixed(2)}
+                                            </td>
+                                            <td className="px-6 py-3 text-center font-bold">
+                                                {/* Exibe a quantidade solicitada real recuperada ou default */}
+                                                {item.qty_requested}
+                                            </td>
+                                            
+                                            {/* Edição Aprovado */}
+                                            <td className="px-6 py-3 text-center bg-blue-50/30 border-l border-blue-50">
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <span className="text-blue-400">R$</span>
+                                                    <input 
+                                                        type="number" step="0.01"
+                                                        className="w-16 text-right border border-blue-200 rounded py-1 px-1 font-bold text-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+                                                        value={item.unit_price_approved}
+                                                        onChange={e => handleJuryChange(item.id, 'unit_price_approved', e.target.value)}
+                                                    />
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-3 text-center bg-blue-50/30 border-r border-blue-50">
+                                                <input 
+                                                    type="number" 
+                                                    className="w-14 text-center border border-blue-200 rounded py-1 px-1 font-bold text-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+                                                    value={item.qty_approved}
+                                                    onChange={e => handleJuryChange(item.id, 'qty_approved', e.target.value)}
+                                                />
+                                            </td>
+
+                                            <td className="px-6 py-3 text-right text-gray-500">
+                                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.total_requested)}
+                                            </td>
+                                            <td className="px-6 py-3 text-right font-bold text-blue-700">
+                                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.total_approved)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot className="bg-gray-50 border-t border-gray-200 text-sm">
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-3 text-right font-bold text-gray-500 uppercase">Totais:</td>
+                                        <td className="px-6 py-3 text-right font-bold text-gray-800">
+                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSolicitadoJuri)}
+                                        </td>
+                                        <td className="px-6 py-3 text-right font-black text-blue-700 text-base">
+                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalAprovadoJuri)}
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        {/* Footer Resumo e Ação */}
+                        <div className="bg-white rounded-xl border border-gray-200 p-6 flex items-center justify-between shadow-lg">
+                            <div className="flex gap-8">
+                                <div>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Total Solicitado</p>
+                                    <p className="text-xl font-bold text-gray-800">R$ {totalSolicitadoJuri.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Total Aprovado</p>
+                                    <div className="bg-blue-600 text-white px-3 py-1 rounded-lg text-xl font-bold">
+                                        R$ {totalAprovadoJuri.toFixed(2)}
+                                    </div>
+                                </div>
+                                <div className={`p-3 rounded-lg ${diferencaJuri < 0 ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-50'}`}>
+                                    <p className="text-[10px] font-bold uppercase">Diferença</p>
+                                    <p className="text-lg font-bold">
+                                        {diferencaJuri < 0 ? `- R$ ${Math.abs(diferencaJuri).toFixed(2)} (Economia)` : 'R$ 0,00'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-4">
+                                <div className="text-right text-xs text-orange-600 font-bold flex items-center gap-2">
+                                    <AlertTriangle size={16} />
+                                    <span>Salve os ajustes antes de iniciar a execução.</span>
+                                </div>
+                                <button 
+                                    onClick={saveJuryAdjustments}
+                                    disabled={savingJury}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-200 flex items-center gap-2 transition-all active:scale-95"
+                                >
+                                    {savingJury ? <Loader2 className="animate-spin" /> : <Save size={18} />}
+                                    Salvar Ajustes
+                                </button>
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
+        )}
+
+        {/* ... Rest of the tabs ... */}
         {activeTab === 'EXECUTION' && (
             <div className="space-y-6">
                 <div className="bg-white rounded-xl border p-4">

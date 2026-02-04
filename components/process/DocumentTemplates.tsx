@@ -55,9 +55,17 @@ const BaseDocumentLayout: React.FC<{ children: React.ReactNode; docId?: string }
     );
 };
 
-// Helper function to determine process type more robustly
-const getProcessType = (unitStr: string | null) => {
-    const unit = (unitStr || '').toUpperCase();
+// Helper function to determine process type more robustly based on Process Number
+const getProcessType = (data: any) => {
+    const procNum = (data?.process_number || '').toUpperCase();
+    const unit = (data?.unit || '').toUpperCase();
+
+    // Prioridade: Prefixo do Número do Processo (Padrão Novo)
+    if (procNum.includes('TJPA-JUR')) return 'EXTRA-JÚRI';
+    if (procNum.includes('TJPA-EXT')) return 'EXTRA-EMERGENCIAL';
+    if (procNum.includes('TJPA-ORD')) return 'ORDINÁRIO';
+
+    // Fallback: Análise da Unidade (Legado)
     if (unit.includes('JÚRI') || unit.includes('JURI') || unit.includes('PROCESSO:')) {
         return 'EXTRA-JÚRI';
     }
@@ -66,7 +74,7 @@ const getProcessType = (unitStr: string | null) => {
 
 // --- 1. CAPA DO PROCESSO ---
 export const ProcessCoverTemplate: React.FC<DocumentProps> = ({ data }) => {
-  const processType = getProcessType(data.unit);
+  const processType = getProcessType(data);
 
   return (
     <BaseDocumentLayout>
@@ -119,7 +127,7 @@ export const ProcessCoverTemplate: React.FC<DocumentProps> = ({ data }) => {
 
 // --- 2. REQUERIMENTO INICIAL ---
 export const RequestTemplate: React.FC<DocumentProps> = ({ data, user, document }) => {
-  const processType = getProcessType(data.unit);
+  const processType = getProcessType(data);
   const customContent = document?.metadata?.content;
   const dateLocation = getFormattedDate(user.municipio);
 
@@ -176,7 +184,6 @@ export const RequestTemplate: React.FC<DocumentProps> = ({ data, user, document 
 // --- 3. CERTIDÃO DE ATESTO (GESTOR) ---
 export const AttestationTemplate: React.FC<DocumentProps> = ({ data, user, gestor, document }) => {
     const managerName = data.manager_name || gestor?.full_name || 'GESTOR DA UNIDADE';
-    const processType = getProcessType(data.unit);
     const customContent = document?.metadata?.content;
     const dateLocation = getFormattedDate(user.municipio);
 

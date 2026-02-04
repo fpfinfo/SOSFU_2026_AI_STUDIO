@@ -106,7 +106,13 @@ export const SolicitationModal: React.FC<SolicitationModalProps> = ({ isOpen, on
 
         const year = new Date().getFullYear();
         const randomNum = Math.floor(1000 + Math.random() * 9000); // 4 digitos
-        const procNum = `SF-${year}/${randomNum}`;
+        
+        // PADRONIZAÇÃO DE PROCESSOS (REFATORAÇÃO)
+        let prefix = 'TJPA-ORD'; // Default Ordinário (Futuro)
+        if (activeType === 'EMERGENCY') prefix = 'TJPA-EXT';
+        if (activeType === 'JURY') prefix = 'TJPA-JUR';
+        
+        const procNum = `${prefix}-${year}/${randomNum}`;
         
         const numericValue = parseFloat(value.replace(',', '.'));
 

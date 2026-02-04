@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Users, Calendar, DollarSign, FileText, CheckCircle2, ChevronRight, ChevronLeft, Minus, Plus, AlertCircle, Save, Sparkles, Loader2, UserCheck, Scale } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -113,8 +114,7 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
         { id: 'outros', label: 'Outros:', type: 'MANUAL_EDIT', defaultElement: '3.3.90.30.01', defaultPrice: 0.00 },
     ], []);
 
-    // --- EFEITOS E CÁLCULOS ---
-
+    // ... (Efeitos e Inicialização mantidos iguais até o handleSubmit) ...
     // Inicialização (Fetch Config, User e Elementos)
     useEffect(() => {
         const init = async () => {
@@ -237,8 +237,6 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
         return Object.values(itemsData).reduce((acc: number, item: ItemData) => acc + item.total, 0);
     }, [itemsData]);
 
-    // --- FUNÇÕES ---
-
     const fetchUserData = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
@@ -279,7 +277,6 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
-            // Build summary com elemento de despesa
             let itemsSummary = '';
             itensBaseEstrutura.forEach(item => {
                 const data = itemsData[item.id];
@@ -333,21 +330,50 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
 
             const year = new Date().getFullYear();
             const randomNum = Math.floor(1000 + Math.random() * 9000);
-            const procNum = `SF-${year}/${randomNum}`;
+            const procNum = `TJPA-JUR-${year}/${randomNum}`;
 
+            // Prepara items para salvar na tabela relacional
+            const itemsToSave: any[] = [];
+            let participantsText = `PARTICIPANTES DO JÚRI:\n`;
+
+            // 1. Participantes
+            categoriasPessoas.forEach(cat => {
+                const qty = peopleCounts[cat.id] || 0;
+                if (qty > 0) {
+                    participantsText += `- ${cat.label}: ${qty}\n`;
+                    itemsToSave.push({
+                        category: 'PARTICIPANT',
+                        item_name: cat.label,
+                        qty_requested: qty,
+                        qty_approved: 0 // Começa com 0 para a SOSFU aprovar
+                    });
+                }
+            });
+
+            // 2. Despesas
             let detailedItems = `PROJEÇÃO DE GASTOS (JÚRI):\n`;
             itensBaseEstrutura.forEach(item => {
                 const d = itemsData[item.id];
                 if (d && d.total > 0) {
                     const label = item.type === 'MANUAL_EDIT' && d.description ? d.description : item.label;
                     detailedItems += `${label} [ND: ${d.element}]: ${d.qty} x R$ ${d.price.toFixed(2)} = R$ ${d.total.toFixed(2)}\n`;
+                    
+                    itemsToSave.push({
+                        category: 'EXPENSE',
+                        item_name: label,
+                        element_code: d.element,
+                        qty_requested: d.qty,
+                        unit_price_requested: d.price,
+                        qty_approved: 0, // Começa com 0
+                        unit_price_approved: d.price // Preço tende a ser mantido
+                    });
                 }
             });
             
-            const finalJustification = `${justification}\n\n${detailedItems}`;
-            // CORREÇÃO: Adicionando tag [EXTRA-JÚRI]
+            const finalJustification = `${justification}\n\n${participantsText}\n${detailedItems}`;
             const unitInfo = `${comarca} [Processo: ${processNumber}] [EXTRA-JÚRI]`;
 
+            // A. Insere a Solicitação Principal
             const { data: solData, error } = await supabase.from('solicitations').insert({
                 process_number: procNum,
                 beneficiary: userName,
@@ -364,6 +390,14 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
             }).select('id').single();
 
             if (error) throw error;
+
+            // B. Insere os Itens Relacionados
+            if (itemsToSave.length > 0) {
+                const itemsWithId = itemsToSave.map(i => ({ ...i, solicitation_id: solData.id }));
+                const { error: itemsError } = await supabase.from('solicitation_items').insert(itemsWithId);
+                if (itemsError) console.error("Erro ao salvar itens detalhados:", itemsError);
+            }
+
             onNavigate('process_detail', solData.id);
 
         } catch (error: any) {
@@ -382,8 +416,7 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
         );
     }
 
-    // --- RENDERIZADORES DAS ETAPAS ---
-
+    // ... (restante do código de renderização permanece inalterado) ...
     const renderStep1 = () => (
         <div className="animate-in fade-in slide-in-from-right-8 duration-300">
             <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm mb-6">
@@ -649,7 +682,6 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
 
     const renderStep3 = () => (
         <div className="animate-in fade-in slide-in-from-right-8 duration-300 space-y-6">
-            
             {/* Resumo Financeiro */}
             <div className="bg-[#1e293b] text-white p-6 rounded-xl shadow-lg flex justify-between items-center">
                 <div>

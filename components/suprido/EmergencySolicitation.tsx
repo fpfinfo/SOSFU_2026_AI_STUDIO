@@ -143,7 +143,10 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
 
             const year = new Date().getFullYear();
             const randomNum = Math.floor(1000 + Math.random() * 9000);
-            const procNum = `SF-${year}/${randomNum}`;
+            
+            // PADRONIZAÇÃO DE PROCESSO: EXTRA-EMERGENCIAL
+            const procNum = `TJPA-EXT-${year}/${randomNum}`;
+            
             const numericValue = parseFloat(value.replace(',', '.'));
 
             const el = elementos.find(e => e.codigo === selectedElemento);
