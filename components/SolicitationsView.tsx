@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Filter, Search, MoreHorizontal, FileText, Loader2, UserPlus, Inbox, List, User, Eye, FolderOpen } from 'lucide-react';
+import { Plus, Filter, Search, MoreHorizontal, FileText, Loader2, UserPlus, Inbox, List, User, Eye, FolderOpen, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { StatusBadge } from './StatusBadge';
 import { AssignModal } from './AssignModal';
@@ -8,8 +8,10 @@ interface SolicitationsViewProps {
     onNavigate?: (page: string, processId?: string) => void;
 }
 
+type TabType = 'ALL' | 'NEW' | 'ANALYSIS' | 'DONE';
+
 export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate }) => {
-  const [activeTab, setActiveTab] = useState<'INBOX' | 'ALL'>('INBOX');
+  const [activeTab, setActiveTab] = useState<TabType>('NEW');
   const [solicitations, setSolicitations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
@@ -18,6 +20,9 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
   const [currentAnalystId, setCurrentAnalystId] = useState<string | undefined>(undefined);
+
+  // Counts
+  const [counts, setCounts] = useState({ all: 0, new: 0, analysis: 0, done: 0 });
 
   useEffect(() => {
     fetchSolicitations();
@@ -36,7 +41,18 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setSolicitations(data || []);
+      
+      const allItems = data || [];
+      setSolicitations(allItems);
+      
+      // Calcular contagens
+      setCounts({
+          all: allItems.length,
+          new: allItems.filter(s => s.status === 'WAITING_SOSFU_ANALYSIS').length,
+          analysis: allItems.filter(s => ['WAITING_SEFIN_SIGNATURE', 'WAITING_SOSFU_PAYMENT', 'WAITING_SUPRIDO_CONFIRMATION', 'WAITING_CORRECTION'].includes(s.status)).length,
+          done: allItems.filter(s => ['PAID', 'APPROVED', 'REJECTED'].includes(s.status)).length
+      });
+
     } catch (error) {
       console.error('Error fetching solicitations:', error);
     } finally {
@@ -78,13 +94,27 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
   };
 
   // Lógica de Filtragem de Abas
-  // Inbox: Processos que chegaram do Gestor (WAITING_SOSFU_ANALYSIS)
-  // All: Tudo
   const getFilteredList = () => {
       let list = solicitations;
       
-      if (activeTab === 'INBOX') {
-          list = list.filter(s => s.status === 'WAITING_SOSFU_ANALYSIS');
+      switch (activeTab) {
+          case 'NEW':
+              // Novas = Aguardando Análise Inicial da SOSFU
+              list = list.filter(s => s.status === 'WAITING_SOSFU_ANALYSIS');
+              break;
+          case 'ANALYSIS':
+              // Em Análise = Processos que já passaram da triagem mas não terminaram
+              // Inclui: Sefin, Pagamento, Aguardando Suprido, Correção
+              list = list.filter(s => ['WAITING_SEFIN_SIGNATURE', 'WAITING_SOSFU_PAYMENT', 'WAITING_SUPRIDO_CONFIRMATION', 'WAITING_CORRECTION'].includes(s.status));
+              break;
+          case 'DONE':
+              // Concluídas = Pagos ou Rejeitados
+              list = list.filter(s => ['PAID', 'APPROVED', 'REJECTED'].includes(s.status));
+              break;
+          case 'ALL':
+          default:
+              // Todas (Sem filtro de status)
+              break;
       }
 
       return list.filter(item => 
@@ -94,6 +124,24 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
   };
 
   const filteredSolicitations = getFilteredList();
+
+  const TabButton = ({ id, label, count }: { id: TabType, label: string, count: number }) => (
+      <button 
+        onClick={() => setActiveTab(id)}
+        className={`relative pb-3 px-4 text-sm font-bold transition-all ${
+            activeTab === id 
+            ? 'text-blue-600 border-b-2 border-blue-600' 
+            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-t-lg'
+        }`}
+      >
+          {label}
+          <span className={`ml-2 text-xs py-0.5 px-2 rounded-full ${
+              activeTab === id ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+          }`}>
+              {count}
+          </span>
+      </button>
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -108,26 +156,18 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
           </h2>
           <p className="text-gray-500 text-sm mt-1">Análise técnica de pedidos de suprimento.</p>
         </div>
-        <div className="flex gap-3">
-          {/* Tabs */}
-          <div className="flex bg-gray-100 p-1 rounded-lg">
-              <button 
-                onClick={() => setActiveTab('INBOX')}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-bold transition-all ${activeTab === 'INBOX' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                  <Inbox size={16} /> Caixa de Entrada
-              </button>
-              <button 
-                onClick={() => setActiveTab('ALL')}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-bold transition-all ${activeTab === 'ALL' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                  <List size={16} /> Todos
-              </button>
-          </div>
-        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        
+        {/* New Tabs System */}
+        <div className="flex items-center gap-2 px-4 pt-4 border-b border-gray-200 overflow-x-auto">
+            <TabButton id="ALL" label="Todas" count={counts.all} />
+            <TabButton id="NEW" label="Novas" count={counts.new} />
+            <TabButton id="ANALYSIS" label="Em Análise" count={counts.analysis} />
+            <TabButton id="DONE" label="Concluídas" count={counts.done} />
+        </div>
+
         <div className="p-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
             <div className="relative max-w-sm w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
@@ -139,8 +179,8 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
                     onChange={(e) => setFilter(e.target.value)}
                 />
             </div>
-            <div className="text-xs text-gray-500 font-medium">
-                Mostrando {filteredSolicitations.length} processos
+            <div className="text-xs text-gray-500 font-medium hidden md:block">
+                Visualizando {filteredSolicitations.length} de {counts.all} processos
             </div>
         </div>
 
@@ -169,7 +209,7 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
                   <tr>
                       <td colSpan={6} className="px-6 py-12 text-center text-gray-400 flex flex-col items-center justify-center w-full">
                           <Inbox size={32} className="mb-2 opacity-50"/>
-                          <p>Nenhum processo encontrado nesta visão.</p>
+                          <p>Nenhum processo encontrado nesta aba.</p>
                       </td>
                   </tr>
               ) : (

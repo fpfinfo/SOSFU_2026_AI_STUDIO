@@ -3,8 +3,10 @@ import { Plus, Filter, Search, MoreHorizontal, CheckSquare, AlertCircle, Loader2
 import { supabase } from '../lib/supabase';
 import { AssignModal } from './AssignModal';
 
+type TabType = 'ALL' | 'NEW' | 'ANALYSIS' | 'DONE';
+
 export const AccountabilityView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'INBOX' | 'ALL'>('INBOX');
+  const [activeTab, setActiveTab] = useState<TabType>('NEW');
   const [accountabilities, setAccountabilities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
@@ -15,7 +17,7 @@ export const AccountabilityView: React.FC = () => {
   const [currentAnalystId, setCurrentAnalystId] = useState<string | undefined>(undefined);
 
   // Stats
-  const [stats, setStats] = useState({ analysis: 0, late: 0, completed: 0 });
+  const [counts, setCounts] = useState({ all: 0, new: 0, analysis: 0, done: 0 });
 
   useEffect(() => {
     fetchAccountabilities();
@@ -38,10 +40,11 @@ export const AccountabilityView: React.FC = () => {
       const items = data || [];
       setAccountabilities(items);
 
-      setStats({
-          analysis: items.filter(i => i.status === 'WAITING_SOSFU').length, // Só o que está na SOSFU
-          late: items.filter(i => i.status === 'LATE').length,
-          completed: items.filter(i => i.status === 'APPROVED').length
+      setCounts({
+          all: items.length,
+          new: items.filter(i => i.status === 'WAITING_SOSFU').length, 
+          analysis: items.filter(i => ['CORRECTION', 'LATE'].includes(i.status)).length,
+          done: items.filter(i => i.status === 'APPROVED').length
       });
 
     } catch (error) {
@@ -83,11 +86,26 @@ export const AccountabilityView: React.FC = () => {
   };
 
   // Lógica de Abas
-  // INBOX: Status WAITING_SOSFU (chegou do Gestor/Suprido)
   const getFilteredItems = () => {
       let list = accountabilities;
-      if (activeTab === 'INBOX') {
-          list = list.filter(i => i.status === 'WAITING_SOSFU');
+      
+      switch (activeTab) {
+          case 'NEW':
+              // Novas = Chegaram na SOSFU e aguardam análise
+              list = list.filter(i => i.status === 'WAITING_SOSFU');
+              break;
+          case 'ANALYSIS':
+              // Em Análise = Retornaram para Correção ou estão Atrasadas (em monitoramento)
+              list = list.filter(i => ['CORRECTION', 'LATE'].includes(i.status));
+              break;
+          case 'DONE':
+              // Concluídas
+              list = list.filter(i => i.status === 'APPROVED');
+              break;
+          case 'ALL':
+          default:
+              // Todas
+              break;
       }
       
       return list.filter(item => 
@@ -97,6 +115,24 @@ export const AccountabilityView: React.FC = () => {
   }
 
   const filteredItems = getFilteredItems();
+
+  const TabButton = ({ id, label, count }: { id: TabType, label: string, count: number }) => (
+      <button 
+        onClick={() => setActiveTab(id)}
+        className={`relative pb-3 px-4 text-sm font-bold transition-all ${
+            activeTab === id 
+            ? 'text-purple-600 border-b-2 border-purple-600' 
+            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-t-lg'
+        }`}
+      >
+          {label}
+          <span className={`ml-2 text-xs py-0.5 px-2 rounded-full ${
+              activeTab === id ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'
+          }`}>
+              {count}
+          </span>
+      </button>
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -111,58 +147,19 @@ export const AccountabilityView: React.FC = () => {
           </h2>
           <p className="text-gray-500 text-sm mt-1">Controle e análise de prestação de contas</p>
         </div>
-        <div className="flex gap-3">
-           {/* Tabs */}
-           <div className="flex bg-gray-100 p-1 rounded-lg">
-              <button 
-                onClick={() => setActiveTab('INBOX')}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-bold transition-all ${activeTab === 'INBOX' ? 'bg-white text-purple-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                  <Inbox size={16} /> A Analisar
-              </button>
-              <button 
-                onClick={() => setActiveTab('ALL')}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-bold transition-all ${activeTab === 'ALL' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                  <List size={16} /> Todas
-              </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Overview Cards (Real Stats) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex items-center justify-between">
-             <div>
-                <p className="text-xs font-bold text-gray-400 uppercase">Aguardando Análise</p>
-                <p className="text-2xl font-bold text-gray-800 mt-1">{stats.analysis}</p>
-             </div>
-             <div className="h-8 w-8 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-600">
-                <AlertCircle size={16} />
-             </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex items-center justify-between">
-             <div>
-                <p className="text-xs font-bold text-gray-400 uppercase">Em Atraso</p>
-                <p className="text-2xl font-bold text-red-600 mt-1">{stats.late}</p>
-             </div>
-             <div className="h-8 w-8 rounded-full bg-red-50 flex items-center justify-center text-red-600">
-                <AlertCircle size={16} />
-             </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex items-center justify-between">
-             <div>
-                <p className="text-xs font-bold text-gray-400 uppercase">Concluídas</p>
-                <p className="text-2xl font-bold text-green-600 mt-1">{stats.completed}</p>
-             </div>
-             <div className="h-8 w-8 rounded-full bg-green-50 flex items-center justify-center text-green-600">
-                <CheckSquare size={16} />
-             </div>
-          </div>
       </div>
 
       {/* Table Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        
+        {/* Tabs */}
+        <div className="flex items-center gap-2 px-4 pt-4 border-b border-gray-200 overflow-x-auto">
+            <TabButton id="ALL" label="Todas" count={counts.all} />
+            <TabButton id="NEW" label="Novas" count={counts.new} />
+            <TabButton id="ANALYSIS" label="Em Acompanhamento" count={counts.analysis} />
+            <TabButton id="DONE" label="Concluídas" count={counts.done} />
+        </div>
+
         {/* Toolbar */}
         <div className="p-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
             <div className="relative max-w-sm w-full">
@@ -174,6 +171,9 @@ export const AccountabilityView: React.FC = () => {
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                 />
+            </div>
+            <div className="text-xs text-gray-500 font-medium hidden md:block">
+                Visualizando {filteredItems.length} de {counts.all} contas
             </div>
         </div>
 
@@ -201,7 +201,10 @@ export const AccountabilityView: React.FC = () => {
                   </tr>
               ) : filteredItems.length === 0 ? (
                   <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-gray-400">Nenhuma prestação de contas encontrada.</td>
+                      <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
+                          <Inbox size={32} className="mx-auto mb-2 opacity-50"/>
+                          <p>Nenhuma prestação de contas nesta aba.</p>
+                      </td>
                   </tr>
               ) : (
                 filteredItems.map((item) => {
