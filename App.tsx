@@ -13,6 +13,7 @@ import { SefinDashboard } from './components/sefin/SefinDashboard';
 import { EmergencySolicitation } from './components/suprido/EmergencySolicitation';
 import { JurySolicitation } from './components/suprido/JurySolicitation';
 import { ProcessDetailView } from './components/process/ProcessDetailView';
+import { AccountabilityWizard } from './components/accountability/AccountabilityWizard';
 import { LoginPage } from './components/LoginPage';
 import { DASHBOARD_STATS } from './constants';
 import { MessageSquare, Loader2 } from 'lucide-react';
@@ -31,6 +32,9 @@ interface UserProfile {
   };
 }
 
+// Tipo para as abas do Process Detail
+type ProcessTabType = 'OVERVIEW' | 'DOSSIER' | 'EXECUTION' | 'ANALYSIS' | 'ACCOUNTABILITY';
+
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -40,8 +44,9 @@ const App: React.FC = () => {
   // Dashboard Stats Real
   const [stats, setStats] = useState(DASHBOARD_STATS);
   
-  // Estado para armazenar o ID do processo selecionado para visualização
+  // Estado para navegação detalhada
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
+  const [processInitialTab, setProcessInitialTab] = useState<ProcessTabType>('OVERVIEW');
 
   useEffect(() => {
     // Inicialização da Sessão com Tratamento de Erro
@@ -150,9 +155,28 @@ const App: React.FC = () => {
     }
   };
 
-  const handleNavigation = (page: string, processId?: string) => {
+  // Função de navegação aprimorada
+  const handleNavigation = (page: string, processId?: string, accountabilityId?: string) => {
+      // 1. Rota de Detalhe de PC (Abre ProcessDetail na aba ACCOUNTABILITY)
+      if (page === 'process_accountability' && processId) {
+          setSelectedProcessId(processId);
+          setProcessInitialTab('ACCOUNTABILITY');
+          setActiveTab('process_detail');
+          return;
+      }
+
+      // 2. Rota de Detalhe Padrão (Abre ProcessDetail na aba OVERVIEW)
+      if (page === 'process_detail' && processId) {
+          setSelectedProcessId(processId);
+          setProcessInitialTab('OVERVIEW');
+          setActiveTab('process_detail');
+          return;
+      }
+
+      // 3. Outras rotas
       if (processId) setSelectedProcessId(processId);
       setActiveTab(page);
+      
       if (page === 'dashboard' && session) fetchDashboardStats(session.user.id);
   };
 
@@ -191,12 +215,15 @@ const App: React.FC = () => {
         return <EmergencySolicitation onNavigate={handleNavigation} />;
       case 'solicitation_jury':
         return <JurySolicitation onNavigate={handleNavigation} />;
+      
+      // DEPRECATED: accountability_wizard agora é embutido no process_detail
+      
       case 'process_detail':
         return selectedProcessId ? (
             <ProcessDetailView 
-                processId={selectedProcessId} 
+                processId={selectedProcessId}
+                initialTab={processInitialTab}
                 onBack={() => {
-                    // Lógica inteligente de "Voltar" baseada no papel
                     const role = userProfile?.dperfil?.slug;
                     if (role === 'SEFIN') return setActiveTab('sefin_dashboard');
                     if (role === 'GESTOR') return setActiveTab('gestor_dashboard');
