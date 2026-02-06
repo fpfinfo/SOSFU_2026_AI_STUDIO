@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, FileText, Filter, Search, Clock, ChevronRight, UserCheck, Loader2, Plus, Wallet, TrendingUp, AlertCircle, Stamp } from 'lucide-react';
+import { CheckCircle2, FileText, Filter, Search, Clock, ChevronRight, UserCheck, Loader2, Plus, Wallet, TrendingUp, AlertCircle, Stamp, FileCheck } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { StatusBadge } from '../StatusBadge';
 
 interface GestorDashboardProps {
-    onNavigate: (page: string, processId?: string) => void;
+    onNavigate: (page: string, processId?: string, accountabilityId?: string) => void;
 }
 
 export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) => {
     const [loading, setLoading] = useState(true);
-    const [pendingApproval, setPendingApproval] = useState<any[]>([]);
+    const [pendingApproval, setPendingApproval] = useState<any[]>([]); // Solicitações
+    const [pendingAccountability, setPendingAccountability] = useState<any[]>([]); // PCs
     const [myRequests, setMyRequests] = useState<any[]>([]);
     const [stats, setStats] = useState({ 
         pendingCount: 0, 
+        pendingPcCount: 0,
         myActiveCount: 0, 
         totalManagedValue: 0 
     });
@@ -32,7 +34,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
             const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
             setUserName(profile?.full_name?.split(' ')[0] || 'Gestor');
 
-            // 1. Processos para APROVAR (Gestor é o gerente)
+            // 1. Solicitações para APROVAR (WAITING_MANAGER)
             const { data: approvals, error: appError } = await supabase
                 .from('solicitations')
                 .select('*')
@@ -41,8 +43,22 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                 .order('created_at', { ascending: false });
 
             if (appError) throw appError;
+
+            // 2. Prestações de Contas para ATESTAR (WAITING_MANAGER)
+            // Precisamos fazer join com solicitations para verificar o manager_email
+            const { data: pcApprovals, error: pcError } = await supabase
+                .from('accountabilities')
+                .select(`
+                    *,
+                    solicitation:solicitation_id!inner(manager_email, process_number, beneficiary, unit),
+                    requester:requester_id(full_name)
+                `)
+                .eq('status', 'WAITING_MANAGER')
+                .ilike('solicitation.manager_email', user.email || '');
+
+            if (pcError) console.error("Erro ao buscar PCs:", pcError);
             
-            // 2. Processos SOLICITADOS PELO GESTOR (Auto-suprimento)
+            // 3. Processos SOLICITADOS PELO GESTOR (Auto-suprimento)
             const { data: requests, error: reqError } = await supabase
                 .from('solicitations')
                 .select('*')
@@ -53,17 +69,19 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
 
             // Stats
             const pendingList = approvals || [];
+            const pcList = pcApprovals || [];
             const myList = requests || [];
             const myActive = myList.filter(p => p.status !== 'PAID' && p.status !== 'REJECTED');
             
             // Cálculo do valor total sob gestão (aprovados + pendentes)
-            // Aqui estamos somando apenas o que está pendente de aprovação para dar senso de urgência
             const pendingValue = pendingList.reduce((acc, curr) => acc + Number(curr.value), 0);
 
             setPendingApproval(pendingList);
+            setPendingAccountability(pcList);
             setMyRequests(myList);
             setStats({
                 pendingCount: pendingList.length,
+                pendingPcCount: pcList.length,
                 myActiveCount: myActive.length,
                 totalManagedValue: pendingValue
             });
@@ -105,12 +123,12 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
 
              {/* Stats Overview */}
              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                {/* Card 1: Aprovações */}
-                <div className={`p-6 rounded-2xl border flex items-center justify-between shadow-sm transition-all ${stats.pendingCount > 0 ? 'bg-amber-50 border-amber-200 ring-1 ring-amber-100' : 'bg-white border-gray-200'}`}>
+                {/* Card 1: Aprovações (Solicitações + PCs) */}
+                <div className={`p-6 rounded-2xl border flex items-center justify-between shadow-sm transition-all ${stats.pendingCount + stats.pendingPcCount > 0 ? 'bg-amber-50 border-amber-200 ring-1 ring-amber-100' : 'bg-white border-gray-200'}`}>
                     <div>
                         <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${stats.pendingCount > 0 ? 'text-amber-700' : 'text-gray-400'}`}>Pendências de Equipe</p>
-                        <h3 className="text-3xl font-bold text-gray-800">{stats.pendingCount}</h3>
-                        <p className="text-xs text-gray-500 mt-1">Aguardando seu atesto</p>
+                        <h3 className="text-3xl font-bold text-gray-800">{stats.pendingCount + stats.pendingPcCount}</h3>
+                        <p className="text-xs text-gray-500 mt-1">{stats.pendingCount} Pedidos / {stats.pendingPcCount} PCs</p>
                     </div>
                     <div className={`p-4 rounded-xl ${stats.pendingCount > 0 ? 'bg-amber-100 text-amber-600' : 'bg-gray-50 text-gray-300'}`}>
                         <Stamp size={24} />
@@ -148,28 +166,62 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 
                 {/* PAINEL 1: MESA DE DECISÃO (APROVAÇÕES) */}
-                <div className="flex flex-col h-full">
-                    <div className="flex items-center gap-3 mb-4 px-1">
-                        <div className="p-2 bg-amber-100 text-amber-700 rounded-lg shadow-sm">
-                            <Clock size={20} />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-gray-800">Mesa de Decisão</h3>
-                            <p className="text-xs text-gray-500">Solicitações de sua equipe aguardando atesto</p>
-                        </div>
-                    </div>
-
-                    {pendingApproval.length === 0 ? (
-                        <div className="bg-white p-12 rounded-2xl border border-dashed border-gray-300 text-center flex-1 flex flex-col items-center justify-center">
-                            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-gray-300">
-                                <CheckCircle2 size={32} />
+                <div className="flex flex-col h-full space-y-6">
+                    
+                    {/* Seção A: Prestação de Contas (Prioridade) */}
+                    {pendingAccountability.length > 0 && (
+                        <div className="space-y-3 animate-in slide-in-from-left-4">
+                            <div className="flex items-center gap-2 px-1 text-purple-700">
+                                <FileCheck size={20} />
+                                <h3 className="text-sm font-bold uppercase">Prestações de Contas para Atesto</h3>
                             </div>
-                            <h4 className="text-gray-900 font-medium">Tudo limpo por aqui!</h4>
-                            <p className="text-sm text-gray-500 mt-1">Você não possui pendências de aprovação.</p>
+                            
+                            {pendingAccountability.map(pc => (
+                                <div 
+                                    key={pc.id} 
+                                    onClick={() => onNavigate('process_accountability', pc.solicitation_id, pc.id)}
+                                    className="bg-white p-5 rounded-2xl border border-purple-200 border-l-4 border-l-purple-500 shadow-sm hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
+                                >
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div>
+                                            <h4 className="text-base font-bold text-gray-800 group-hover:text-purple-600 transition-colors flex items-center gap-2">
+                                                {pc.solicitation.process_number}
+                                            </h4>
+                                            <p className="text-xs text-gray-500 mt-1">Enviado por: {pc.requester?.full_name}</p>
+                                        </div>
+                                        <span className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide flex items-center gap-1">
+                                            <Clock size={12}/> Aguardando Atesto
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between pt-2 border-t border-gray-50 mt-2">
+                                        <span className="font-mono font-bold text-gray-800 text-sm">
+                                            Total Gasto: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pc.total_spent)}
+                                        </span>
+                                        <button className="text-xs font-bold text-purple-600 flex items-center gap-1 group-hover:gap-2 transition-all">
+                                            Revisar Contas <ChevronRight size={14}/>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {pendingApproval.map(proc => (
+                    )}
+
+                    {/* Seção B: Solicitações Iniciais */}
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2 px-1 text-amber-700">
+                            <Stamp size={20} />
+                            <h3 className="text-sm font-bold uppercase">Solicitações de Suprimento</h3>
+                        </div>
+
+                        {pendingApproval.length === 0 ? (
+                            <div className="bg-white p-8 rounded-2xl border border-dashed border-gray-300 text-center">
+                                <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-2 text-gray-300">
+                                    <CheckCircle2 size={24} />
+                                </div>
+                                <p className="text-sm text-gray-500">Nenhuma solicitação pendente.</p>
+                            </div>
+                        ) : (
+                            pendingApproval.map(proc => (
                                 <div 
                                     key={proc.id} 
                                     onClick={() => onNavigate('process_detail', proc.id)}
@@ -183,7 +235,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                                             <p className="text-xs text-gray-500 mt-1">{new Date(proc.created_at).toLocaleDateString()}</p>
                                         </div>
                                         <span className="bg-amber-50 text-amber-700 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide">
-                                            Aguardando Atesto
+                                            Aguardando Autorização
                                         </span>
                                     </div>
                                     
@@ -206,9 +258,9 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                                         </button>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                            ))
+                        )}
+                    </div>
                 </div>
 
                 {/* PAINEL 2: MEUS PROCESSOS (AUTO-GESTÃO) */}

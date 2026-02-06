@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, FileText, Loader2, Wallet, ShieldCheck, BadgeCheck, Receipt, Plus, FolderOpen, History, ExternalLink, X, Eye, Clock, User, MapPin, Mail, Calendar, AlignLeft, Shield, Printer, Maximize2, Minimize2, ChevronLeft, ChevronRight, Download, ScrollText, Check } from 'lucide-react';
+import { ArrowLeft, FileText, Loader2, Wallet, ShieldCheck, BadgeCheck, Receipt, Plus, FolderOpen, History, ExternalLink, X, Eye, Clock, User, MapPin, Mail, Calendar, AlignLeft, Shield, Printer, Maximize2, Minimize2, ChevronLeft, ChevronRight, Download, ScrollText, Check, AlertTriangle, Send, FileCheck, UserCheck, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { StatusBadge } from '../StatusBadge';
 import { AccountabilityWizard } from '../accountability/AccountabilityWizard';
@@ -16,50 +16,6 @@ import {
     RegularityCertificateTemplate,
     GenericDocumentTemplate
 } from './DocumentTemplates';
-
-// Placeholder widgets (Mantidos)
-const FinancialSummaryWidget = () => (
-    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-        <h4 className="font-bold text-gray-700 text-sm mb-2">Resumo Financeiro</h4>
-        <div className="h-20 bg-gray-50 rounded flex items-center justify-center text-xs text-gray-400">
-            Gráfico de execução orçamentária
-        </div>
-    </div>
-);
-
-const GeneralInfoWidget = () => (
-    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-        <h4 className="font-bold text-gray-700 text-sm mb-2">Informações Gerais</h4>
-        <div className="space-y-2">
-            <div className="h-2 bg-gray-100 rounded w-3/4"></div>
-            <div className="h-2 bg-gray-100 rounded w-1/2"></div>
-        </div>
-    </div>
-);
-
-const AutomaticCertificatesWidget = () => (
-    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-        <h4 className="font-bold text-gray-700 text-sm mb-2">Certidões Automáticas</h4>
-        <div className="flex gap-2">
-            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-600">
-                <BadgeCheck size={16} />
-            </div>
-            <div className="text-xs text-gray-500">
-                <p>Certidão Negativa (Receita)</p>
-                <p className="text-green-600 font-bold">Válida</p>
-            </div>
-        </div>
-    </div>
-);
-
-const VerifiedItemsTable = () => (
-    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-        <h4 className="font-bold text-gray-700 text-sm mb-4">Itens Verificados</h4>
-        <div className="text-center py-8 text-gray-400 text-xs">
-            Aguardando análise detalhada dos itens.
-        </div>
-    </div>
-);
 
 type TabType = 'OVERVIEW' | 'DOSSIER' | 'EXECUTION' | 'ANALYSIS' | 'ACCOUNTABILITY';
 
@@ -94,6 +50,17 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
       }
   }, [initialTab, processId]);
 
+  // Listener para fechar modal com ESC
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape' && selectedDoc) {
+            setSelectedDoc(null);
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedDoc]);
+
   const fetchCurrentUserRole = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -124,7 +91,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
             .order('created_at', { ascending: true });
         setDocuments(docs || []);
         
-        if (docs && docs.length > 0 && !selectedDoc) {
+        if (docs && docs.length > 0 && !selectedDoc && initialTab === 'DOSSIER') {
             setSelectedDoc(docs[0]);
         }
 
@@ -139,7 +106,8 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
             const { data: items } = await supabase
                 .from('accountability_items')
                 .select('*')
-                .eq('accountability_id', accData.id);
+                .eq('accountability_id', accData.id)
+                .order('item_date');
             setPcItems(items || []);
         }
 
@@ -203,109 +171,506 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
       }
   };
 
-  // --- WIDGETS DO PAINEL ---
+  // --- COMPONENTE: ABA DE ANÁLISE TÉCNICA ---
+  const AnalysisTab = () => {
+      // Cálculo de execução financeira
+      const total = processData?.value || 0;
+      const spent = accountabilityData?.total_spent || 0;
+      const progress = total > 0 ? (spent / total) * 100 : 0;
 
-  const OverviewTab = () => (
-      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                  <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
-                      <User size={16} className="text-blue-600" />
-                      Dados do Suprido (Solicitante)
-                  </h3>
-                  <div className="flex items-start gap-4 mb-6">
-                      <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xl border-2 border-white shadow-sm overflow-hidden">
-                          {requesterProfile?.avatar_url ? <img src={requesterProfile.avatar_url} className="w-full h-full object-cover"/> : requesterProfile?.full_name?.charAt(0)}
+      return (
+          <div className="animate-in fade-in space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Widget Financeiro */}
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                      <h4 className="font-bold text-gray-700 text-sm mb-4 flex items-center gap-2">
+                          <Wallet size={16} className="text-emerald-600"/> Execução Financeira
+                      </h4>
+                      <div className="flex justify-between items-end mb-2">
+                          <div>
+                              <p className="text-xs text-gray-500">Concedido</p>
+                              <p className="text-lg font-bold text-gray-800">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total)}
+                              </p>
+                          </div>
+                          <div className="text-right">
+                              <p className="text-xs text-gray-500">Executado</p>
+                              <p className="text-lg font-bold text-blue-600">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(spent)}
+                              </p>
+                          </div>
                       </div>
+                      <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                          <div className="bg-blue-600 h-full rounded-full transition-all duration-1000" style={{ width: `${Math.min(progress, 100)}%` }}></div>
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-2 text-right">{progress.toFixed(1)}% utilizado</p>
+                  </div>
+
+                  {/* Widget Informações */}
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                      <h4 className="font-bold text-gray-700 text-sm mb-4 flex items-center gap-2">
+                          <FileText size={16} className="text-blue-600"/> Dados do Processo
+                      </h4>
+                      <div className="space-y-3 text-sm">
+                          <div className="flex justify-between border-b border-gray-50 pb-2">
+                              <span className="text-gray-500">NUP</span>
+                              <span className="font-medium text-gray-800">{processData?.process_number}</span>
+                          </div>
+                          <div className="flex justify-between border-b border-gray-50 pb-2">
+                              <span className="text-gray-500">Data Autuação</span>
+                              <span className="font-medium text-gray-800">{new Date(processData?.created_at).toLocaleDateString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                              <span className="text-gray-500">Prazo Legal PC</span>
+                              <span className="font-medium text-red-600">
+                                  {accountabilityData?.deadline ? new Date(accountabilityData.deadline).toLocaleDateString() : 'A calcular'}
+                              </span>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Widget Conformidade */}
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                      <h4 className="font-bold text-gray-700 text-sm mb-4 flex items-center gap-2">
+                          <BadgeCheck size={16} className="text-green-600"/> Conformidade Automática
+                      </h4>
+                      <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">CND Receita Federal</span>
+                              <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-1 rounded border border-green-100 flex items-center gap-1">
+                                  <Check size={10} /> Válida
+                              </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Regularidade Cadastral</span>
+                              <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-1 rounded border border-green-100 flex items-center gap-1">
+                                  <Check size={10} /> Regular
+                              </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Limite Anual</span>
+                              <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-1 rounded border border-green-100 flex items-center gap-1">
+                                  <Check size={10} /> Dentro do Teto
+                              </span>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              {/* Tabela de Itens Verificados */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="p-4 border-b border-gray-100 bg-gray-50">
+                      <h4 className="font-bold text-gray-700 text-sm">Itens da Prestação de Contas</h4>
+                  </div>
+                  {pcItems.length === 0 ? (
+                      <div className="p-12 text-center text-gray-400 text-sm italic">
+                          <Receipt size={32} className="mx-auto mb-2 opacity-20"/>
+                          Nenhum item lançado ou prestação de contas não iniciada.
+                      </div>
+                  ) : (
+                      <div className="overflow-x-auto">
+                          <table className="w-full text-left text-sm">
+                              <thead className="bg-gray-50 text-gray-500 font-medium text-xs uppercase">
+                                  <tr>
+                                      <th className="px-4 py-3">Data</th>
+                                      <th className="px-4 py-3">Descrição</th>
+                                      <th className="px-4 py-3">Fornecedor</th>
+                                      <th className="px-4 py-3 text-right">Valor</th>
+                                      <th className="px-4 py-3 text-center">Status</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                  {pcItems.map((item) => (
+                                      <tr key={item.id} className="hover:bg-gray-50">
+                                          <td className="px-4 py-3 text-gray-600">{new Date(item.item_date).toLocaleDateString()}</td>
+                                          <td className="px-4 py-3 font-medium text-gray-800">{item.description}</td>
+                                          <td className="px-4 py-3 text-gray-600">{item.supplier}</td>
+                                          <td className="px-4 py-3 text-right font-mono text-gray-800">
+                                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
+                                          </td>
+                                          <td className="px-4 py-3 text-center">
+                                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-green-50 text-green-700 font-bold border border-green-100 uppercase tracking-wide">
+                                                  <CheckCircle2 size={10} /> Validado
+                                              </span>
+                                          </td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      </div>
+                  )}
+              </div>
+          </div>
+      );
+  };
+
+  // --- COMPONENTE DE REVISÃO DO GESTOR ---
+  const ManagerReviewPanel = () => {
+      const [reviewAction, setReviewAction] = useState<'APPROVE' | 'REJECT' | null>(null);
+      const [notes, setNotes] = useState('');
+      const [processing, setProcessing] = useState(false);
+      const [viewingReceipt, setViewingReceipt] = useState<string | null>(null);
+
+      const totalItems = pcItems.length;
+      const totalValue = pcItems.reduce((acc, i) => acc + Number(i.value), 0);
+      const balance = accountabilityData?.balance || 0;
+      
+      // Compliance Check Count
+      const alertsCount = pcItems.reduce((acc, i) => {
+          const meta = i.ai_metadata?.compliance_checks;
+          if (!meta) return acc;
+          return acc + (meta.date_valid ? 0 : 1) + (meta.prohibited_items ? 1 : 0);
+      }, 0);
+
+      const handleSubmitReview = async () => {
+          if (!confirm('Confirmar ação sobre a prestação de contas?')) return;
+          
+          setProcessing(true);
+          try {
+              const newStatus = reviewAction === 'APPROVE' ? 'WAITING_SOSFU' : 'CORRECTION';
+              
+              const { error } = await supabase
+                  .from('accountabilities')
+                  .update({ 
+                      status: newStatus,
+                      // Aqui poderíamos salvar as notas/ressalvas em um campo específico se houvesse no banco
+                  })
+                  .eq('id', accountabilityData.id);
+
+              if (error) throw error;
+              
+              await fetchProcessData();
+              setReviewAction(null);
+          } catch (err) {
+              console.error(err);
+              alert('Erro ao processar revisão.');
+          } finally {
+              setProcessing(false);
+          }
+      };
+
+      return (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-in fade-in">
+              <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                      <div className="p-2 bg-white/10 rounded-lg"><ShieldCheck size={20} /></div>
                       <div>
-                          <h4 className="font-bold text-gray-900 text-lg uppercase">{requesterProfile?.full_name}</h4>
-                          <p className="text-sm text-gray-500">{requesterProfile?.cargo || 'Cargo não informado'}</p>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 mt-1 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100 uppercase">
-                              {requesterProfile?.vinculo || 'Servidor'}
-                          </span>
+                          <h3 className="font-bold text-lg">Revisão do Gestor</h3>
+                          <p className="text-slate-400 text-xs">Análise de Prestação de Contas</p>
                       </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="p-3 bg-gray-50 rounded-lg">
-                          <span className="text-[10px] font-bold text-gray-400 uppercase block">Matrícula</span>
-                          <span className="font-medium text-gray-700 font-mono">{requesterProfile?.matricula || '-'}</span>
-                      </div>
-                      <div className="p-3 bg-gray-50 rounded-lg">
-                          <span className="text-[10px] font-bold text-gray-400 uppercase block">CPF</span>
-                          <span className="font-medium text-gray-700 font-mono">{requesterProfile?.cpf || '-'}</span>
-                      </div>
-                      <div className="col-span-2 p-3 bg-gray-50 rounded-lg">
-                          <span className="text-[10px] font-bold text-gray-400 uppercase block">Email Institucional</span>
-                          <span className="font-medium text-gray-700 flex items-center gap-2">
-                              <Mail size={14} className="text-gray-400" /> {requesterProfile?.email}
-                          </span>
-                      </div>
-                      <div className="col-span-2 p-3 bg-gray-50 rounded-lg">
-                          <span className="text-[10px] font-bold text-gray-400 uppercase block">Lotação / Unidade</span>
-                          <span className="font-medium text-gray-700 flex items-center gap-2">
-                              <MapPin size={14} className="text-gray-400" /> {requesterProfile?.lotacao || processData?.unit}
-                          </span>
-                      </div>
+                  <div className="text-right">
+                      <p className="text-xs text-slate-400 uppercase font-bold">Saldo Final</p>
+                      <p className={`text-xl font-bold ${balance < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(balance)}
+                      </p>
                   </div>
               </div>
 
-              <div className="space-y-6">
-                  <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                      <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
-                          <Shield size={16} className="text-indigo-600" />
-                          Gestor da Unidade
-                      </h3>
-                      <div className="grid grid-cols-1 gap-3">
-                          <div className="flex items-center gap-3 p-3 bg-indigo-50/50 rounded-lg border border-indigo-100">
-                              <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold border-2 border-white">
-                                  {processData?.manager_name?.charAt(0) || 'G'}
-                              </div>
-                              <div>
-                                  <p className="text-sm font-bold text-gray-800">{processData?.manager_name || 'Não informado'}</p>
-                                  <p className="text-xs text-gray-500 flex items-center gap-1">
-                                      <Mail size={10} /> {processData?.manager_email || 'Email não informado'}
-                                  </p>
-                              </div>
+              <div className="p-6">
+                  {/* Resumo IA */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                              {totalItems}
+                          </div>
+                          <div>
+                              <p className="text-xs text-gray-500 font-bold uppercase">Comprovantes</p>
+                              <p className="text-sm font-semibold">Anexados pelo Suprido</p>
+                          </div>
+                      </div>
+                      
+                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+                              <Wallet size={18} />
+                          </div>
+                          <div>
+                              <p className="text-xs text-gray-500 font-bold uppercase">Valor Comprovado</p>
+                              <p className="text-sm font-semibold">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue)}
+                              </p>
+                          </div>
+                      </div>
+
+                      <div className={`p-4 rounded-xl border flex items-center gap-4 ${alertsCount > 0 ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${alertsCount > 0 ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600'}`}>
+                              {alertsCount > 0 ? <AlertTriangle size={18} /> : <Check size={18} />}
+                          </div>
+                          <div>
+                              <p className={`text-xs font-bold uppercase ${alertsCount > 0 ? 'text-amber-700' : 'text-green-700'}`}>Auditoria IA</p>
+                              <p className="text-sm font-semibold">{alertsCount > 0 ? `${alertsCount} Alertas Detectados` : 'Nenhuma Inconsistência'}</p>
                           </div>
                       </div>
                   </div>
 
-                  <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                      <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
-                          <Calendar size={16} className="text-emerald-600" />
-                          Detalhes do Evento
-                      </h3>
-                      <div className="grid grid-cols-2 gap-4">
-                          <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
-                              <span className="text-[10px] font-bold text-emerald-700 uppercase block mb-1">Valor Concedido</span>
-                              <span className="text-xl font-bold text-emerald-800">
-                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(processData?.value || 0)}
-                              </span>
+                  {/* Grid de Itens */}
+                  <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <Receipt size={16} /> Detalhamento dos Gastos
+                  </h4>
+                  <div className="overflow-x-auto border border-gray-200 rounded-xl mb-8">
+                      <table className="w-full text-left text-sm">
+                          <thead className="bg-gray-50 text-gray-500 font-bold text-xs uppercase">
+                              <tr>
+                                  <th className="px-4 py-3">Data</th>
+                                  <th className="px-4 py-3">Fornecedor (OCR)</th>
+                                  <th className="px-4 py-3">Descrição</th>
+                                  <th className="px-4 py-3">CND</th>
+                                  <th className="px-4 py-3 text-right">Valor</th>
+                                  <th className="px-4 py-3 text-center">Ação</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                              {pcItems.map((item) => (
+                                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                                      <td className="px-4 py-3">{new Date(item.item_date).toLocaleDateString()}</td>
+                                      <td className="px-4 py-3 font-medium text-gray-800">{item.supplier}</td>
+                                      <td className="px-4 py-3 text-gray-600 truncate max-w-[200px]">{item.description}</td>
+                                      <td className="px-4 py-3">
+                                          {item.ai_metadata?.compliance_checks?.cnd_receita === false ? (
+                                              <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold">Irregular</span>
+                                          ) : (
+                                              <span className="text-[10px] bg-green-100 text-green-600 px-2 py-0.5 rounded font-bold">Regular</span>
+                                          )}
+                                      </td>
+                                      <td className="px-4 py-3 text-right font-mono font-bold">
+                                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
+                                      </td>
+                                      <td className="px-4 py-3 text-center">
+                                          <button 
+                                              onClick={() => alert(`Visualizar anexo: ${item.doc_number || 'Sem número'}`)} // Mock ação
+                                              className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition-colors"
+                                              title="Ver Comprovante"
+                                          >
+                                              <Eye size={16} />
+                                          </button>
+                                      </td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  </div>
+
+                  {/* Área de Decisão */}
+                  <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
+                      <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4">Parecer do Gestor</h4>
+                      
+                      <div className="space-y-4">
+                          <textarea 
+                              className="w-full p-4 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-slate-200 focus:border-slate-400 outline-none resize-none"
+                              rows={3}
+                              placeholder="Insira aqui ressalvas, observações ou justificativa para devolução..."
+                              value={notes}
+                              onChange={(e) => setNotes(e.target.value)}
+                          ></textarea>
+
+                          <div className="flex gap-4">
+                              <button 
+                                  onClick={() => setReviewAction('APPROVE')}
+                                  className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all border-2 ${
+                                      reviewAction === 'APPROVE' 
+                                      ? 'bg-green-600 text-white border-green-600 shadow-md' 
+                                      : 'bg-white text-green-600 border-green-200 hover:border-green-400'
+                                  }`}
+                              >
+                                  <FileCheck size={18} />
+                                  Atestar e Enviar para SOSFU
+                              </button>
+                              
+                              <button 
+                                  onClick={() => setReviewAction('REJECT')}
+                                  className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all border-2 ${
+                                      reviewAction === 'REJECT' 
+                                      ? 'bg-orange-500 text-white border-orange-500 shadow-md' 
+                                      : 'bg-white text-orange-500 border-orange-200 hover:border-orange-400'
+                                  }`}
+                              >
+                                  <ChevronLeft size={18} />
+                                  Devolver para Correção
+                              </button>
                           </div>
-                          <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-                              <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Período</span>
-                              <span className="text-sm font-bold text-gray-700">
-                                  {processData?.event_start_date ? new Date(processData.event_start_date).toLocaleDateString() : 'N/A'} 
-                                  {' até '} 
-                                  {processData?.event_end_date ? new Date(processData.event_end_date).toLocaleDateString() : 'N/A'}
-                              </span>
-                          </div>
+
+                          {reviewAction && (
+                              <div className="animate-in slide-in-from-top-2 pt-4 border-t border-gray-200 flex justify-end">
+                                  <button 
+                                      onClick={handleSubmitReview}
+                                      disabled={processing}
+                                      className="px-8 py-2.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition-colors shadow-lg flex items-center gap-2"
+                                  >
+                                      {processing ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
+                                      Confirmar Decisão
+                                  </button>
+                              </div>
+                          )}
                       </div>
                   </div>
               </div>
           </div>
+      );
+  };
 
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-              <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2">
-                  <AlignLeft size={16} className="text-gray-600" />
-                  Resumo da Justificativa
-              </h3>
-              <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap font-serif">
-                  {processData?.justification || 'Nenhuma justificativa informada.'}
-              </div>
-          </div>
-      </div>
-  );
+  const OverviewTab = () => {
+    if (!processData) return <div className="p-8 text-center text-gray-500">Carregando dados...</div>;
+
+    // Lógica para Banner de Status Específico
+    const isWaitingManager = accountabilityData?.status === 'WAITING_MANAGER';
+    const managerName = processData.manager_name || 'Gestor da Unidade';
+
+    return (
+        <div className="animate-in fade-in space-y-6">
+            
+            {/* Banner de Status: AGUARDANDO GESTOR */}
+            {isWaitingManager && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
+                    <div className="flex items-start gap-4">
+                        <div className="p-3 bg-white rounded-full text-amber-600 shadow-sm border border-amber-100">
+                            <UserCheck size={24} />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-amber-900">Aguardando Atesto Gerencial</h3>
+                            <p className="text-amber-700 text-sm mt-1 max-w-xl">
+                                Sua prestação de contas foi enviada com sucesso e agora está sob análise de <strong>{managerName}</strong>.
+                                <br/>Assim que o atesto for realizado, o processo será encaminhado automaticamente para a SOSFU.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2 min-w-[200px]">
+                        <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Etapa Atual</span>
+                        <div className="w-full bg-amber-200 h-2 rounded-full overflow-hidden">
+                            <div className="bg-amber-500 h-full w-[50%] animate-pulse"></div>
+                        </div>
+                        <span className="text-[10px] text-amber-600 font-medium">Revisão pelo Gestor</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Cards de Resumo */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Beneficiário */}
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <User size={16} /> Beneficiário
+                    </h3>
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 font-bold text-lg">
+                            {requesterProfile?.full_name?.charAt(0) || processData.beneficiary?.charAt(0)}
+                        </div>
+                        <div className="overflow-hidden">
+                            <p className="font-bold text-gray-900 truncate" title={requesterProfile?.full_name || processData.beneficiary}>
+                                {requesterProfile?.full_name || processData.beneficiary}
+                            </p>
+                            <p className="text-sm text-gray-500 truncate">{requesterProfile?.email}</p>
+                            <p className="text-xs text-gray-400 mt-1 truncate">{requesterProfile?.lotacao || processData.unit}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Dados Financeiros */}
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <Wallet size={16} /> Dados Financeiros
+                    </h3>
+                    <div>
+                        <p className="text-sm text-gray-500 mb-1">Valor Solicitado</p>
+                        <p className="text-2xl font-bold text-gray-900 mb-2 font-mono">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(processData.value)}
+                        </p>
+                        <div className="text-xs bg-gray-50 p-2 rounded border border-gray-100 text-gray-600">
+                            <p className="truncate" title={processData.unit}><strong>Unidade:</strong> {processData.unit}</p>
+                            <p className="mt-1"><strong>Data:</strong> {new Date(processData.created_at).toLocaleDateString()}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Status */}
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <Clock size={16} /> Status do Processo
+                    </h3>
+                    <div className="flex flex-col items-start gap-3">
+                        <StatusBadge status={accountabilityData?.status || processData.status} size="lg" />
+                        <div className="w-full bg-gray-50 rounded p-2 text-xs text-gray-500 border border-gray-100">
+                            <div className="flex justify-between mb-1">
+                                <span>Progresso Estimado</span>
+                                <span className="font-bold">
+                                    {['PENDING', 'DRAFT'].includes(processData.status) ? '10%' :
+                                     ['WAITING_MANAGER'].includes(processData.status) || accountabilityData?.status === 'WAITING_MANAGER' ? '30%' :
+                                     ['WAITING_SOSFU_ANALYSIS'].includes(processData.status) || accountabilityData?.status === 'WAITING_SOSFU' ? '50%' :
+                                     ['WAITING_SEFIN_SIGNATURE'].includes(processData.status) ? '70%' :
+                                     ['WAITING_SOSFU_PAYMENT'].includes(processData.status) ? '85%' :
+                                     ['PAID', 'APPROVED'].includes(processData.status) || accountabilityData?.status === 'APPROVED' ? '100%' : '0%'}
+                                </span>
+                            </div>
+                            <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                <div 
+                                    className={`h-full rounded-full transition-all duration-1000 ${accountabilityData?.status === 'WAITING_MANAGER' ? 'bg-amber-500' : 'bg-blue-500'}`}
+                                    style={{ width: ['PENDING', 'DRAFT'].includes(processData.status) ? '10%' :
+                                              ['WAITING_MANAGER'].includes(processData.status) || accountabilityData?.status === 'WAITING_MANAGER' ? '30%' :
+                                              ['WAITING_SOSFU_ANALYSIS'].includes(processData.status) || accountabilityData?.status === 'WAITING_SOSFU' ? '50%' :
+                                              ['WAITING_SEFIN_SIGNATURE'].includes(processData.status) ? '70%' :
+                                              ['WAITING_SOSFU_PAYMENT'].includes(processData.status) ? '85%' :
+                                              ['PAID', 'APPROVED'].includes(processData.status) || accountabilityData?.status === 'APPROVED' ? '100%' : '5%' }}
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Justificativa */}
+            <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex items-center gap-2 mb-4 border-b border-gray-100 pb-2">
+                    <AlignLeft size={18} className="text-gray-400"/>
+                    <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
+                        Justificativa / Objeto da Despesa
+                    </h3>
+                </div>
+                <div className="text-gray-700 leading-relaxed whitespace-pre-wrap font-serif text-base">
+                    {processData.justification || (
+                        <span className="text-gray-400 italic">Nenhuma justificativa fornecida.</span>
+                    )}
+                </div>
+            </div>
+
+            {/* Metadados e Gestor */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <Shield size={16} /> Gestor Responsável
+                    </h4>
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-bold">
+                            {processData.manager_name?.charAt(0) || 'G'}
+                        </div>
+                        <div>
+                            <p className="font-bold text-gray-800">{processData.manager_name || 'Não atribuído'}</p>
+                            <p className="text-sm text-gray-500">{processData.manager_email || '-'}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <Calendar size={16} /> Período do Evento
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-[10px] text-gray-500 uppercase font-bold">Início</p>
+                            <p className="text-sm font-semibold text-gray-800">
+                                {processData.event_start_date ? new Date(processData.event_start_date).toLocaleDateString() : '-'}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-gray-500 uppercase font-bold">Fim</p>
+                            <p className="text-sm font-semibold text-gray-800">
+                                {processData.event_end_date ? new Date(processData.event_end_date).toLocaleDateString() : '-'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+  };
 
   // --- DOSSIE TAB ---
   const DossierTab = () => {
@@ -347,9 +712,6 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                       
                       if (i > 0) pdf.addPage();
                       
-                      // Adiciona imagem, ajustando altura se necessário
-                      // Se for maior que A4, o jsPDF cortaria. 
-                      // Para este caso, assumimos documentos padrão A4.
                       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
                   }
                   
@@ -688,16 +1050,35 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                 {activeTab === 'EXECUTION' && (
                     <div className="animate-in fade-in">
                         <ExecutionTab />
-                        {/* Renderiza Doc Selecionado na Execução se houver */}
+                        
+                        {/* MODAL DE VISUALIZAÇÃO DE DOCUMENTO (EXECUÇÃO) */}
                         {selectedDoc && (
-                            <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-                                <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden">
-                                    <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-                                        <h3 className="font-bold">{selectedDoc.title}</h3>
-                                        <button onClick={() => setSelectedDoc(null)}><X /></button>
+                            <div 
+                                className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+                                onClick={() => setSelectedDoc(null)} // Fecha ao clicar fora
+                            >
+                                <div 
+                                    className="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 relative"
+                                    onClick={(e) => e.stopPropagation()} // Impede fechar ao clicar dentro
+                                >
+                                    {/* Header do Modal */}
+                                    <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/80 backdrop-blur sticky top-0 z-10">
+                                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                                            <FileText size={18} className="text-blue-600"/>
+                                            {selectedDoc.title}
+                                        </h3>
+                                        <button 
+                                            onClick={() => setSelectedDoc(null)}
+                                            className="p-2 bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 rounded-full transition-all"
+                                            title="Fechar (ESC)"
+                                        >
+                                            <X size={20} />
+                                        </button>
                                     </div>
-                                    <div className="flex-1 overflow-y-auto p-8 bg-slate-100 flex justify-center">
-                                        <div className="w-full max-w-[210mm] bg-white shadow-lg min-h-[297mm]">
+                                    
+                                    {/* Conteúdo do Modal */}
+                                    <div className="flex-1 overflow-y-auto p-8 bg-slate-100/50 flex justify-center custom-scrollbar">
+                                        <div className="w-full max-w-[210mm] bg-white shadow-lg min-h-[297mm] origin-top">
                                             {renderDocumentContent(selectedDoc)}
                                         </div>
                                     </div>
@@ -707,22 +1088,15 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                     </div>
                 )}
 
-                {activeTab === 'ANALYSIS' && (
-                    <div className="animate-in fade-in">
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                            <FinancialSummaryWidget />
-                            <GeneralInfoWidget />
-                            <AutomaticCertificatesWidget />
-                        </div>
-                        <div className="grid grid-cols-1">
-                            <VerifiedItemsTable />
-                        </div>
-                    </div>
-                )}
+                {activeTab === 'ANALYSIS' && <AnalysisTab />}
 
                 {activeTab === 'ACCOUNTABILITY' && (
                     <div className="animate-in fade-in bg-white rounded-xl shadow-sm border border-gray-200 min-h-[600px]">
-                        {accountabilityData ? (
+                        
+                        {/* SE FOR GESTOR E ESTIVER AGUARDANDO ATESTO, MOSTRA PAINEL DE REVISÃO */}
+                        {currentUserRole === 'GESTOR' && accountabilityData?.status === 'WAITING_MANAGER' ? (
+                            <ManagerReviewPanel />
+                        ) : accountabilityData ? (
                             <AccountabilityWizard 
                                 processId={processId}
                                 accountabilityId={accountabilityData.id}

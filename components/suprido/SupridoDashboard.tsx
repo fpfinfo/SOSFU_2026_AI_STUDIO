@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Siren, Gavel, FileText, Clock, Search, ChevronRight, Loader2, Wallet, AlertTriangle, ArrowRight, Play, CheckCircle2, RotateCcw, Plus } from 'lucide-react';
+import { Siren, Gavel, FileText, Clock, Search, ChevronRight, Loader2, Wallet, AlertTriangle, ArrowRight, Play, CheckCircle2, RotateCcw, Plus, UserCheck, Shield } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { StatusBadge } from '../StatusBadge';
 
@@ -228,15 +228,19 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                                         ) : (
                                             // Lógica de Botão de Ação para PC
                                             <div className="flex items-center gap-3">
-                                                {/* Status da PC */}
+                                                {/* Status da PC - Visual Melhorado */}
                                                 {pc ? (
                                                     pc.status === 'APPROVED' ? (
                                                         <span className="flex items-center gap-1 text-green-600 text-xs font-bold bg-green-50 px-2 py-1 rounded">
                                                             <CheckCircle2 size={14}/> Contas Aprovadas
                                                         </span>
-                                                    ) : pc.status === 'WAITING_SOSFU' || pc.status === 'WAITING_MANAGER' ? (
+                                                    ) : pc.status === 'WAITING_MANAGER' ? (
+                                                        <span className="flex items-center gap-1 text-amber-700 text-xs font-bold bg-amber-50 px-2 py-1 rounded border border-amber-100">
+                                                            <UserCheck size={14}/> Aguardando Gestor
+                                                        </span>
+                                                    ) : pc.status === 'WAITING_SOSFU' ? (
                                                         <span className="flex items-center gap-1 text-blue-600 text-xs font-bold bg-blue-50 px-2 py-1 rounded">
-                                                            <Clock size={14}/> Em Análise
+                                                            <Shield size={14}/> Análise SOSFU
                                                         </span>
                                                     ) : (
                                                         <span className="flex items-center gap-1 text-orange-600 text-xs font-bold bg-orange-50 px-2 py-1 rounded">
@@ -262,7 +266,7 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                                                     </button>
                                                 )}
                                                 
-                                                {(pc && (pc.status === 'WAITING_SOSFU' || pc.status === 'APPROVED')) && (
+                                                {(pc && (pc.status === 'WAITING_SOSFU' || pc.status === 'APPROVED' || pc.status === 'WAITING_MANAGER')) && (
                                                     <button 
                                                         onClick={() => onNavigate('process_detail', proc.id)}
                                                         className="px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-50 transition-colors"
