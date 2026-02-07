@@ -3,6 +3,7 @@ import { ArrowLeft, FileText, Loader2, Wallet, ShieldCheck, BadgeCheck, Receipt,
 import { supabase } from '../../lib/supabase';
 import { StatusBadge } from '../StatusBadge';
 import { AccountabilityWizard } from '../accountability/AccountabilityWizard';
+import { SosfuAuditPanel } from '../accountability/SosfuAuditPanel';
 import { ProcessTimeline } from './ProcessTimeline'; // Importação da Nova Timeline
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -35,7 +36,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [creatingPC, setCreatingPC] = useState(false);
-  const [currentUserRole, setCurrentUserRole] = useState<string>('SUPRIDO');
+  const [currentUserRole, setCurrentUserRole] = useState<string>('USER');
   
   // Document Viewer State
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
@@ -66,8 +67,9 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
           const { data: profile } = await supabase.from('profiles').select('dperfil:perfil_id(slug)').eq('id', user.id).single();
-          if (profile?.dperfil?.slug) {
-              setCurrentUserRole(profile.dperfil.slug);
+          const dperfil = profile?.dperfil as unknown as { slug: string } | null;
+          if (dperfil?.slug) {
+              setCurrentUserRole(dperfil.slug);
           }
       }
   };
@@ -143,7 +145,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
           setAccountabilityData(data);
       } catch (err) {
           console.error("Erro ao criar PC:", err);
-          alert("Erro ao iniciar prestação de contas.");
+          console.error("Erro ao iniciar prestação de contas.");
       } finally {
           setCreatingPC(false);
       }
@@ -212,382 +214,14 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
            setSelectedDoc(doc); // Open for viewing
       } catch(err) {
           console.error(err);
-          alert('Erro ao gerar documento');
+          console.error('Erro ao gerar documento');
       } finally {
           setLoading(false);
       }
   };
 
-  // --- PAINEL DE AUDITORIA TÉCNICA (SOSFU) ---
-  const SosfuAuditPanel = () => {
-    const [auditItems, setAuditItems] = useState(pcItems.map(i => ({...i, auditStatus: 'APPROVED', glosaReason: ''})));
-    const [isScanning, setIsScanning] = useState(true);
-    const [aiScore, setAiScore] = useState(0);
-    const [searchTerm, setSearchTerm] = useState('');
-    
-    // Modal SIAFE
-    const [siafeModalOpen, setSiafeModalOpen] = useState(false);
-    const [nlNumber, setNlNumber] = useState('');
-    const [baixaDate, setBaixaDate] = useState(new Date().toISOString().split('T')[0]);
-    const [finalizing, setFinalizing] = useState(false);
+  // --- PAINEL DE AUDITORIA TÉCNICA (SOSFU) --- (Extraído para SosfuAuditPanel.tsx)
 
-    // Cálculos
-    const valorLiberado = processData.value || 0;
-    const valorComprovadoOriginal = auditItems.reduce((acc, i) => acc + Number(i.value), 0);
-    const totalGlosado = auditItems.filter(i => i.auditStatus === 'REJECTED').reduce((acc, i) => acc + Number(i.value), 0);
-    const valorHomologado = valorComprovadoOriginal - totalGlosado;
-    const valorDevolver = Math.max(0, valorLiberado - valorHomologado);
-
-    // Efeito de "Deep Scan" da IA ao montar
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setIsScanning(false);
-            setAiScore(98); // Mocked high confidence
-        }, 1500);
-        return () => clearTimeout(timer);
-    }, []);
-
-    const toggleItemStatus = (itemId: string, newStatus: 'APPROVED' | 'REJECTED') => {
-        setAuditItems(prev => prev.map(i => {
-            if (i.id !== itemId) return i;
-            return { 
-                ...i, 
-                auditStatus: newStatus,
-                glosaReason: newStatus === 'APPROVED' ? '' : i.glosaReason || 'Despesa rejeitada por desconformidade com a Portaria.'
-            };
-        }));
-    };
-
-    const handleSiafeBaixa = async () => {
-        setFinalizing(true);
-        try {
-            const { error } = await supabase
-                .from('accountabilities')
-                .update({ 
-                    status: 'APPROVED', 
-                    balance: valorDevolver,
-                    total_spent: valorHomologado,
-                })
-                .eq('id', accountabilityData.id);
-
-            if (error) throw error;
-
-            const { error: solError } = await supabase
-                .from('solicitations')
-                .update({ status: 'ARCHIVED' }) 
-                .eq('id', processId);
-
-            if (solError) throw solError;
-            
-            setSiafeModalOpen(false);
-            await fetchProcessData(); 
-            alert("Baixa SIAFE registrada com sucesso! Processo arquivado.");
-
-        } catch (err: any) {
-            console.error(err);
-            alert('Erro na baixa: ' + err.message);
-        } finally {
-            setFinalizing(false);
-        }
-    };
-
-    if (isScanning) {
-        return (
-            <div className="bg-slate-900 rounded-xl min-h-[600px] flex flex-col items-center justify-center text-white relative overflow-hidden">
-                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
-                <div className="absolute inset-0 bg-gradient-to-b from-blue-900/20 to-slate-900 pointer-events-none"></div>
-                <div className="relative z-10 flex flex-col items-center">
-                    <div className="w-24 h-24 rounded-full border-4 border-blue-500/30 flex items-center justify-center mb-8 relative">
-                        <div className="absolute inset-0 rounded-full border-t-4 border-blue-500 animate-spin"></div>
-                        <BrainCircuit className="w-10 h-10 text-blue-400" />
-                    </div>
-                    <h3 className="text-3xl font-bold tracking-tight mb-2">SOSFU AI Audit</h3>
-                    <p className="text-blue-300 font-mono text-sm animate-pulse flex items-center gap-2">
-                        <Search size={14} /> Analisando metadados dos comprovantes...
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
-    const filteredItems = auditItems.filter(i => 
-        i.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        i.supplier.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    return (
-        <div className="flex flex-col gap-6 animate-in fade-in duration-500">
-            {/* Header de Auditoria e Tabela - Mantido igual ao anterior */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <div className="flex flex-col lg:flex-row justify-between items-center gap-6">
-                    <div className="flex items-center gap-6">
-                        <div className="relative">
-                            <svg className="w-20 h-20 transform -rotate-90">
-                                <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-gray-100" />
-                                <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-emerald-500" strokeDasharray={226} strokeDashoffset={226 - (226 * aiScore) / 100} />
-                            </svg>
-                            <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl font-bold text-slate-800">{aiScore}</span>
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                                Auditoria Inteligente
-                                <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] uppercase font-bold tracking-wide">Alta Conformidade</span>
-                            </h3>
-                            <p className="text-sm text-slate-500 max-w-lg mt-1">
-                                O sistema cruzou os dados dos {pcItems.length} comprovantes com a base da Receita Federal e as regras da Portaria. Nenhuma anomalia grave detectada.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                        <button className="px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2">
-                            <FileText size={16} /> Relatório Preliminar
-                        </button>
-                        <button 
-                            onClick={() => setSiafeModalOpen(true)}
-                            className="px-6 py-2.5 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-black transition-all shadow-lg shadow-slate-400 flex items-center gap-2"
-                        >
-                            <Database size={16} /> Baixa SIAFE
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 min-h-[600px]">
-                <div className="xl:col-span-8 flex flex-col gap-6">
-                    <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                        <div className="relative max-w-sm w-full">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                            <input 
-                                type="text" 
-                                placeholder="Filtrar lançamentos..." 
-                                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-blue-500 outline-none transition-all"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                        <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase">
-                            <span className="w-3 h-3 rounded-full bg-green-500"></span> Aprovados
-                            <span className="w-3 h-3 rounded-full bg-red-500 ml-2"></span> Glosados
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex-1 overflow-hidden flex flex-col">
-                        <div className="overflow-y-auto max-h-[600px] custom-scrollbar">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 text-slate-500 font-bold text-[10px] uppercase sticky top-0 z-10 shadow-sm">
-                                    <tr>
-                                        <th className="px-6 py-3 w-12">Doc</th>
-                                        <th className="px-6 py-3">Descrição / Fornecedor</th>
-                                        <th className="px-6 py-3 text-right">Valor</th>
-                                        <th className="px-6 py-3 text-center">IA Risk</th>
-                                        <th className="px-6 py-3 text-right">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {filteredItems.map((item) => (
-                                        <tr key={item.id} className={`group transition-colors ${item.auditStatus === 'REJECTED' ? 'bg-red-50/50' : 'hover:bg-slate-50'}`}>
-                                            <td className="px-6 py-4">
-                                                <button 
-                                                    onClick={() => handleViewReceipt(item)} 
-                                                    className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
-                                                    title="Ver Comprovante"
-                                                >
-                                                    <Eye size={18} />
-                                                </button>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div>
-                                                    <p className={`font-bold text-slate-800 ${item.auditStatus === 'REJECTED' ? 'line-through opacity-50' : ''}`}>{item.description}</p>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <span className="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{item.supplier}</span>
-                                                        <span className="text-[10px] text-slate-400 font-mono">{new Date(item.item_date).toLocaleDateString()}</span>
-                                                    </div>
-                                                </div>
-                                                {item.auditStatus === 'REJECTED' && (
-                                                    <div className="mt-2 text-xs text-red-600 bg-red-100 p-2 rounded border border-red-200 flex items-center gap-2 w-fit">
-                                                        <Ban size={12} /> 
-                                                        <span>{item.glosaReason}</span>
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-mono font-bold text-slate-700 text-base">
-                                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(item.value))}
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <div className="flex flex-col items-center gap-1">
-                                                    <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-green-500 w-[95%]"></div>
-                                                    </div>
-                                                    <span className="text-[10px] font-bold text-green-600">98% Seguro</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex justify-end gap-1">
-                                                    <button 
-                                                        onClick={() => toggleItemStatus(item.id, 'APPROVED')}
-                                                        className={`p-2 rounded-lg transition-colors ${item.auditStatus === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600'}`}
-                                                        title="Aprovar Item"
-                                                    >
-                                                        <Check size={18} />
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => toggleItemStatus(item.id, 'REJECTED')}
-                                                        className={`p-2 rounded-lg transition-colors ${item.auditStatus === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-400 hover:bg-red-50 hover:text-red-600'}`}
-                                                        title="Glosar (Rejeitar) Item"
-                                                    >
-                                                        <X size={18} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                {/* COLUNA DIREITA: CHECKLIST E FINANCEIRO */}
-                <div className="xl:col-span-4 flex flex-col gap-6">
-                    <div className="bg-indigo-900 rounded-xl shadow-lg border border-indigo-800 overflow-hidden text-white">
-                        <div className="px-6 py-4 border-b border-indigo-800/50 flex justify-between items-center bg-indigo-950/30">
-                            <h4 className="font-bold text-xs uppercase flex items-center gap-2">
-                                <BrainCircuit size={16} className="text-indigo-400"/> IA Compliance Check
-                            </h4>
-                            <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded font-bold border border-green-500/30">Pass</span>
-                        </div>
-                        <div className="p-4 space-y-4">
-                            {[
-                                { label: 'Notas dentro do prazo (60 dias)', status: true },
-                                { label: 'CNPJs ativos na Receita', status: true },
-                                { label: 'Soma confere com extrato', status: true },
-                                { label: 'Sem itens de luxo/supérfluos', status: true },
-                                { label: 'Elementos de despesa corretos', status: true }
-                            ].map((check, idx) => (
-                                <div key={idx} className="flex items-center justify-between group">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 border border-green-500/30">
-                                            <Check size={12} />
-                                        </div>
-                                        <span className="text-xs font-medium text-indigo-100">{check.label}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Balanço Final</h4>
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-end pb-2 border-b border-slate-100">
-                                <span className="text-sm text-slate-500">Concedido</span>
-                                <span className="font-mono text-base font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorLiberado)}</span>
-                            </div>
-                            <div className="flex justify-between items-end pb-2 border-b border-slate-100">
-                                <span className="text-sm text-slate-500">Comprovado</span>
-                                <span className="font-mono text-base font-bold text-blue-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorComprovadoOriginal)}</span>
-                            </div>
-                            {totalGlosado > 0 && (
-                                <div className="flex justify-between items-end pb-2 border-b border-red-100 bg-red-50/50 px-2 rounded">
-                                    <span className="text-sm text-red-600 font-bold">Glosado (Rejeitado)</span>
-                                    <span className="font-mono text-base font-bold text-red-600">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalGlosado)}</span>
-                                </div>
-                            )}
-                            <div className="pt-4 mt-2">
-                                <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Saldo a Devolver (GRU)</span>
-                                <div className="flex items-center justify-between">
-                                    <span className={`font-mono text-2xl font-black ${valorDevolver > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
-                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorDevolver)}
-                                    </span>
-                                    {valorDevolver > 0 && (
-                                        <button className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100">
-                                            Gerar GRU
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Modal de Baixa SIAFE - Mantido */}
-            {siafeModalOpen && (
-                <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
-                        <div className="bg-slate-900 p-6 flex items-start gap-4">
-                            <div className="p-3 bg-white/10 rounded-lg text-white border border-white/10">
-                                <Database size={24} />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-white">Baixa de Responsabilidade</h3>
-                                <p className="text-slate-400 text-sm">Registro SIAFE e Arquivamento</p>
-                            </div>
-                        </div>
-                        <div className="p-6 space-y-6">
-                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-sm space-y-2">
-                                <div className="flex justify-between">
-                                    <span className="text-slate-500">NUP</span>
-                                    <span className="font-bold text-slate-800">{processData.process_number}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-slate-500">Suprido</span>
-                                    <span className="font-bold text-slate-800">{requesterProfile?.full_name?.split(' ')[0]}</span>
-                                </div>
-                                <div className="flex justify-between border-t border-slate-200 pt-2 mt-2">
-                                    <span className="text-slate-500 font-bold">Valor Homologado</span>
-                                    <span className="font-mono font-bold text-emerald-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorHomologado)}</span>
-                                </div>
-                            </div>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nota de Lançamento (NL)</label>
-                                    <input 
-                                        type="text" 
-                                        placeholder="Ex: 2026NL00001234" 
-                                        className="w-full p-3 border border-slate-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 outline-none uppercase"
-                                        value={nlNumber}
-                                        onChange={(e) => setNlNumber(e.target.value)}
-                                        autoFocus
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Data da Baixa</label>
-                                    <input 
-                                        type="date" 
-                                        className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                        value={baixaDate}
-                                        onChange={(e) => setBaixaDate(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                            <div className="bg-blue-50 p-3 rounded text-xs text-blue-800 flex gap-2 items-start border border-blue-100">
-                                <CheckCircle2 size={14} className="mt-0.5 flex-shrink-0" />
-                                <p>A Portaria de Regularidade de Contas será gerada e o processo será <strong>ARQUIVADO</strong>.</p>
-                            </div>
-                            {totalGlosado > 0 && (
-                                <div className="bg-amber-50 p-3 rounded text-xs text-amber-800 flex gap-2 items-start border border-amber-100">
-                                    <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
-                                    <p>Atenção: Há valores glosados. Certifique-se que o recolhimento (GRU) foi confirmado antes da baixa.</p>
-                                </div>
-                            )}
-                        </div>
-                        <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
-                            <button onClick={() => setSiafeModalOpen(false)} className="px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-white hover:border-slate-300 border border-transparent rounded-lg transition-colors">
-                                Cancelar
-                            </button>
-                            <button onClick={handleSiafeBaixa} disabled={!nlNumber || finalizing} className="px-6 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                                {finalizing ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />}
-                                Confirmar Baixa
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-  };
 
   const OverviewTab = () => {
     if (!processData) return <div className="p-8 text-center text-gray-500">Carregando dados...</div>;
@@ -854,7 +488,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
               await fetchProcessData();
           } catch(err) {
               console.error(err);
-              alert('Erro ao atualizar status');
+              console.error('Erro ao atualizar status');
           } finally {
               setLoading(false);
           }
@@ -875,7 +509,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                       <div className="flex justify-end mt-4">
                           <button 
                             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm"
-                            onClick={() => alert('Parecer salvo (mock)')}
+                            onClick={() => console.log('Parecer salvo')}
                           >
                               Salvar Parecer
                           </button>
@@ -933,7 +567,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
               await fetchProcessData();
           } catch(err) {
               console.error(err);
-              alert('Erro ao aprovar.');
+              console.error('Erro ao aprovar.');
           } finally {
               setLoading(false);
           }
@@ -950,7 +584,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
               await fetchProcessData();
           } catch(err) {
               console.error(err);
-              alert('Erro ao devolver.');
+              console.error('Erro ao devolver.');
           } finally {
               setLoading(false);
           }
@@ -1036,6 +670,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
             <div className="mb-8">
                 <ProcessTimeline 
                     status={processData.status} 
+                    solicitationId={processData.id}
                     accountabilityStatus={accountabilityData?.status}
                     isRejected={processData.status === 'REJECTED' || accountabilityData?.status === 'REJECTED'}
                 />
@@ -1088,7 +723,13 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                         
                         {/* CONDICIONAL APRIMORADA: SOSFU/ADMIN VÊ O PAINEL DE AUDITORIA SEMPRE */}
                         {(currentUserRole === 'SOSFU' || currentUserRole === 'ADMIN') ? (
-                            <SosfuAuditPanel />
+                            <SosfuAuditPanel 
+                                processData={processData}
+                                accountabilityData={accountabilityData}
+                                pcItems={pcItems}
+                                onRefresh={fetchProcessData}
+                                processId={processId}
+                            />
                         ) : currentUserRole === 'GESTOR' && accountabilityData?.status === 'WAITING_MANAGER' ? (
                             <ManagerReviewPanel />
                         ) : accountabilityData ? (

@@ -316,7 +316,7 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
             if (response.text) setJustification(response.text.trim());
         } catch (error) {
             console.error(error);
-            alert('Erro ao gerar justificativa com IA.');
+            console.error('Erro ao gerar justificativa com IA.');
         } finally {
             setIsGeneratingAI(false);
         }
@@ -401,7 +401,7 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
             onNavigate('process_detail', solData.id);
 
         } catch (error: any) {
-            alert('Erro ao enviar: ' + error.message);
+            console.error('Erro ao enviar: ' + error.message);
         } finally {
             setIsSubmitting(false);
         }

@@ -5,11 +5,14 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { GoogleGenAI } from "@google/genai";
+import { SmartReceiptCapture } from './SmartReceiptCapture';
+import { OfflineStatusBanner } from './OfflineStatusBanner';
+import { useOfflineDrafts } from '../../hooks/useOfflineDrafts';
 
 interface AccountabilityWizardProps {
     processId: string;
     accountabilityId: string;
-    role: 'SUPRIDO' | 'GESTOR' | 'SOSFU';
+    role: 'USER' | 'GESTOR' | 'SOSFU';
     onClose?: () => void;
     onSuccess: () => void;
     isEmbedded?: boolean;
@@ -67,6 +70,9 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
     const [submitting, setSubmitting] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Offline drafts
+    const { isOnline, syncStatus, pendingCount, saveLocalDraft, loadLocalDraft, markSynced } = useOfflineDrafts(accountabilityId);
     
     const [pcData, setPcData] = useState<any>(null);
     const [items, setItems] = useState<ExpenseItem[]>([]);
@@ -142,10 +148,8 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
         });
     };
 
-    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
+    // Smart Capture handler (replaces old handleFileUpload)
+    const handleSmartCapture = async (file: File) => {
         setIsAnalyzing(true);
         try {
             const base64Data = await convertFileToBase64(file);
@@ -195,9 +199,23 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
             showToast('error', "Não foi possível ler o documento. Preencha manualmente.");
         } finally {
             setIsAnalyzing(false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
+
+    // Legacy file input handler (for backwards compat)
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        await handleSmartCapture(file);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    // Auto-save drafts offline
+    useEffect(() => {
+        if (items.length > 0 && accountabilityId) {
+            saveLocalDraft(items);
+        }
+    }, [items, accountabilityId, saveLocalDraft]);
 
     const handleAddItem = async () => {
         if (!newItem.value || !newItem.item_date || !newItem.supplier) {
@@ -303,7 +321,7 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
 
     if (loading) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
 
-    const canEdit = (role === 'SUPRIDO' || role === 'GESTOR') && (pcData.status === 'DRAFT' || pcData.status === 'CORRECTION');
+    const canEdit = (role === 'USER' || role === 'GESTOR') && (pcData.status === 'DRAFT' || pcData.status === 'CORRECTION');
 
     return (
         <div className={`flex flex-col h-full bg-[#F8FAFC] ${isEmbedded ? 'rounded-xl' : ''} relative`}>
@@ -336,32 +354,18 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                 
                 {/* ESQUERDA: Área de Trabalho */}
                 <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
+
+                    {/* Offline Status Banner */}
+                    <OfflineStatusBanner isOnline={isOnline} syncStatus={syncStatus} pendingCount={pendingCount} />
                     
                     {canEdit && (
                         <div className="space-y-6">
-                            {/* Upload Card IA */}
-                            <div 
-                                onClick={() => !isAnalyzing && fileInputRef.current?.click()}
-                                className={`
-                                    relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 group overflow-hidden bg-white
-                                    ${isAnalyzing ? 'border-blue-400 bg-blue-50/50' : 'border-slate-300 hover:border-blue-500 hover:shadow-md'}
-                                `}
-                            >
-                                <input type="file" ref={fileInputRef} className="hidden" accept="image/*,.pdf" onChange={handleFileUpload} />
-                                
-                                {isAnalyzing ? (
-                                    <div className="flex flex-col items-center animate-pulse">
-                                        <CloudLightning className="text-blue-600 mb-2" size={28} />
-                                        <h3 className="text-sm font-bold text-blue-900">Processando com IA...</h3>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center">
-                                        <ScanLine size={28} className="text-blue-500 mb-2"/>
-                                        <h3 className="text-lg font-bold text-slate-700">Adicionar Comprovante</h3>
-                                        <p className="text-xs text-slate-400">Clique para ler automaticamente ou preencha abaixo</p>
-                                    </div>
-                                )}
-                            </div>
+                            {/* Smart Receipt Capture (Camera + Crop + AI OCR) */}
+                            <SmartReceiptCapture
+                                isAnalyzing={isAnalyzing}
+                                onCapture={handleSmartCapture}
+                                disabled={submitting}
+                            />
 
                             {/* Editor de Lançamento */}
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden p-5">

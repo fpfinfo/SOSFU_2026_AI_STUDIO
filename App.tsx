@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { supabase } from './lib/supabase';
 import { Header } from './components/Header';
 import { StatCard } from './components/StatCard';
@@ -16,7 +16,10 @@ import { ProcessDetailView } from './components/process/ProcessDetailView';
 import { AccountabilityWizard } from './components/accountability/AccountabilityWizard';
 import { LoginPage } from './components/LoginPage';
 import { DASHBOARD_STATS } from './constants';
-import { MessageSquare, Loader2 } from 'lucide-react';
+import { Loader2, Map as MapIcon } from 'lucide-react';
+
+// Lazy-load: Leaflet (~300KB) é carregado apenas quando o usuário abre a aba Relatórios
+const LazyReportsView = React.lazy(() => import('./components/ReportsView').then(m => ({ default: m.ReportsView })));
 
 // Interface para o perfil do usuário
 interface UserProfile {
@@ -139,7 +142,7 @@ const App: React.FC = () => {
         
         const role = data.dperfil?.slug;
         if (activeTab === 'dashboard') {
-            if (role === 'SUPRIDO' || role === 'SERVIDOR') {
+            if (role === 'USER' || role === 'SERVIDOR') {
                 setActiveTab('suprido_dashboard');
             } else if (role === 'GESTOR') {
                 setActiveTab('gestor_dashboard');
@@ -227,7 +230,7 @@ const App: React.FC = () => {
                     const role = userProfile?.dperfil?.slug;
                     if (role === 'SEFIN') return setActiveTab('sefin_dashboard');
                     if (role === 'GESTOR') return setActiveTab('gestor_dashboard');
-                    if (role === 'SUPRIDO') return setActiveTab('suprido_dashboard');
+                    if (role === 'USER') return setActiveTab('suprido_dashboard');
                     if (role === 'SOSFU' || role === 'ADMIN') return setActiveTab('accountability'); // Volta para accountability se estava lá
                     return setActiveTab('dashboard');
                 }} 
@@ -245,13 +248,15 @@ const App: React.FC = () => {
         return <ProfileView />;
       case 'reports':
         return (
-            <div className="flex flex-col items-center justify-center h-96 text-gray-400">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                     <MessageSquare size={32} />
-                </div>
-                <h3 className="text-lg font-semibold">Módulo de Relatórios</h3>
-                <p className="text-sm">Em desenvolvimento.</p>
+          <Suspense fallback={
+            <div className="flex flex-col items-center justify-center h-[500px] bg-slate-50 rounded-xl animate-pulse">
+              <MapIcon size={48} className="text-indigo-200 mb-4" />
+              <p className="text-gray-400 font-medium">Carregando mapa geográfico...</p>
+              <Loader2 size={20} className="text-indigo-300 animate-spin mt-3" />
             </div>
+          }>
+            <LazyReportsView />
+          </Suspense>
         );
       default:
         return <div>Tab not found</div>;

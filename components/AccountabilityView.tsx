@@ -72,7 +72,7 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
           await fetchAccountabilities(); 
       } catch (err) {
           console.error(err);
-          alert('Erro ao atribuir analista.');
+          console.error('Erro ao atribuir analista.');
       }
   };
 

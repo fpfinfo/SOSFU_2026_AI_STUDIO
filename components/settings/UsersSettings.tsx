@@ -95,7 +95,7 @@ export const UsersSettings: React.FC = () => {
             if (error) throw error;
             
             // Filtra localmente: Remove quem já é SOSFU ou ADMIN da lista de resultados
-            // Permite adicionar SERVIDOR, SUPRIDO, GESTOR, etc. à equipe técnica
+            // Permite adicionar SERVIDOR, USER, GESTOR, etc. à equipe técnica
             const filtered = data?.filter(u => 
                 u.dperfil?.slug !== 'SOSFU' && u.dperfil?.slug !== 'ADMIN'
             ) || [];
@@ -139,7 +139,7 @@ export const UsersSettings: React.FC = () => {
     // 5. Remover da Equipe (Rebaixa para SERVIDOR)
     const handleRemoveUser = async (user: Profile) => {
         if (!roleIds.SERVIDOR) {
-            alert('Erro crítico: ID do papel SERVIDOR não encontrado. Contate o suporte.');
+            console.error('Erro crítico: ID do papel SERVIDOR não encontrado. Contate o suporte.');
             return;
         }
 
@@ -154,7 +154,7 @@ export const UsersSettings: React.FC = () => {
 
             if (error) {
                  if (error.code === '42501') {
-                     alert('Permissão negada. Você precisa ser ADMIN ou SOSFU para remover membros.');
+                     console.error('Permissão negada. Você precisa ser ADMIN ou SOSFU para remover membros.');
                  } else {
                      throw error;
                  }
@@ -165,7 +165,7 @@ export const UsersSettings: React.FC = () => {
             setTeamMembers(prev => prev.filter(p => p.id !== user.id));
         } catch (error: any) {
             console.error('Erro ao remover:', error);
-            alert(`Erro ao remover usuário: ${error.message}`);
+            console.error(`Erro ao remover usuário: ${error.message}`);
         } finally {
             setProcessingId(null);
         }

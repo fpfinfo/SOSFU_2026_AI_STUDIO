@@ -90,7 +90,7 @@ export const LoginPage: React.FC = () => {
           <div className="relative inline-block">
              <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-20 rounded-full"></div>
              <img 
-                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/217479058_brasao-tjpa.png" 
+                src="/assets/brasao-tjpa.png" 
                 alt="Brasão TJPA" 
                 className="h-24 w-auto mx-auto mb-4 relative drop-shadow-sm transform hover:scale-105 transition-transform duration-300"
             />

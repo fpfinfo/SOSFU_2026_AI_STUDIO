@@ -65,7 +65,8 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                 if (error) console.error("Erro ao buscar perfil:", error);
 
                 if (profile) {
-                    const role = profile.dperfil?.slug;
+                    const dperfil = profile.dperfil as unknown as { slug: string } | null;
+                    const role = dperfil?.slug;
                     
                     // Lógica para GESTOR solicitando para si mesmo
                     if (role === 'GESTOR' || role === 'ADMIN') {
@@ -92,7 +93,7 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
 
     const handleGenerateAI = async () => {
         if (!selectedElemento || !value || !startDate) {
-            alert("Por favor, preencha o Elemento de Despesa, Valor e Data de Início antes de gerar a justificativa.");
+            console.error("Por favor, preencha o Elemento de Despesa, Valor e Data de Início antes de gerar a justificativa.");
             return;
         }
 
@@ -125,7 +126,7 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
             }
         } catch (error) {
             console.error("Erro ao gerar IA:", error);
-            alert("Não foi possível gerar a justificativa automaticamente. Tente novamente.");
+            console.error("Não foi possível gerar a justificativa automaticamente. Tente novamente.");
         } finally {
             setIsGeneratingAI(false);
         }
@@ -182,7 +183,7 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
             setGeneratedId(solData.id);
             setStep(2);
         } catch (error: any) {
-            alert("Erro: " + error.message);
+            console.error("Erro: " + error.message);
         } finally {
             setIsSubmitting(false);
         }

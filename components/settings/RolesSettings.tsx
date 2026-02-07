@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Crown, Gavel, Scale, FileBadge, User, Search, Filter, Edit3, Check, X, Loader2, DollarSign, Plus, RefreshCw, AlertCircle, ChevronDown, CircleUser, WifiOff } from 'lucide-react';
-import { supabase, isMock } from '../../lib/supabase';
+import { Shield, Crown, Gavel, Scale, FileBadge, User, Search, Filter, Edit3, Check, X, Loader2, DollarSign, Plus, RefreshCw, AlertCircle, ChevronDown, UserCircle2 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 // Tipo para a nova tabela de perfil
 interface DPerfil {
@@ -29,7 +29,7 @@ const ROLE_STYLES: Record<string, { label: string; color: string; ring: string }
   'SOSFU': { label: 'SOSFU', color: 'text-blue-600', ring: 'ring-blue-100' },
   'SGP': { label: 'SGP', color: 'text-purple-600', ring: 'ring-purple-100' },
   'GESTOR': { label: 'Gestor', color: 'text-indigo-600', ring: 'ring-indigo-100' },
-  'SUPRIDO': { label: 'Suprido', color: 'text-gray-600', ring: 'ring-gray-100' },
+  'USER': { label: 'Usuário', color: 'text-gray-600', ring: 'ring-gray-100' },
   'SERVIDOR': { label: 'Servidor', color: 'text-gray-500', ring: 'ring-gray-100' },
 };
 
@@ -187,19 +187,7 @@ export const RolesSettings: React.FC = () => {
     return (
         <div className="animate-in fade-in duration-300 relative font-sans">
              
-             {/* Mock Warning Banner */}
-             {isMock && (
-                 <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-xl flex items-center gap-3 animate-pulse">
-                     <WifiOff className="text-orange-600" size={24} />
-                     <div className="flex-1">
-                         <h4 className="text-sm font-bold text-orange-800">Modo de Demonstração Ativo</h4>
-                         <p className="text-xs text-orange-700 mt-1">
-                             Você está vendo dados simulados (apenas 3 usuários). As chaves de API não foram detectadas. 
-                             Para ver os 8 usuários reais do banco, vá em <strong>Configurações &gt; Geral</strong> e insira suas credenciais.
-                         </p>
-                     </div>
-                 </div>
-             )}
+
 
              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                 <div>
@@ -232,7 +220,7 @@ export const RolesSettings: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3 mb-6">
-                {['ADMIN', 'SEFIN', 'SOSFU', 'SUPRIDO', 'SERVIDOR'].map((slug) => {
+                {['ADMIN', 'SEFIN', 'SOSFU', 'GESTOR', 'USER', 'AJSEFIN', 'SGP', 'SERVIDOR'].map((slug) => {
                     const count = getRoleCount(slug);
                     const style = ROLE_STYLES[slug] || ROLE_STYLES['SERVIDOR'];
                     return (

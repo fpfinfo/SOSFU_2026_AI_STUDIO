@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, User, Settings, LogOut, ChevronDown, LayoutDashboard, FileText, CheckSquare, PieChart, Briefcase, Gavel, Scale, Shield } from 'lucide-react';
+import { User, Settings, LogOut, ChevronDown, LayoutDashboard, FileText, CheckSquare, PieChart, Briefcase, Gavel, Scale, Shield } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { NotificationPanel } from './NotificationPanel';
 
 interface HeaderProps {
   activeTab?: string;
@@ -16,7 +17,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
   const allTabs = [
     { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard, roles: ['ADMIN', 'SOSFU', 'SEFIN', 'PRESIDENCIA', 'SGP', 'AJSEFIN'] },
     // REMOVIDO 'GESTOR' DAQUI POIS ELE TEM SEU PRÓPRIO DASHBOARD UNIFICADO
-    { id: 'suprido_dashboard', label: 'Portal do Suprido', icon: Briefcase, roles: ['SUPRIDO', 'SERVIDOR'] }, 
+    { id: 'suprido_dashboard', label: 'Portal do Usuário', icon: Briefcase, roles: ['USER', 'SERVIDOR'] }, 
     { id: 'gestor_dashboard', label: 'Gabinete do Gestor', icon: Gavel, roles: ['GESTOR', 'ADMIN'] },
     { id: 'sefin_dashboard', label: 'Gabinete SEFIN', icon: Scale, roles: ['SEFIN', 'ADMIN'] },
     { id: 'solicitations', label: 'Gestão de Solicitações', icon: FileText, roles: ['ADMIN', 'SOSFU', 'SEFIN'] },
@@ -48,7 +49,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
     <header className="bg-white border-b border-gray-200 h-16 px-4 md:px-6 flex items-center justify-between sticky top-0 z-50">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-3 cursor-pointer group" onClick={() => onTabChange && onTabChange(availableTabs[0]?.id || 'profile')}>
-            <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/217479058_brasao-tjpa.png" alt="Brasão TJPA" className="h-9 md:h-10 w-auto opacity-90 group-hover:scale-105 transition-transform"/>
+            <img src="/assets/brasao-tjpa.png" alt="Brasão TJPA" className="h-9 md:h-10 w-auto opacity-90 group-hover:scale-105 transition-transform"/>
             <div className="hidden lg:block">
                 <h1 className="text-blue-600 font-bold text-base leading-tight">SOSFU TJPA</h1>
                 <p className="text-blue-400 text-[9px] font-bold tracking-wider uppercase">• Suprimento de Fundos</p>
@@ -80,9 +81,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
       </div>
 
       <div className="flex items-center gap-4">
-        <button className="p-2 text-gray-400 hover:text-gray-600 border border-gray-200 rounded-full bg-white shadow-sm transition-colors relative hover:bg-gray-50">
-          <Bell size={20} /><span className="absolute top-1.5 right-2 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
-        </button>
+        <NotificationPanel userId={userProfile?.id} onNavigate={onNavigate} />
         
         {/* User Dropdown */}
         <div className="relative" ref={menuRef}>

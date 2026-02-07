@@ -123,7 +123,7 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
 
         } catch (error) {
             console.error(error);
-            alert("Erro ao iniciar prestação de contas. Tente novamente.");
+            console.error("Erro ao iniciar prestação de contas. Tente novamente.");
         } finally {
             setCreatingPC(null);
         }

@@ -153,7 +153,7 @@ export const SolicitationModal: React.FC<SolicitationModalProps> = ({ isOpen, on
 
     } catch (error: any) {
         console.error("Erro ao enviar solicitação:", error);
-        alert("Erro ao enviar solicitação: " + error.message);
+        console.error("Erro ao enviar solicitação: " + error.message);
     } finally {
         setIsSubmitting(false);
     }

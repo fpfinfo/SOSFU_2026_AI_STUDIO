@@ -32,7 +32,7 @@ const BaseDocumentLayout: React.FC<{ children: React.ReactNode; docId?: string }
             {/* Header */}
             <div className="flex flex-col items-center mb-12">
                 <img 
-                    src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/217479058_brasao-tjpa.png" 
+                    src="/assets/brasao-tjpa.png" 
                     alt="Brasão TJPA" 
                     className="h-20 mb-4"
                 />

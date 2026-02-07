@@ -36,7 +36,7 @@ export interface Solicitation {
   unit: string;
   value: number;
   date: string;
-  status: 'PENDING' | 'WAITING_MANAGER' | 'WAITING_SOSFU_ANALYSIS' | 'WAITING_SEFIN_SIGNATURE' | 'WAITING_SOSFU_PAYMENT' | 'WAITING_SUPRIDO_CONFIRMATION' | 'APPROVED' | 'REJECTED' | 'PAID';
+  status: 'PENDING' | 'WAITING_MANAGER' | 'WAITING_SOSFU_ANALYSIS' | 'WAITING_SEFIN_SIGNATURE' | 'WAITING_SOSFU_PAYMENT' | 'WAITING_SUPRIDO_CONFIRMATION' | 'WAITING_CORRECTION' | 'APPROVED' | 'REJECTED' | 'PAID' | 'ARCHIVED';
   manager_name?: string;
   manager_email?: string;
 }

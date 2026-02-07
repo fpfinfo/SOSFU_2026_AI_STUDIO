@@ -77,7 +77,7 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
           await fetchSolicitations(); // Full refresh to get analyst name
       } catch (err) {
           console.error(err);
-          alert('Erro ao atribuir analista.');
+          console.error('Erro ao atribuir analista.');
       }
   };
 
