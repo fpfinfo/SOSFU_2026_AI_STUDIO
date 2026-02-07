@@ -5,6 +5,7 @@ import { StatCard } from './components/StatCard';
 import { TeamTable } from './components/TeamTable';
 import { SolicitationsView } from './components/SolicitationsView';
 import { AccountabilityView } from './components/AccountabilityView';
+import { ArchiveView } from './components/ArchiveView';
 import { SettingsView } from './components/SettingsView';
 import { ProfileView } from './components/ProfileView';
 import { SupridoDashboard } from './components/suprido/SupridoDashboard';
@@ -36,7 +37,7 @@ interface UserProfile {
 }
 
 // Tipo para as abas do Process Detail
-type ProcessTabType = 'OVERVIEW' | 'DOSSIER' | 'EXECUTION' | 'ANALYSIS' | 'ACCOUNTABILITY';
+type ProcessTabType = 'OVERVIEW' | 'DOSSIER' | 'EXECUTION' | 'ANALYSIS' | 'ACCOUNTABILITY' | 'ARCHIVE';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
@@ -168,6 +169,14 @@ const App: React.FC = () => {
           return;
       }
 
+      // 2. Rota de Detalhe via Arquivo (Abre ProcessDetail na aba ARCHIVE)
+      if (page === 'process_archive' && processId) {
+          setSelectedProcessId(processId);
+          setProcessInitialTab('ARCHIVE');
+          setActiveTab('process_detail');
+          return;
+      }
+
       // 2. Rota de Detalhe Padrão (Abre ProcessDetail na aba OVERVIEW)
       if (page === 'process_detail' && processId) {
           setSelectedProcessId(processId);
@@ -227,11 +236,13 @@ const App: React.FC = () => {
                 processId={selectedProcessId}
                 initialTab={processInitialTab}
                 onBack={() => {
+                    // Se veio do Arquivo, volta pro Arquivo
+                    if (processInitialTab === 'ARCHIVE') return setActiveTab('archive');
                     const role = userProfile?.dperfil?.slug;
                     if (role === 'SEFIN') return setActiveTab('sefin_dashboard');
                     if (role === 'GESTOR') return setActiveTab('gestor_dashboard');
                     if (role === 'USER') return setActiveTab('suprido_dashboard');
-                    if (role === 'SOSFU' || role === 'ADMIN') return setActiveTab('accountability'); // Volta para accountability se estava lá
+                    if (role === 'SOSFU' || role === 'ADMIN') return setActiveTab('accountability');
                     return setActiveTab('dashboard');
                 }} 
             />
@@ -242,6 +253,8 @@ const App: React.FC = () => {
         return <SolicitationsView onNavigate={handleNavigation} />;
       case 'accountability':
         return <AccountabilityView onNavigate={handleNavigation} />;
+      case 'archive':
+        return <ArchiveView onNavigate={handleNavigation} />;
       case 'settings':
         return <SettingsView />;
       case 'profile':

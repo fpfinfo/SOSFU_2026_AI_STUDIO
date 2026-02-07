@@ -99,7 +99,13 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
 
         setIsGeneratingAI(true);
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const apiKey = process.env.API_KEY;
+            if (!apiKey) {
+                setDescription('⚠️ Chave da API Gemini não configurada. Adicione GEMINI_API_KEY ao arquivo .env e reinicie o servidor.');
+                return;
+            }
+
+            const ai = new GoogleGenAI({ apiKey });
             
             const elementoDesc = elementos.find(e => e.codigo === selectedElemento)?.descricao || selectedElemento;
             
@@ -113,20 +119,22 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                 - Período: ${startDate} a ${endDate || 'a definir'}
                 
                 A justificativa deve explicar a necessidade urgente da aquisição/serviço para o bom andamento das atividades jurisdicionais.
-                Não use saudações. Texto corrido e direto.
+                Não use saudações. Texto corrido e direto. Sem formatação markdown.
             `;
 
             const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.0-flash',
                 contents: prompt,
             });
 
             if (response.text) {
                 setDescription(response.text.trim());
+            } else {
+                setDescription('⚠️ A IA não retornou texto. Tente novamente ou escreva manualmente.');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Erro ao gerar IA:", error);
-            console.error("Não foi possível gerar a justificativa automaticamente. Tente novamente.");
+            setDescription(`⚠️ Erro ao gerar justificativa: ${error?.message || 'Erro desconhecido'}. Escreva manualmente.`);
         } finally {
             setIsGeneratingAI(false);
         }

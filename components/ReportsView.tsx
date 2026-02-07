@@ -160,35 +160,48 @@ export const ReportsView: React.FC = () => {
         let cancelled = false;
         setLoading(true);
         
-        supabase.rpc('get_geo_dashboard_stats', { year_filter: filterYear })
-            .then(({ data, error }) => {
-                if (cancelled || error) { setLoading(false); return; }
-                
-                let globalSum = 0;
-                const mapped: GeoProcessStats[] = [];
+        // Fetch coordinates from dcomarcas + stats in parallel
+        Promise.all([
+            supabase.from('dcomarcas').select('comarca, latitude, longitude'),
+            supabase.rpc('get_geo_dashboard_stats', { year_filter: filterYear })
+        ]).then(([comarcasRes, statsRes]) => {
+            if (cancelled) return;
 
-                (data || []).forEach((row: any) => {
-                    const cityKey = (row.city || row.municipio || 'BELÉM').toUpperCase().trim();
-                    const coords = GEO_DATA[cityKey];
-                    if (!coords) return;
-                    
-                    const value = Number(row.total || row.total_value || 0);
-                    globalSum += value;
-
-                    mapped.push({
-                        municipio: cityKey,
-                        lat: coords[0],
-                        lng: coords[1],
-                        totalValue: value,
-                        processCount: Number(row.qtd || row.process_count || 0),
-                        breakdown: row.cats || row.breakdown || {},
-                    });
-                });
-
-                setGeoStats(mapped);
-                setTotalGeral(globalSum);
-                setLoading(false);
+            // Build coordinate lookup: DB coords take priority over hardcoded fallback
+            const coordsMap: Record<string, [number, number]> = { ...GEO_DATA };
+            (comarcasRes.data || []).forEach((c: any) => {
+                if (c.latitude && c.longitude) {
+                    coordsMap[c.comarca.toUpperCase().trim()] = [Number(c.latitude), Number(c.longitude)];
+                }
             });
+
+            if (statsRes.error) { setLoading(false); return; }
+            
+            let globalSum = 0;
+            const mapped: GeoProcessStats[] = [];
+
+            (statsRes.data || []).forEach((row: any) => {
+                const cityKey = (row.city || row.municipio || 'BELÉM').toUpperCase().trim();
+                const coords = coordsMap[cityKey];
+                if (!coords) return;
+                
+                const value = Number(row.total || row.total_value || 0);
+                globalSum += value;
+
+                mapped.push({
+                    municipio: cityKey,
+                    lat: coords[0],
+                    lng: coords[1],
+                    totalValue: value,
+                    processCount: Number(row.qtd || row.process_count || 0),
+                    breakdown: row.cats || row.breakdown || {},
+                });
+            });
+
+            setGeoStats(mapped);
+            setTotalGeral(globalSum);
+            setLoading(false);
+        });
 
         return () => { cancelled = true; };
     }, [filterYear]);

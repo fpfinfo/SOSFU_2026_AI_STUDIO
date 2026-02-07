@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, Users, Calendar, DollarSign, FileText, CheckCircle2, ChevronRight, ChevronLeft, Minus, Plus, AlertCircle, Save, Sparkles, Loader2, UserCheck, Scale } from 'lucide-react';
+import { ArrowLeft, Users, Calendar, DollarSign, FileText, CheckCircle2, ChevronRight, ChevronLeft, Minus, Plus, AlertCircle, Save, Loader2, UserCheck, Scale } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { GoogleGenAI } from "@google/genai";
+import { JuriExceptionInlineAlert } from '../ui/JuriExceptionInlineAlert';
 
 interface JurySolicitationProps {
     onNavigate: (page: string, processId?: string) => void;
@@ -45,7 +45,7 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(true); 
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
 
     // Configurações Dinâmicas (Valores padrão locais como Fallback)
     const [config, setConfig] = useState<AppConfig>({
@@ -272,55 +272,6 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
         });
     };
 
-    const handleGenerateAI = async () => {
-        setIsGeneratingAI(true);
-        try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            
-            let itemsSummary = '';
-            itensBaseEstrutura.forEach(item => {
-                const data = itemsData[item.id];
-                if (data && data.total > 0) {
-                    const desc = item.type === 'MANUAL_EDIT' ? `Outros (${data.description})` : item.label;
-                    const elInfo = data.element ? `[Elemento: ${data.element}]` : '[Elemento não informado]';
-                    itemsSummary += `- ${desc} ${elInfo}: ${data.qty} unid. x R$ ${data.price.toFixed(2)} = R$ ${data.total.toFixed(2)}\n`;
-                }
-            });
-
-            const prompt = `
-                Atue como um servidor do Tribunal de Justiça do Estado do Pará. 
-                Escreva uma justificativa formal para solicitação de Suprimento de Fundos na modalidade Extra-Júri.
-                
-                Contexto:
-                - Referência: Processo nº ${processNumber}
-                - Comarca: ${comarca}
-                - Período: ${daysCount} dias (${startDate} a ${endDate})
-                - Equipe: ${totalPeople} pessoas
-                - Valor Total Global: R$ ${totalGeneral.toFixed(2)}
-                
-                Detalhamento dos Itens Solicitados:
-                ${itemsSummary}
-                
-                Instruções Específicas:
-                1. A justificativa deve mencionar a necessidade de custeio de despesas com alimentação e logística para realização de sessão do Júri.
-                2. IMPRESCINDÍVEL: No corpo do texto, ao listar os valores, você DEVE associar/agrupar explicitamente cada valor ao seu respectivo "Elemento de Despesa" (ex: 3.3.90.30.01 - Material de Consumo ou 3.3.90.39.00 - Serviços de Terceiros PJ), conforme informado na lista de itens acima.
-                3. Mencione que os valores observam os princípios da economicidade e razoabilidade.
-                4. Texto formal, endereçado à Secretaria de Planejamento, Coordenação e Finanças.
-            `;
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: prompt,
-            });
-
-            if (response.text) setJustification(response.text.trim());
-        } catch (error) {
-            console.error(error);
-            console.error('Erro ao gerar justificativa com IA.');
-        } finally {
-            setIsGeneratingAI(false);
-        }
-    };
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
@@ -478,6 +429,12 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
                 </div>
                 <p className="text-3xl font-bold text-blue-700">{totalPeople} <span className="text-sm font-medium opacity-70">participantes</span></p>
             </div>
+
+            {/* Exception Alert for Police limit */}
+            <JuriExceptionInlineAlert
+                policiais={peopleCounts['policia'] || 0}
+                userRole="USER"
+            />
         </div>
     );
 
@@ -677,6 +634,15 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
                     </table>
                 </div>
             </div>
+
+            {/* Exception Alerts for values and deadlines */}
+            <JuriExceptionInlineAlert
+                almocoValue={itemsData['almoco']?.price || 0}
+                jantarValue={itemsData['jantar']?.price || 0}
+                lancheValue={itemsData['lanche']?.price || 0}
+                diasAteEvento={startDate ? Math.ceil((new Date(startDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null}
+                userRole="USER"
+            />
         </div>
     );
 
@@ -713,26 +679,16 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
             </div>
 
             {/* Justificativa */}
-            <div className="bg-purple-50 p-6 rounded-xl border border-purple-100 shadow-sm">
-                <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-sm font-bold text-purple-800 uppercase flex items-center gap-2">
-                        <Sparkles size={16} /> Justificativa do Pedido
-                    </h4>
-                    <button 
-                        onClick={handleGenerateAI}
-                        disabled={isGeneratingAI}
-                        className="px-3 py-1.5 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 flex items-center gap-2 transition-all shadow-sm"
-                    >
-                        {isGeneratingAI ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                        Gerar com IA
-                    </button>
-                </div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <h4 className="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center gap-2">
+                    <FileText size={16} /> Justificativa do Pedido
+                </h4>
                 <textarea 
                     value={justification}
                     onChange={e => setJustification(e.target.value)}
                     rows={6}
-                    className="w-full p-4 border border-purple-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-200 focus:border-purple-400 outline-none resize-none bg-white leading-relaxed text-gray-900"
-                    placeholder="Descreva a necessidade da despesa ou use a IA para gerar..."
+                    className="w-full p-4 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-300 outline-none resize-none bg-gray-50 leading-relaxed text-gray-900"
+                    placeholder="Descreva a necessidade da despesa para custeio da sessão de júri..."
                 />
             </div>
 

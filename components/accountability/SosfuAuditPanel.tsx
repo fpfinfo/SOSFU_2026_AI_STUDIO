@@ -361,7 +361,11 @@ export const SosfuAuditPanel: React.FC<SosfuAuditPanelProps> = ({
 
             const { error: solError } = await supabase
                 .from('solicitations')
-                .update({ status: 'ARCHIVED' })
+                .update({ 
+                    status: 'ARCHIVED',
+                    nl_siafe: nlNumber || null,
+                    data_baixa: baixaDate ? new Date(baixaDate).toISOString() : new Date().toISOString(),
+                })
                 .eq('id', processId);
 
             if (solError) throw solError;
@@ -401,7 +405,12 @@ DADOS:
 Responda apenas com o texto do parecer em português formal, sem markdown. Comece com "Foram analisados...".
             `;
 
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const apiKey = process.env.API_KEY;
+            if (!apiKey) {
+                throw new Error('GEMINI_API_KEY não configurada');
+            }
+
+            const ai = new GoogleGenAI({ apiKey });
             const response = await ai.models.generateContent({
                 model: 'gemini-2.0-flash',
                 contents: prompt,

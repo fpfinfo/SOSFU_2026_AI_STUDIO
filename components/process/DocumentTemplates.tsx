@@ -9,6 +9,7 @@ interface DocumentProps {
   content?: string; // Conteúdo manual para documentos genéricos
   subType?: string; // Subtipo (Memorando, Ofício, etc)
   document?: any; // O objeto do documento completo (DB) para acessar metadados
+  comarcaData?: any; // Dados bancários da comarca (conta institucional para Extra-Júri)
 }
 
 // --- HELPER DE DATA E LOCAL ---
@@ -70,6 +71,31 @@ const getProcessType = (data: any) => {
         return 'EXTRA-JÚRI';
     }
     return 'EXTRA-EMERGENCIAL';
+};
+
+// Helper: Resolve bank account based on process type
+// EXTRA-JÚRI → Conta da Comarca | EXTRA-EMERGENCIAL → Conta do Suprido
+const getBankInfo = (data: any, user: any, comarcaData?: any) => {
+    const processType = getProcessType(data);
+    const isJuri = processType === 'EXTRA-JÚRI';
+
+    if (isJuri && comarcaData?.conta_corrente) {
+        return {
+            label: 'Conta Institucional da Comarca',
+            banco: comarcaData.nome_banco || comarcaData.cod_banco || '---',
+            agencia: comarcaData.agencia || '---',
+            conta_corrente: comarcaData.conta_corrente || '---',
+            isComarca: true,
+        };
+    }
+
+    return {
+        label: 'Conta do Suprido',
+        banco: user?.nome_banco || user?.banco || '---',
+        agencia: user?.agencia || '---',
+        conta_corrente: user?.conta_corrente || '---',
+        isComarca: false,
+    };
 };
 
 // --- 1. CAPA DO PROCESSO ---
@@ -225,7 +251,7 @@ export const AttestationTemplate: React.FC<DocumentProps> = ({ data, user, gesto
 };
 
 // --- 4. PORTARIA (ATO DE CONCESSÃO) ---
-export const GrantActTemplate: React.FC<DocumentProps> = ({ data, user, document }) => {
+export const GrantActTemplate: React.FC<DocumentProps> = ({ data, user, document, comarcaData }) => {
     // Número da Portaria
     const portariaNum = document?.metadata?.doc_number || Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     const year = new Date().getFullYear();
@@ -234,6 +260,9 @@ export const GrantActTemplate: React.FC<DocumentProps> = ({ data, user, document
     // Elemento de Despesa (Enriched Data)
     const elementCode = data.elementCode || '3.3.90.30.99';
     const elementDesc = data.elementDesc || 'Despesas Variáveis';
+
+    // Resolve conta bancária (Júri→Comarca, Emergencial→Suprido)
+    const bankInfo = getBankInfo(data, user, comarcaData);
 
     // Cálculo de Prazos (Regra: Emissão da Portaria -> Fim do Evento + 15 dias)
     // 1. Data de Início = Data de Emissão da Portaria
@@ -273,8 +302,9 @@ export const GrantActTemplate: React.FC<DocumentProps> = ({ data, user, document
                     <strong>Art. 2º</strong> O valor total do presente Suprimento de Fundos é de <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.value)}</strong>, e deverá atender às despesas miúdas de pronto pagamento e ser creditado na conta corrente, abaixo:
                 </p>
 
-                <div className="pl-8 py-2 text-sm">
-                    Dados bancários para crédito: Banco <strong>{user.banco || '---'}</strong>, Agência <strong>{user.agencia || '---'}</strong>, Conta Corrente <strong>{user.conta_corrente || '---'}</strong>.
+                <div className="pl-8 py-3 text-sm border-l-4 border-slate-300 bg-slate-50 rounded-r">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">{bankInfo.label}</p>
+                    Dados bancários para crédito: Banco <strong>{bankInfo.banco}</strong>, Agência <strong>{bankInfo.agencia}</strong>, Conta Corrente <strong>{bankInfo.conta_corrente}</strong>.
                 </div>
 
                 <p>
@@ -367,12 +397,15 @@ export const RegularityCertificateTemplate: React.FC<DocumentProps> = ({ data, u
 };
 
 // --- 6. NOTA DE EMPENHO ---
-export const CommitmentNoteTemplate: React.FC<DocumentProps> = ({ data, user, document }) => {
+export const CommitmentNoteTemplate: React.FC<DocumentProps> = ({ data, user, document, comarcaData }) => {
     const neNum = document?.metadata?.doc_number || Math.floor(Math.random() * 100000).toString();
     const year = new Date().getFullYear();
     const dateLocation = getFormattedDate('Belém');
     // Classificação Orçamentária Simulada ou Enriched
     const elementCode = data.elementCode || '3.3.90.30.99';
+
+    // Resolve conta bancária (Júri→Comarca, Emergencial→Suprido)
+    const bankInfo = getBankInfo(data, user, comarcaData);
 
     return (
         <BaseDocumentLayout docId={`NE-${neNum}/${year}`}>
@@ -420,7 +453,10 @@ export const CommitmentNoteTemplate: React.FC<DocumentProps> = ({ data, user, do
                 <h3 className="font-bold bg-gray-100 p-2 text-sm uppercase mb-2">Credor / Favorecido</h3>
                 <p className="text-lg font-bold">{data.beneficiary.toUpperCase()}</p>
                 <p className="text-sm">CPF: {user.cpf || '000.000.000-00'}</p>
-                <p className="text-sm">Banco: {user.banco} | Ag: {user.agencia} | CC: {user.conta_corrente}</p>
+                <p className="text-sm">
+                    <span className="text-[10px] text-gray-400 uppercase font-bold mr-1">[{bankInfo.label}]</span>
+                    Banco: {bankInfo.banco} | Ag: {bankInfo.agencia} | CC: {bankInfo.conta_corrente}
+                </p>
             </div>
 
             <div className="mb-12 font-sans border-t pt-4">
@@ -449,6 +485,7 @@ export const CommitmentNoteTemplate: React.FC<DocumentProps> = ({ data, user, do
         </BaseDocumentLayout>
     );
 };
+
 
 // --- 7. NOTA DE LIQUIDAÇÃO ---
 export const LiquidationNoteTemplate: React.FC<DocumentProps> = ({ data, user, document }) => {
@@ -516,10 +553,13 @@ export const LiquidationNoteTemplate: React.FC<DocumentProps> = ({ data, user, d
 };
 
 // --- 8. ORDEM BANCÁRIA ---
-export const BankOrderTemplate: React.FC<DocumentProps> = ({ data, user, document }) => {
+export const BankOrderTemplate: React.FC<DocumentProps> = ({ data, user, document, comarcaData }) => {
     const obNum = document?.metadata?.doc_number || Math.floor(Math.random() * 100000).toString();
     const year = new Date().getFullYear();
     const dateLocation = getFormattedDate('Belém');
+
+    // Resolve conta bancária (Júri→Comarca, Emergencial→Suprido)
+    const bankInfo = getBankInfo(data, user, comarcaData);
 
     return (
         <BaseDocumentLayout docId={`OB-${obNum}/${year}`}>
@@ -551,10 +591,13 @@ export const BankOrderTemplate: React.FC<DocumentProps> = ({ data, user, documen
 
                     <div>
                         <p className="text-xs font-bold uppercase mb-1">Dados Bancários de Destino</p>
-                        <div className="border p-2 bg-gray-50 grid grid-cols-3 gap-4">
-                            <div><span className="text-[10px] text-gray-500 block">BANCO</span>{user.banco}</div>
-                            <div><span className="text-[10px] text-gray-500 block">AGÊNCIA</span>{user.agencia}</div>
-                            <div><span className="text-[10px] text-gray-500 block">CONTA</span>{user.conta_corrente}</div>
+                        <div className="border p-2 bg-gray-50">
+                            <p className="text-[9px] font-bold text-gray-400 uppercase mb-2">{bankInfo.label}</p>
+                            <div className="grid grid-cols-3 gap-4">
+                                <div><span className="text-[10px] text-gray-500 block">BANCO</span>{bankInfo.banco}</div>
+                                <div><span className="text-[10px] text-gray-500 block">AGÊNCIA</span>{bankInfo.agencia}</div>
+                                <div><span className="text-[10px] text-gray-500 block">CONTA</span>{bankInfo.conta_corrente}</div>
+                            </div>
                         </div>
                     </div>
 
@@ -588,6 +631,7 @@ export const BankOrderTemplate: React.FC<DocumentProps> = ({ data, user, documen
         </BaseDocumentLayout>
     );
 };
+
 
 // --- DOCUMENTO GENÉRICO (NOVOS DOCS) ---
 export const GenericDocumentTemplate: React.FC<DocumentProps> = ({ data, user, content, subType, document }) => {

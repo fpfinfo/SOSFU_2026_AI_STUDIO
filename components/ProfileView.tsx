@@ -16,6 +16,7 @@ interface UserProfile {
   municipio: string;
   gestor_nome: string;
   gestor_email: string;
+  nome_banco: string;
   banco: string;
   agencia: string;
   conta_corrente: string;
@@ -50,6 +51,7 @@ export const ProfileView: React.FC = () => {
     municipio: '',
     gestor_nome: '',
     gestor_email: '',
+    nome_banco: '',
     banco: '',
     agencia: '',
     conta_corrente: '',
@@ -108,6 +110,7 @@ export const ProfileView: React.FC = () => {
             municipio: data.municipio || '',
             gestor_nome: data.gestor_nome || '',
             gestor_email: data.gestor_email || '',
+            nome_banco: data.nome_banco || '',
             banco: data.banco || '',
             agencia: data.agencia || '',
             conta_corrente: data.conta_corrente || '',
@@ -202,6 +205,7 @@ export const ProfileView: React.FC = () => {
             municipio: formData.municipio,
             gestor_nome: formData.gestor_nome,
             gestor_email: formData.gestor_email,
+            nome_banco: formData.nome_banco,
             banco: formData.banco,
             agencia: formData.agencia,
             conta_corrente: formData.conta_corrente
@@ -490,19 +494,33 @@ export const ProfileView: React.FC = () => {
             Dados Bancários
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Banco</label>
+                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Nome do Banco</label>
+                <input 
+                    type="text" 
+                    name="nome_banco"
+                    value={formData.nome_banco}
+                    onChange={handleChange}
+                    placeholder="Ex: Banco Bradesco"
+                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
+                />
+            </div>
+
+            <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Código do Banco</label>
                 <input 
                     type="text" 
                     name="banco"
                     value={formData.banco}
                     onChange={handleChange}
-                    placeholder="Ex: Banco do Brasil"
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
+                    placeholder="Ex: 037"
+                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
                 />
             </div>
+        </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
                 <label className="text-xs font-bold text-gray-500 uppercase ml-1">Agência</label>
                 <input 
@@ -511,7 +529,7 @@ export const ProfileView: React.FC = () => {
                     value={formData.agencia}
                     onChange={handleChange}
                     placeholder="0000-0"
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
+                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
                 />
             </div>
 
@@ -523,10 +541,15 @@ export const ProfileView: React.FC = () => {
                     value={formData.conta_corrente}
                     onChange={handleChange}
                     placeholder="00000-0"
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
+                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
                 />
             </div>
         </div>
+
+        <p className="text-[11px] text-gray-400 mt-4 ml-1">
+            * Conta pessoal do suprido, utilizada para crédito em processos <strong>Extra-Emergencial</strong>. 
+            Para processos <strong>Extra-Júri</strong>, será utilizada a conta institucional da comarca.
+        </p>
       </div>
 
       {/* Action Buttons */}

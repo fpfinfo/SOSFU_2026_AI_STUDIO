@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Settings, LogOut, ChevronDown, LayoutDashboard, FileText, CheckSquare, PieChart, Briefcase, Gavel, Scale, Shield } from 'lucide-react';
+import { User, Settings, LogOut, ChevronDown, LayoutDashboard, FileText, CheckSquare, PieChart, Briefcase, Gavel, Scale, Shield, Archive } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { NotificationPanel } from './NotificationPanel';
 
@@ -22,6 +22,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
     { id: 'sefin_dashboard', label: 'Gabinete SEFIN', icon: Scale, roles: ['SEFIN', 'ADMIN'] },
     { id: 'solicitations', label: 'Gestão de Solicitações', icon: FileText, roles: ['ADMIN', 'SOSFU', 'SEFIN'] },
     { id: 'accountability', label: 'Gestão de Contas', icon: CheckSquare, roles: ['ADMIN', 'SOSFU', 'SEFIN'] },
+    { id: 'archive', label: 'Arquivo', icon: Archive, roles: ['ADMIN', 'SOSFU', 'SEFIN'] },
     { id: 'reports', label: 'Relatórios', icon: PieChart, roles: ['ADMIN', 'SOSFU', 'PRESIDENCIA'] },
     { id: 'settings', label: 'Configurações', icon: Settings, roles: ['ADMIN', 'SOSFU'] },
   ];

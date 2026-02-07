@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { GoogleGenAI } from "@google/genai";
 import { SmartReceiptCapture } from './SmartReceiptCapture';
 import { OfflineStatusBanner } from './OfflineStatusBanner';
+import { JuriExceptionInlineAlert } from '../ui/JuriExceptionInlineAlert';
 import { useOfflineDrafts } from '../../hooks/useOfflineDrafts';
 
 interface AccountabilityWizardProps {
@@ -155,7 +156,13 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
             const base64Data = await convertFileToBase64(file);
             const base64Content = base64Data.split(',')[1]; 
 
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const apiKey = process.env.API_KEY;
+            if (!apiKey) {
+                showToast('error', 'Chave da API Gemini não configurada. Adicione GEMINI_API_KEY ao .env.');
+                return;
+            }
+
+            const ai = new GoogleGenAI({ apiKey });
             
             const systemPrompt = `
                 Analise o comprovante. Retorne JSON estrito:
@@ -170,7 +177,7 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
             `;
 
             const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview', 
+                model: 'gemini-2.0-flash', 
                 contents: {
                     parts: [
                         { inlineData: { mimeType: file.type, data: base64Content } },
@@ -194,9 +201,9 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                 });
                 showToast('success', 'Documento lido com sucesso!');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Erro IA:", error);
-            showToast('error', "Não foi possível ler o documento. Preencha manualmente.");
+            showToast('error', `Erro ao ler documento: ${error?.message || 'Erro desconhecido'}. Preencha manualmente.`);
         } finally {
             setIsAnalyzing(false);
         }
@@ -357,7 +364,23 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
 
                     {/* Offline Status Banner */}
                     <OfflineStatusBanner isOnline={isOnline} syncStatus={syncStatus} pendingCount={pendingCount} />
-                    
+
+                    {/* Alert: PC delay > 30 days (Extra-Júri detection) */}
+                    {(() => {
+                        const grantDate = pcData?.created_at ? new Date(pcData.created_at) : null;
+                        const diasDesdeConcessao = grantDate ? Math.floor((Date.now() - grantDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
+                        const isJuri = pcData?.solicitation?.process_number?.includes('TJPA-JUR');
+                        if (diasDesdeConcessao !== null && diasDesdeConcessao > 30) {
+                            return (
+                                <JuriExceptionInlineAlert
+                                    diasAtraso={diasDesdeConcessao}
+                                    userRole={role}
+                                />
+                            );
+                        }
+                        return null;
+                    })()}
+
                     {canEdit && (
                         <div className="space-y-6">
                             {/* Smart Receipt Capture (Camera + Crop + AI OCR) */}
