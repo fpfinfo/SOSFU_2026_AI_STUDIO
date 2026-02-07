@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { FileText, UserCheck, Search, Scale, Wallet, Receipt, Archive, Check, Clock, AlertTriangle, Loader2, ChevronRight } from 'lucide-react';
+import { FileText, UserCheck, Search, Scale, Wallet, Receipt, Archive, Check, Clock, AlertTriangle, Loader2, ChevronRight, ClipboardList } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { Tooltip } from '../ui/Tooltip';
 
 interface HistoryEntry {
     id: string;
@@ -19,13 +20,14 @@ interface ProcessTimelineProps {
 }
 
 const STEPS = [
-    { id: 0, label: 'Solicitação', shortLabel: 'Solic.', icon: FileText, statuses: ['PENDING', 'DRAFT'], color: 'blue' },
-    { id: 1, label: 'Atesto do Gestor', shortLabel: 'Atesto', icon: UserCheck, statuses: ['WAITING_MANAGER'], color: 'indigo' },
-    { id: 2, label: 'Análise SOSFU', shortLabel: 'Análise', icon: Search, statuses: ['WAITING_SOSFU', 'WAITING_SOSFU_ANALYSIS', 'WAITING_CORRECTION'], color: 'violet' },
-    { id: 3, label: 'Autorização SEFIN', shortLabel: 'Autoriz.', icon: Scale, statuses: ['WAITING_SEFIN_SIGNATURE'], color: 'amber' },
-    { id: 4, label: 'Pagamento', shortLabel: 'Pagam.', icon: Wallet, statuses: ['WAITING_SOSFU_PAYMENT', 'WAITING_SUPRIDO_CONFIRMATION', 'PAID'], color: 'emerald' },
-    { id: 5, label: 'Prestação de Contas', shortLabel: 'Prest.', icon: Receipt, statuses: ['PC_PENDING', 'PC_ANALYSIS', 'PC_APPROVED'], color: 'cyan' },
-    { id: 6, label: 'Arquivado', shortLabel: 'Arquiv.', icon: Archive, statuses: ['ARCHIVED'], color: 'gray' }
+    { id: 0, label: 'Solicitação', shortLabel: 'Solic.', icon: FileText, statuses: ['PENDING', 'DRAFT'], color: 'blue', description: 'Criação e preenchimento da solicitação de suprimento de fundos' },
+    { id: 1, label: 'Atesto Gestor', shortLabel: 'Atesto', icon: UserCheck, statuses: ['WAITING_MANAGER'], color: 'indigo', description: 'O gestor da unidade analisa e atesta a necessidade da despesa' },
+    { id: 2, label: 'Análise SOSFU', shortLabel: 'Análise', icon: Search, statuses: ['WAITING_SOSFU', 'WAITING_SOSFU_ANALYSIS', 'WAITING_CORRECTION'], color: 'violet', description: 'A SOSFU verifica conformidade legal, elementos e limites (CNJ 169/2013)' },
+    { id: 3, label: 'Execução SOSFU', shortLabel: 'Exec.', icon: ClipboardList, statuses: ['WAITING_SOSFU_EXECUTION'], color: 'purple', description: 'Geração dos documentos financeiros: Portaria SF, NE, DL e OB' },
+    { id: 4, label: 'Autorização SEFIN', shortLabel: 'Autoriz.', icon: Scale, statuses: ['WAITING_SEFIN_SIGNATURE'], color: 'amber', description: 'O Ordenador de Despesa (SEFIN) autoriza e assina os documentos' },
+    { id: 5, label: 'Pagamento SOSFU', shortLabel: 'Pagam.', icon: Wallet, statuses: ['WAITING_SOSFU_PAYMENT', 'WAITING_SUPRIDO_CONFIRMATION', 'PAID'], color: 'emerald', description: 'A SOSFU processa o pagamento e libera os recursos ao suprido' },
+    { id: 6, label: 'Prestação de Contas', shortLabel: 'Prest.', icon: Receipt, statuses: ['PC_PENDING', 'PC_ANALYSIS', 'PC_APPROVED'], color: 'cyan', description: 'O suprido comprova a aplicação dos recursos com notas fiscais' },
+    { id: 7, label: 'Arquivo', shortLabel: 'Arquiv.', icon: Archive, statuses: ['ARCHIVED'], color: 'gray', description: 'Processo concluído e arquivado para consulta futura' }
 ];
 
 const STATUS_LABELS: Record<string, string> = {
@@ -35,6 +37,7 @@ const STATUS_LABELS: Record<string, string> = {
     'WAITING_SOSFU': 'Em Análise SOSFU',
     'WAITING_SOSFU_ANALYSIS': 'Em Análise SOSFU',
     'WAITING_CORRECTION': 'Devolvida p/ Correção',
+    'WAITING_SOSFU_EXECUTION': 'Em Execução (SOSFU)',
     'WAITING_SEFIN_SIGNATURE': 'Aguardando SEFIN',
     'WAITING_SOSFU_PAYMENT': 'Aguardando Pagamento',
     'WAITING_SUPRIDO_CONFIRMATION': 'Confirmando Recebimento',
@@ -85,14 +88,15 @@ export const ProcessTimeline: React.FC<ProcessTimelineProps> = ({ status, solici
     }, [solicitationId, status]);
 
     const getCurrentStepIndex = () => {
-        if (status === 'ARCHIVED') return 6;
+        if (status === 'ARCHIVED') return 7;
         if (status === 'PAID' || status === 'APPROVED') {
-            if (accountabilityStatus === 'APPROVED') return 5;
-            if (accountabilityStatus) return 5;
-            return 4;
+            if (accountabilityStatus === 'APPROVED') return 6;
+            if (accountabilityStatus) return 6;
+            return 5;
         }
-        if (status === 'WAITING_SUPRIDO_CONFIRMATION' || status === 'WAITING_SOSFU_PAYMENT') return 4;
-        if (status === 'WAITING_SEFIN_SIGNATURE') return 3;
+        if (status === 'WAITING_SUPRIDO_CONFIRMATION' || status === 'WAITING_SOSFU_PAYMENT') return 5;
+        if (status === 'WAITING_SEFIN_SIGNATURE') return 4;
+        if (status === 'WAITING_SOSFU_EXECUTION') return 3;
         if (status === 'WAITING_SOSFU' || status === 'WAITING_SOSFU_ANALYSIS' || status === 'WAITING_CORRECTION') return 2;
         if (status === 'WAITING_MANAGER') return 1;
         return 0;
@@ -195,8 +199,13 @@ export const ProcessTimeline: React.FC<ProcessTimelineProps> = ({ status, solici
                         }
 
                         return (
+                            <Tooltip
+                                key={step.id}
+                                content={<><span className="font-bold">{step.label}</span><br/><span className="text-gray-300">{step.description}</span></>}
+                                position="bottom"
+                                delay={200}
+                            >
                             <div 
-                                key={step.id} 
                                 className="flex flex-col items-center relative z-10 cursor-pointer group"
                                 style={{ flex: 1 }}
                                 onClick={() => setExpandedStep(isExpanded ? null : index)}
@@ -283,6 +292,7 @@ export const ProcessTimeline: React.FC<ProcessTimelineProps> = ({ status, solici
                                     </div>
                                 )}
                             </div>
+                            </Tooltip>
                         );
                     })}
                 </div>

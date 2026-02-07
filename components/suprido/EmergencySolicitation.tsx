@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Siren, Calendar, DollarSign, Bookmark, AlertTriangle, User, Mail, Loader2, CheckCircle2, Link as LinkIcon, AlertCircle, ChevronDown, Sparkles, Pencil, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Siren, Calendar, DollarSign, Bookmark, AlertTriangle, User, Mail, Loader2, CheckCircle2, Link as LinkIcon, AlertCircle, ChevronDown, Sparkles, Pencil, ShieldCheck, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { GoogleGenAI } from "@google/genai";
+import { Tooltip } from '../ui/Tooltip';
 
 interface EmergencySolicitationProps {
     onNavigate: (page: string, processId?: string) => void;
@@ -11,6 +12,12 @@ interface ElementoDespesa {
     id: string;
     codigo: string;
     descricao: string;
+}
+
+interface ItemDespesa {
+    id: string;
+    element: string;
+    value: string;
 }
 
 export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ onNavigate }) => {
@@ -32,11 +39,30 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
     const [isManagerLinked, setIsManagerLinked] = useState(false); 
     const [isGestorSolicitante, setIsGestorSolicitante] = useState(false); // Flag para identificar se é auto-pedido
 
-    const [selectedElemento, setSelectedElemento] = useState('');
+    // Multi-item expense list
+    const [items, setItems] = useState<ItemDespesa[]>([{ id: crypto.randomUUID(), element: '', value: '' }]);
     const [description, setDescription] = useState('');
-    const [value, setValue] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+
+    // Auto-calculate total
+    const totalValue = items.reduce((sum, item) => {
+        const v = parseFloat(item.value.replace(',', '.'));
+        return sum + (isNaN(v) ? 0 : v);
+    }, 0);
+
+    const addItem = () => {
+        setItems(prev => [...prev, { id: crypto.randomUUID(), element: '', value: '' }]);
+    };
+
+    const removeItem = (id: string) => {
+        if (items.length <= 1) return;
+        setItems(prev => prev.filter(item => item.id !== id));
+    };
+
+    const updateItem = (id: string, field: keyof ItemDespesa, val: string) => {
+        setItems(prev => prev.map(item => item.id === id ? { ...item, [field]: val } : item));
+    };
 
     useEffect(() => {
         fetchInitialData();
@@ -92,8 +118,9 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
     };
 
     const handleGenerateAI = async () => {
-        if (!selectedElemento || !value || !startDate) {
-            console.error("Por favor, preencha o Elemento de Despesa, Valor e Data de Início antes de gerar a justificativa.");
+        const filledItems = items.filter(i => i.element && i.value);
+        if (filledItems.length === 0 || !startDate) {
+            console.error("Por favor, preencha pelo menos um item de despesa e a Data de Início antes de gerar a justificativa.");
             return;
         }
 
@@ -107,15 +134,18 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
 
             const ai = new GoogleGenAI({ apiKey });
             
-            const elementoDesc = elementos.find(e => e.codigo === selectedElemento)?.descricao || selectedElemento;
+            const itemsDesc = filledItems.map(item => {
+                const el = elementos.find(e => e.codigo === item.element);
+                return `- ${item.element} (${el?.descricao || 'Despesa'}): R$ ${item.value}`;
+            }).join('\n');
             
             const prompt = `
                 Atue como um servidor público do Tribunal de Justiça do Estado do Pará.
-                Escreva uma justificativa formal, técnica e concisa (máximo 400 caracteres) para uma Solicitação de Suprimento de Fundos Extra-Emergencial.
+                Escreva uma justificativa formal, técnica e concisa (máximo 500 caracteres) para uma Solicitação de Suprimento de Fundos Extra-Emergencial.
                 
-                Dados da Solicitação:
-                - Elemento de Despesa: ${selectedElemento} - ${elementoDesc}
-                - Valor Estimado: R$ ${value}
+                Itens da Solicitação:
+                ${itemsDesc}
+                - Valor Total: R$ ${totalValue.toFixed(2)}
                 - Período: ${startDate} a ${endDate || 'a definir'}
                 
                 A justificativa deve explicar a necessidade urgente da aquisição/serviço para o bom andamento das atividades jurisdicionais.
@@ -155,26 +185,35 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
             
             // PADRONIZAÇÃO DE PROCESSO: EXTRA-EMERGENCIAL
             const procNum = `TJPA-EXT-${year}/${randomNum}`;
-            
-            const numericValue = parseFloat(value.replace(',', '.'));
 
-            const el = elementos.find(e => e.codigo === selectedElemento);
-            const elementoDesc = el ? `[ND: ${el.codigo}]` : '';
+            // Build itens_despesa from items
+            const itensDespesa = items.filter(i => i.element && i.value).map(item => {
+                const el = elementos.find(e => e.codigo === item.element);
+                const numVal = parseFloat(item.value.replace(',', '.'));
+                return {
+                    element: item.element,
+                    description: el?.descricao || 'Despesa',
+                    total: isNaN(numVal) ? 0 : numVal,
+                    qty: 1,
+                    val: isNaN(numVal) ? 0 : numVal,
+                };
+            });
+
+            // Collect unique element codes for unit info tag
+            const uniqueElements = [...new Set(itensDespesa.map(i => i.element))];
+            const elementTags = uniqueElements.map(code => `[ND: ${code}]`).join(' ');
             
-            // CORREÇÃO: Adicionando a tag [EXTRA-EMERGENCIAL] explicitamente
-            const unitInfo = `${profile?.lotacao || 'Gabinete'} ${elementoDesc} [EXTRA-EMERGENCIAL]`;
+            const unitInfo = `${profile?.lotacao || 'Gabinete'} ${elementTags} [EXTRA-EMERGENCIAL]`;
 
             // DECISÃO DE STATUS:
-            // ALTERAÇÃO IMPORTANTE: Mesmo se for Gestor, colocamos como WAITING_MANAGER.
-            // Isso garante que ele caia na tela de "Aguardando Atesto", veja a certidão (ou emita se falhar)
-            // e clique explicitamente em "Tramitar" para enviar à SOSFU.
             const initialStatus = isGestorSolicitante ? 'WAITING_MANAGER' : 'PENDING';
 
             const { data: solData, error } = await supabase.from('solicitations').insert({
                 process_number: procNum,
                 beneficiary: profile?.full_name || user.email,
                 unit: unitInfo,
-                value: numericValue || 0,
+                value: totalValue || 0,
+                itens_despesa: itensDespesa,
                 date: new Date().toISOString(),
                 status: initialStatus, 
                 user_id: user.id,
@@ -335,56 +374,122 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                     )}
                 </div>
 
-                {/* Section: Detalhes da Despesa */}
+                {/* Section: Itens de Despesa */}
                 <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-                        <Bookmark size={16} /> Detalhamento da Solicitação
-                    </h3>
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                            <Bookmark size={16} /> Itens de Despesa
+                        </h3>
+                        <button
+                            type="button"
+                            onClick={addItem}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-colors border border-emerald-200 shadow-sm"
+                        >
+                            <Plus size={14} />
+                            Adicionar Item
+                        </button>
+                    </div>
                     
-                    <div className="space-y-6">
-                         {/* 1. Elemento de Despesa */}
-                         <div className="space-y-2">
-                            <label className="text-sm font-bold text-gray-700">Classificação da Despesa (Elemento)</label>
-                            <div className="relative">
-                                <select 
-                                    value={selectedElemento}
-                                    onChange={e => setSelectedElemento(e.target.value)}
-                                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none appearance-none cursor-pointer"
-                                    required
-                                >
-                                    <option value="">Selecione a natureza da despesa...</option>
-                                    <optgroup label="Material de Consumo (3.3.90.30)">
-                                        {elementos.filter(e => e.codigo.startsWith('3.3.90.30')).map(e => (
-                                            <option key={e.id} value={e.codigo}>{e.codigo} - {e.descricao.replace('Material de Consumo - ', '')}</option>
-                                        ))}
-                                    </optgroup>
-                                    <optgroup label="Serviços e Outros">
-                                        {elementos.filter(e => !e.codigo.startsWith('3.3.90.30')).map(e => (
-                                            <option key={e.id} value={e.codigo}>{e.codigo} - {e.descricao}</option>
-                                        ))}
-                                    </optgroup>
-                                </select>
-                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-                            </div>
-                        </div>
+                    <div className="space-y-4">
+                        {items.map((item, index) => (
+                            <div key={item.id} className={`p-4 rounded-xl border transition-all ${
+                                items.length > 1 ? 'bg-gray-50/50 border-gray-200' : 'bg-white border-gray-200'
+                            }`}>
+                                {/* Item header with number and remove */}
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                        Item {index + 1}
+                                    </span>
+                                    {items.length > 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => removeItem(item.id)}
+                                            className="flex items-center gap-1 px-2 py-1 text-red-500 hover:bg-red-50 rounded-lg text-xs font-medium transition-colors"
+                                        >
+                                            <Trash2 size={12} />
+                                            Remover
+                                        </button>
+                                    )}
+                                </div>
 
-                        {/* 2. Valores e Datas */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-gray-700">Valor Estimado (R$)</label>
-                                <div className="relative">
-                                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                    <input 
-                                        type="number"
-                                        step="0.01"
-                                        value={value}
-                                        onChange={e => setValue(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
-                                        placeholder="0,00"
-                                        required
-                                    />
+                                <div className="grid grid-cols-1 md:grid-cols-[1fr_180px] gap-4">
+                                    {/* Elemento de Despesa */}
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-600">Classificação (Elemento)</label>
+                                        <div className="relative">
+                                            <select 
+                                                value={item.element}
+                                                onChange={e => updateItem(item.id, 'element', e.target.value)}
+                                                className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none appearance-none cursor-pointer"
+                                                required
+                                            >
+                                                <option value="">Selecione a natureza da despesa...</option>
+                                                <optgroup label="Material de Consumo (3.3.90.30)">
+                                                    {elementos.filter(e => e.codigo.startsWith('3.3.90.30')).map(e => (
+                                                        <option key={e.id} value={e.codigo}>{e.codigo} - {e.descricao.replace('Material de Consumo - ', '')}</option>
+                                                    ))}
+                                                </optgroup>
+                                                <optgroup label="Serviços e Outros">
+                                                    {elementos.filter(e => !e.codigo.startsWith('3.3.90.30')).map(e => (
+                                                        <option key={e.id} value={e.codigo}>{e.codigo} - {e.descricao}</option>
+                                                    ))}
+                                                </optgroup>
+                                            </select>
+                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                                        </div>
+                                    </div>
+
+                                    {/* Valor */}
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-600">Valor (R$)</label>
+                                        <div className="relative">
+                                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                            <input 
+                                                type="number"
+                                                step="0.01"
+                                                value={item.value}
+                                                onChange={e => updateItem(item.id, 'value', e.target.value)}
+                                                className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
+                                                placeholder="0,00"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                        ))}
+                    </div>
+
+                    {/* Total */}
+                    <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
+                        <div className="text-sm text-gray-500">
+                            {items.filter(i => i.element && i.value).length} {items.filter(i => i.element && i.value).length === 1 ? 'item' : 'itens'}
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm font-medium text-gray-600">Total:</span>
+                            <span className={`text-xl font-black tabular-nums ${
+                                totalValue > 15000 ? 'text-red-600' : 'text-gray-900'
+                            }`}>
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue)}
+                            </span>
+                        </div>
+                    </div>
+                    {totalValue > 15000 && (
+                        <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-center gap-2">
+                            <AlertTriangle size={14} />
+                            <strong>Limite excedido!</strong> O valor total não pode ultrapassar R$ 15.000,00 (Res. CNJ 169/2013).
+                        </div>
+                    )}
+                </div>
+
+                {/* Section: Datas e Justificativa */}
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <Calendar size={16} /> Período e Justificativa
+                    </h3>
+                    <div className="space-y-6">
+                        {/* Datas */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-gray-700">Data Início</label>
                                 <input 
@@ -412,10 +517,11 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                             </div>
                         </div>
 
-                        {/* 3. Justificativa (Agora no final + Botão IA) */}
+                        {/* Justificativa */}
                         <div className="space-y-2">
                             <div className="flex justify-between items-end">
                                 <label className="text-sm font-bold text-gray-700">Objeto da Despesa (Justificativa)</label>
+                                <Tooltip content="Usar Inteligência Artificial (Google Gemini) para gerar uma justificativa formal baseada nos dados preenchidos" position="left">
                                 <button
                                     type="button"
                                     onClick={handleGenerateAI}
@@ -424,6 +530,7 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                                     {isGeneratingAI ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
                                     Sugerir com IA
                                 </button>
+                                </Tooltip>
                             </div>
                             <div className="relative">
                                 <textarea 
@@ -460,10 +567,10 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                     </button>
                     <button 
                         type="submit"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || totalValue > 15000}
                         className={`
                             px-8 py-3 bg-red-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-red-200 hover:bg-red-700 transition-all flex items-center gap-2
-                            ${isSubmitting ? 'opacity-70 cursor-wait' : ''}
+                            ${isSubmitting || totalValue > 15000 ? 'opacity-70 cursor-not-allowed' : ''}
                         `}
                     >
                         {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <AlertTriangle size={18} />}

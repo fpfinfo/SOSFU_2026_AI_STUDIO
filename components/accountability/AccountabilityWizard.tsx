@@ -9,6 +9,7 @@ import { SmartReceiptCapture } from './SmartReceiptCapture';
 import { OfflineStatusBanner } from './OfflineStatusBanner';
 import { JuriExceptionInlineAlert } from '../ui/JuriExceptionInlineAlert';
 import { useOfflineDrafts } from '../../hooks/useOfflineDrafts';
+import { Tooltip } from '../ui/Tooltip';
 
 interface AccountabilityWizardProps {
     processId: string;
@@ -550,6 +551,7 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
 
                     <div className="mt-auto space-y-2">
                         {canEdit && (
+                            <Tooltip content="Enviar a prestação de contas para análise. Ao enviar, você declara veracidade legal dos comprovantes." position="top">
                             <button 
                                 onClick={requestSubmitPC} 
                                 disabled={submitting}
@@ -558,6 +560,7 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                 {submitting ? <Loader2 className="animate-spin" size={16}/> : <Send size={16}/>} 
                                 Finalizar e Enviar
                             </button>
+                            </Tooltip>
                         )}
                         <p className="text-center text-[9px] text-gray-400">
                             Ao enviar, você declara veracidade legal.

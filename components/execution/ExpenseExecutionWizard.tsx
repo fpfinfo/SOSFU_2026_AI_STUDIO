@@ -4,6 +4,7 @@ import {
   ChevronRight, ChevronLeft, Loader2, Send, AlertTriangle, Upload, File as FileIcon
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { Tooltip } from '../ui/Tooltip';
 
 // ==================== TYPES ====================
 interface ProcessData {
@@ -33,13 +34,13 @@ interface ExpenseExecutionWizardProps {
 
 type ExecutionStep = 'PORTARIA' | 'CERTIDAO' | 'NE' | 'DL' | 'OB' | 'TRAMITAR';
 
-const STEPS: { key: ExecutionStep; label: string; icon: React.ReactNode }[] = [
-  { key: 'PORTARIA', label: 'Portaria SF', icon: <FileText size={18} /> },
-  { key: 'CERTIDAO', label: 'Certidão', icon: <Award size={18} /> },
-  { key: 'NE', label: 'Nota de Empenho', icon: <DollarSign size={18} /> },
-  { key: 'DL', label: 'Doc. Liquidação', icon: <FileCheck size={18} /> },
-  { key: 'OB', label: 'Ordem Bancária', icon: <CreditCard size={18} /> },
-  { key: 'TRAMITAR', label: 'Tramitar', icon: <Send size={18} /> },
+const STEPS: { key: ExecutionStep; label: string; icon: React.ReactNode; description: string }[] = [
+  { key: 'PORTARIA', label: 'Portaria SF', icon: <FileText size={18} />, description: 'Gerar a Portaria de Suprimento de Fundos com dados orçamentários' },
+  { key: 'CERTIDAO', label: 'Certidão', icon: <Award size={18} />, description: 'Gerar a Certidão de Regularidade do suprido' },
+  { key: 'NE', label: 'Nota de Empenho', icon: <DollarSign size={18} />, description: 'Registrar a Nota de Empenho (compromisso orçamentário)' },
+  { key: 'DL', label: 'Doc. Liquidação', icon: <FileCheck size={18} />, description: 'Gerar o Documento de Liquidação (verificação da despesa)' },
+  { key: 'OB', label: 'Ordem Bancária', icon: <CreditCard size={18} />, description: 'Emitir a Ordem Bancária para pagamento ao suprido' },
+  { key: 'TRAMITAR', label: 'Tramitar', icon: <Send size={18} />, description: 'Enviar os documentos para assinatura do Ordenador de Despesa' },
 ];
 
 const formatCurrency = (v: number) =>
@@ -227,7 +228,7 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
 
       await supabase.from('historico_tramitacao').insert({
         solicitation_id: process.id,
-        status_from: 'WAITING_SOSFU',
+        status_from: 'WAITING_SOSFU_EXECUTION',
         status_to: 'WAITING_SEFIN_SIGNATURE',
         actor_name: user?.email,
         description: 'Portaria SF, Certidão e NE tramitadas para assinatura do Ordenador de Despesa (SEFIN).',
@@ -336,8 +337,8 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
           {/* Step indicator */}
           <div className="flex items-center gap-2 mt-8 overflow-x-auto pb-2">
             {STEPS.map((step) => (
+              <Tooltip key={step.key} content={step.description} position="bottom" delay={300}>
               <button
-                key={step.key}
                 onClick={() => setCurrentStep(step.key)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest whitespace-nowrap transition-all ${
                   currentStep === step.key
@@ -350,6 +351,7 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
                 {generatedDocs[step.key] ? <CheckCircle2 size={14} /> : step.icon}
                 {step.label}
               </button>
+              </Tooltip>
             ))}
           </div>
         </div>

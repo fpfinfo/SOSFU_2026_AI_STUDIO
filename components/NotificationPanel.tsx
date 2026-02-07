@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, Check, CheckCheck, Clock, AlertTriangle, Info, CheckCircle2, AlertCircle, ChevronRight, X, Loader2, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { Tooltip } from './ui/Tooltip';
 
 interface Notification {
     id: string;
@@ -118,6 +119,7 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ userId, on
     return (
         <div className="relative" ref={panelRef}>
             {/* Bell Button */}
+            <Tooltip content={unreadCount > 0 ? `${unreadCount} notificação${unreadCount > 1 ? 'ões' : ''} não lida${unreadCount > 1 ? 's' : ''}` : 'Nenhuma notificação pendente'} position="bottom">
             <button 
                 onClick={() => { setIsOpen(!isOpen); if (!isOpen) fetchNotifications(); }}
                 className="p-2 text-gray-400 hover:text-gray-600 border border-gray-200 rounded-full bg-white shadow-sm transition-all relative hover:bg-gray-50 hover:scale-105 active:scale-95"
@@ -130,6 +132,7 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ userId, on
                     </span>
                 )}
             </button>
+            </Tooltip>
 
             {/* Dropdown Panel */}
             {isOpen && (
@@ -148,6 +151,7 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ userId, on
                         </div>
                         <div className="flex items-center gap-2">
                             {unreadCount > 0 && (
+                            <Tooltip content="Marcar todas as notificações como lidas" position="bottom">
                                 <button 
                                     onClick={markAllRead}
                                     className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1"
@@ -155,6 +159,7 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ userId, on
                                     <CheckCheck size={14} />
                                     Ler todas
                                 </button>
+                                </Tooltip>
                             )}
                             <button 
                                 onClick={() => setIsOpen(false)}

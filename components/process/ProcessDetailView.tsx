@@ -8,6 +8,9 @@ import { SosfuAuditPanel } from '../accountability/SosfuAuditPanel';
 import { ProcessTimeline } from './ProcessTimeline';
 import { NewDocumentModal } from './NewDocumentModal';
 import { ExpenseExecutionWizard } from '../execution/ExpenseExecutionWizard';
+import { AuditLogTab } from './AuditLogTab';
+import { ProcessDetailSkeleton } from '../ui/Skeleton';
+import { Tooltip } from '../ui/Tooltip';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { 
@@ -22,7 +25,7 @@ import {
     GenericDocumentTemplate
 } from './DocumentTemplates';
 
-type TabType = 'OVERVIEW' | 'DOSSIER' | 'EXECUTION' | 'ANALYSIS' | 'ACCOUNTABILITY' | 'ARCHIVE';
+type TabType = 'OVERVIEW' | 'DOSSIER' | 'EXECUTION' | 'ANALYSIS' | 'ACCOUNTABILITY' | 'AUDIT' | 'ARCHIVE';
 
 interface ProcessDetailViewProps {
   processId: string;
@@ -171,9 +174,12 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
       }
   };
 
-  // ─── PHASE 1: SOSFU Confirma Pagamento ───
+  // ─── PHASE 1: SOSFU Confirma Pagamento (OPTIMISTIC UI) ───
   const handleConfirmPayment = async () => {
       if (!confirm('Confirmar que o pagamento foi processado e os recursos liberados para o suprido?')) return;
+      // Optimistic: update UI immediately
+      const prevStatus = processData?.status;
+      setProcessData((prev: any) => prev ? { ...prev, status: 'WAITING_SUPRIDO_CONFIRMATION' } : prev);
       setConfirmPaymentLoading(true);
       try {
           const { data: { user } } = await supabase.auth.getUser();
@@ -195,6 +201,8 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
           await fetchProcessData();
       } catch (err) {
+          // Revert on error
+          setProcessData((prev: any) => prev ? { ...prev, status: prevStatus } : prev);
           console.error('Erro ao confirmar pagamento:', err);
           alert('Erro ao confirmar pagamento. Tente novamente.');
       } finally {
@@ -203,8 +211,12 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
   };
 
   // ─── PHASE 2: Suprido Confirma Recebimento ───
+  // ─── PHASE 2: Suprido Confirma Recebimento (OPTIMISTIC UI) ───
   const handleConfirmReceipt = async () => {
       if (!confirm('Confirmar que você recebeu os recursos em sua conta bancária?')) return;
+      // Optimistic: update UI immediately
+      const prevStatus = processData?.status;
+      setProcessData((prev: any) => prev ? { ...prev, status: 'PAID' } : prev);
       setConfirmReceiptLoading(true);
       try {
           const { data: { user } } = await supabase.auth.getUser();
@@ -250,6 +262,8 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
           await fetchProcessData();
           setActiveTab('ACCOUNTABILITY'); // Navigate to PC tab
       } catch (err) {
+          // Revert on error
+          setProcessData((prev: any) => prev ? { ...prev, status: prevStatus } : prev);
           console.error('Erro ao confirmar recebimento:', err);
           alert('Erro ao confirmar recebimento. Tente novamente.');
       } finally {
@@ -350,9 +364,12 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
     const destinoLabel = destino === 'SOSFU' ? 'SOSFU' : 'Gestor';
     if (!confirm(`Confirma a tramitação do processo para ${destinoLabel}?`)) return;
 
+    // Optimistic: update UI immediately
+    const prevStatus = processData?.status;
+    const newStatus = destino === 'SOSFU' ? 'WAITING_SOSFU' : 'WAITING_MANAGER';
+    setProcessData((prev: any) => prev ? { ...prev, status: newStatus } : prev);
     setTramitarLoading(true);
     try {
-      const newStatus = destino === 'SOSFU' ? 'WAITING_SOSFU' : 'WAITING_MANAGER';
       const { error } = await supabase.from('solicitations')
         .update({ status: newStatus })
         .eq('id', processId);
@@ -360,7 +377,10 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
       if (error) throw error;
       await fetchProcessData();
     } catch (err) {
+      // Revert on error
+      setProcessData((prev: any) => prev ? { ...prev, status: prevStatus } : prev);
       console.error('Erro ao tramitar:', err);
+      alert('Erro ao tramitar. Tente novamente.');
     } finally {
       setTramitarLoading(false);
     }
@@ -1085,10 +1105,10 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                       
                       <div className="space-y-3">
                           <button 
-                            onClick={() => handleStatusChange('WAITING_SEFIN_SIGNATURE')}
+                            onClick={() => handleStatusChange('WAITING_SOSFU_EXECUTION')}
                             className="w-full py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-sm font-bold hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2"
                           >
-                              <CheckCircle2 size={16}/> Aprovar para Sefin
+                              <CheckCircle2 size={16}/> Aprovar para Execução
                           </button>
                           
                           <button 
@@ -1191,6 +1211,9 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
       // --- ATESTAR PC (existente) ---
       const handleApprove = async () => {
         if (!confirm('Confirma o atesto das contas?')) return;
+        // Optimistic: update UI immediately
+        const prevAccountability = accountabilityData;
+        setAccountabilityData((prev: any) => prev ? { ...prev, status: 'WAITING_SOSFU' } : prev);
         setLoading(true);
         try {
             const { error } = await supabase.from('accountabilities')
@@ -1213,8 +1236,10 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
             
             await fetchProcessData();
         } catch(err) {
+            // Revert on error
+            setAccountabilityData(prevAccountability);
             console.error(err);
-            console.error('Erro ao aprovar.');
+            alert('Erro ao aprovar. Tente novamente.');
         } finally {
             setLoading(false);
         }
@@ -1354,7 +1379,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
       );
   };
 
-  if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+  if (loading) return <ProcessDetailSkeleton />;
 
   if (!processData) {
       return (
@@ -1396,12 +1421,14 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
             <div className="flex items-center gap-2">
                 {/* Botão Novo Doc */}
                 {!isArchived && (
+                    <Tooltip content="Adicionar um novo documento ao dossiê digital" position="bottom">
                     <button
                         onClick={() => { setEditingDoc(null); setNewDocModalOpen(true); }}
                         className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all shadow-sm"
                     >
                         <Plus size={16} /> Novo Doc
                     </button>
+                    </Tooltip>
                 )}
                 {/* Tramitar → Gestor */}
                 {canTramitarGestor && (
@@ -1449,15 +1476,16 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
             {/* Abas */}
             <div className="flex gap-2 mb-8 overflow-x-auto pb-2 no-scrollbar border-b border-gray-200">
                 {[
-                    { id: 'OVERVIEW', label: 'Visão Geral', icon: Eye },
-                    { id: 'DOSSIER', label: 'Dossiê Digital', icon: FolderOpen },
-                    { id: 'ANALYSIS', label: 'Análise Técnica', icon: ShieldCheck },
-                    { id: 'EXECUTION', label: 'Execução', icon: Wallet },
-                    { id: 'ACCOUNTABILITY', label: 'Prestação de Contas', icon: Receipt },
-                    { id: 'ARCHIVE', label: 'Arquivo', icon: Archive },
+                    { id: 'OVERVIEW', label: 'Visão Geral', icon: Eye, tooltip: 'Resumo geral do processo com dados do beneficiário e valores' },
+                    { id: 'DOSSIER', label: 'Dossiê Digital', icon: FolderOpen, tooltip: 'Todos os documentos do processo organizados cronologicamente' },
+                    { id: 'ANALYSIS', label: 'Análise Técnica', icon: ShieldCheck, tooltip: 'Parecer técnico da SOSFU e ações de controle' },
+                    { id: 'EXECUTION', label: 'Execução', icon: Wallet, tooltip: 'Geração de Portaria SF, Nota de Empenho, DL e OB' },
+                    { id: 'ACCOUNTABILITY', label: 'Prestação de Contas', icon: Receipt, tooltip: 'Comprovação da aplicação dos recursos com notas fiscais' },
+                    { id: 'AUDIT', label: 'Registro de Atividades', icon: ScrollText, tooltip: 'Histórico completo de todas as ações realizadas no processo' },
+                    { id: 'ARCHIVE', label: 'Arquivo', icon: Archive, tooltip: 'Arquivamento e consulta do processo finalizado' },
                 ].map(t => (
+                    <Tooltip key={t.id} content={t.tooltip} position="bottom" delay={400}>
                     <button 
-                        key={t.id} 
                         onClick={() => { setActiveTab(t.id as any); setSelectedDoc(null); }} 
                         className={`flex items-center gap-2 px-6 py-3 text-sm font-bold rounded-t-lg transition-all whitespace-nowrap border-b-2 ${
                             activeTab === t.id 
@@ -1468,6 +1496,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                         <t.icon size={16} />
                         {t.label}
                     </button>
+                    </Tooltip>
                 ))}
             </div>
 
@@ -1530,6 +1559,15 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                                 </button>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {activeTab === 'AUDIT' && (
+                    <div className="animate-in fade-in bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <AuditLogTab 
+                            solicitationId={processId}
+                            processDocuments={documents}
+                        />
                     </div>
                 )}
 

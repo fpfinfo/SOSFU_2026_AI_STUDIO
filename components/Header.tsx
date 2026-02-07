@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Settings, LogOut, ChevronDown, LayoutDashboard, FileText, CheckSquare, PieChart, Briefcase, Gavel, Scale, Shield, Archive } from 'lucide-react';
+import { Shield, User, Settings, LogOut, ChevronDown, LayoutDashboard, FileText, CheckSquare, PieChart, Briefcase, Gavel, Scale, Archive } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { NotificationPanel } from './NotificationPanel';
+import { Tooltip } from './ui/Tooltip';
 
 interface HeaderProps {
   activeTab?: string;
@@ -99,6 +100,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
     <>
     <header className="bg-white border-b border-gray-200 h-16 px-4 md:px-6 flex items-center justify-between sticky top-0 z-50">
       <div className="flex items-center gap-6">
+        <Tooltip content="Voltar ao painel principal" position="bottom" delay={400}>
         <div className="flex items-center gap-3 cursor-pointer group" onClick={() => onTabChange && onTabChange(availableTabs[0]?.id || 'profile')}>
             <img src="/assets/brasao-tjpa.png" alt="Brasão TJPA" className="h-9 md:h-10 w-auto opacity-90 group-hover:scale-105 transition-transform"/>
             <div className="hidden lg:block">
@@ -106,6 +108,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
                 <p className={`${subtitleColor} text-[9px] font-bold tracking-wider uppercase`}>{headerSubtitle}</p>
             </div>
         </div>
+        </Tooltip>
         
         {visibleTabs.length > 0 && <div className="h-8 w-px bg-gray-200 hidden md:block"></div>}
         

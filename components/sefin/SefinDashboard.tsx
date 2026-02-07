@@ -7,6 +7,7 @@ import {
     Zap, TrendingUp, Calendar
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { Tooltip } from '../ui/Tooltip';
 
 // ==================== TYPES ====================
 interface SefinDashboardProps {
@@ -329,19 +330,25 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, isSelected, onToggleSelect, o
 
             {/* Actions */}
             <div className="flex items-center gap-2 px-4 py-3 bg-slate-50/80 border-t border-slate-100">
+                <Tooltip content="Examinar o documento antes de assinar" position="top">
                 <button onClick={onView}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-medium rounded-lg hover:bg-sky-50 hover:border-sky-200 hover:text-sky-700 transition-all">
                     <Eye size={13} /> Examinar
                 </button>
+                </Tooltip>
                 <div className="flex-1" />
+                <Tooltip content="Devolver o documento para correção do solicitante" position="top">
                 <button onClick={onReject}
                     className="flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-all">
                     <XCircle size={13} /> Devolver
                 </button>
+                </Tooltip>
+                <Tooltip content="Assinar digitalmente como Ordenador de Despesa" position="top">
                 <button onClick={onSign}
                     className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600 shadow-sm transition-all">
                     <Pen size={13} /> Assinar
                 </button>
+                </Tooltip>
             </div>
         </div>
     );

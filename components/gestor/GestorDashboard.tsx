@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CheckCircle2, FileText, Filter, Search, Clock, ChevronRight, UserCheck, Loader2, Plus, Wallet, TrendingUp, AlertCircle, Stamp, FileCheck, FileSignature, Send } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { StatusBadge } from '../StatusBadge';
+import { Tooltip } from '../ui/Tooltip';
 
 interface GestorDashboardProps {
     onNavigate: (page: string, processId?: string, accountabilityId?: string) => void;
@@ -353,9 +354,11 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                                         <span className="font-mono font-bold text-gray-800 text-sm">
                                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.solicitation.value)}
                                         </span>
+                                        <Tooltip content="Abrir processo para analisar minutas e assinar como gestor" position="top">
                                         <button className="text-xs font-bold text-orange-600 flex items-center gap-1 group-hover:gap-2 transition-all">
                                             Analisar e Assinar <ChevronRight size={14}/>
                                         </button>
+                                        </Tooltip>
                                     </div>
                                 </div>
                             ))}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Siren, Gavel, FileText, Clock, Search, ChevronRight, Loader2, Wallet, AlertTriangle, ArrowRight, Play, CheckCircle2, RotateCcw, Plus, UserCheck, Shield } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { StatusBadge } from '../StatusBadge';
+import { Tooltip } from '../ui/Tooltip';
 
 interface SupridoDashboardProps {
     onNavigate: (page: string, processId?: string, accountabilityId?: string) => void;
@@ -256,6 +257,7 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
 
                                                 {/* Botão de Ação */}
                                                 {(!pc || pc.status === 'DRAFT' || pc.status === 'CORRECTION') && (
+                                                    <Tooltip content={pc ? 'Continuar a prestação de contas em andamento' : 'Criar prestação de contas para comprovar uso dos recursos'} position="top">
                                                     <button 
                                                         onClick={() => handleStartAccountability(proc.id, proc.value, pc)}
                                                         disabled={creatingPC === proc.id}
@@ -264,15 +266,18 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                                                         {creatingPC === proc.id ? <Loader2 className="animate-spin" size={14}/> : (pc ? <Play size={14} fill="currentColor" /> : <Plus size={14}/>)}
                                                         {pc ? 'Continuar PC' : 'Iniciar PC'}
                                                     </button>
+                                                    </Tooltip>
                                                 )}
                                                 
                                                 {(pc && (pc.status === 'WAITING_SOSFU' || pc.status === 'APPROVED' || pc.status === 'WAITING_MANAGER')) && (
+                                                    <Tooltip content="Ver detalhes completos deste processo" position="top">
                                                     <button 
                                                         onClick={() => onNavigate('process_detail', proc.id)}
                                                         className="px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-50 transition-colors"
                                                     >
                                                         Detalhes
                                                     </button>
+                                                    </Tooltip>
                                                 )}
                                             </div>
                                         )}
