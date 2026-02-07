@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, CheckCircle2, AlertCircle, FileText, Ban, Scale, UserCheck, Wallet, Send, PenTool } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, FileText, Ban, Scale, UserCheck, Wallet, Send, PenTool, Archive } from 'lucide-react';
 
 interface StatusBadgeProps {
   status: string;
@@ -60,6 +60,11 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
       label: 'Aprovado', 
       color: 'bg-green-100 text-green-800 border-green-200',
       icon: CheckCircle2
+    },
+    'ARCHIVED': { 
+      label: 'Arquivado', 
+      color: 'bg-gray-800 text-white border-gray-900',
+      icon: Archive
     },
 
     // EXCEÇÕES

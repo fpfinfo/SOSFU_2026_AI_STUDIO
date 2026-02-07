@@ -71,7 +71,8 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
             const pendingList = approvals || [];
             const pcList = pcApprovals || [];
             const myList = requests || [];
-            const myActive = myList.filter(p => p.status !== 'PAID' && p.status !== 'REJECTED');
+            // Ativos: Não Pagos, Não Rejeitados e Não Arquivados
+            const myActive = myList.filter(p => p.status !== 'PAID' && p.status !== 'REJECTED' && p.status !== 'ARCHIVED');
             
             // Cálculo do valor total sob gestão (aprovados + pendentes)
             const pendingValue = pendingList.reduce((acc, curr) => acc + Number(curr.value), 0);
@@ -294,8 +295,8 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                                 myRequests.map(proc => (
                                     <div key={proc.id} onClick={() => onNavigate('process_detail', proc.id)} className="p-5 hover:bg-slate-50 transition-colors cursor-pointer flex items-center justify-between group">
                                         <div className="flex items-center gap-4">
-                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${proc.status === 'PAID' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600'}`}>
-                                                {proc.status === 'PAID' ? <Wallet size={20} /> : <FileText size={20} />}
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${proc.status === 'PAID' || proc.status === 'ARCHIVED' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600'}`}>
+                                                {(proc.status === 'PAID' || proc.status === 'ARCHIVED') ? <Wallet size={20} /> : <FileText size={20} />}
                                             </div>
                                             <div>
                                                 <p className="text-sm font-bold text-gray-800 group-hover:text-indigo-700 transition-colors">{proc.process_number}</p>

@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Filter, Search, MoreHorizontal, CheckSquare, AlertCircle, Loader2, Inbox, List, UserPlus } from 'lucide-react';
+import { Plus, Filter, Search, MoreHorizontal, CheckSquare, AlertCircle, Loader2, Inbox, List, UserPlus, Eye, ArrowRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AssignModal } from './AssignModal';
 
+interface AccountabilityViewProps {
+    onNavigate?: (page: string, processId?: string, accountabilityId?: string) => void;
+}
+
 type TabType = 'ALL' | 'NEW' | 'ANALYSIS' | 'DONE';
 
-export const AccountabilityView: React.FC = () => {
+export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNavigate }) => {
   const [activeTab, setActiveTab] = useState<TabType>('NEW');
   const [accountabilities, setAccountabilities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,6 +80,13 @@ export const AccountabilityView: React.FC = () => {
       setSelectedId(id);
       setCurrentAnalystId(currAnalystId);
       setIsAssignModalOpen(true);
+  };
+
+  const handleViewDetails = (pc: any) => {
+      if (onNavigate) {
+          // Navega para o detalhe do processo, focando na prestação de contas e abrindo o Painel de Auditoria se estiver WAITING_SOSFU
+          onNavigate('process_accountability', pc.solicitation_id, pc.id);
+      }
   };
 
   const getDaysRemaining = (deadlineStr: string) => {
@@ -210,9 +221,13 @@ export const AccountabilityView: React.FC = () => {
                 filteredItems.map((item) => {
                     const daysRemaining = getDaysRemaining(item.deadline);
                     return (
-                        <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                        <tr 
+                            key={item.id} 
+                            className="hover:bg-gray-50 transition-colors cursor-pointer group"
+                            onClick={() => handleViewDetails(item)}
+                        >
                         <td className="px-6 py-4">
-                            <span className="font-bold text-gray-800 text-sm">{item.process_number}</span>
+                            <span className="font-bold text-gray-800 text-sm group-hover:text-purple-600 transition-colors">{item.process_number}</span>
                         </td>
                         <td className="px-6 py-4">
                             <div className="text-sm font-medium text-gray-800">{item.profiles?.full_name || 'Desconhecido'}</div>
@@ -271,8 +286,12 @@ export const AccountabilityView: React.FC = () => {
                             </button>
                         </td>
                         <td className="px-6 py-4 text-right">
-                            <button className="text-gray-400 hover:text-purple-600 transition-colors p-1 rounded hover:bg-purple-50">
-                                <MoreHorizontal size={18} />
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); handleViewDetails(item); }}
+                                className="text-purple-600 hover:bg-purple-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ml-auto"
+                            >
+                                {item.status === 'WAITING_SOSFU' ? 'Analisar' : 'Detalhes'} 
+                                <ArrowRight size={14} />
                             </button>
                         </td>
                         </tr>

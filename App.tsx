@@ -228,7 +228,7 @@ const App: React.FC = () => {
                     if (role === 'SEFIN') return setActiveTab('sefin_dashboard');
                     if (role === 'GESTOR') return setActiveTab('gestor_dashboard');
                     if (role === 'SUPRIDO') return setActiveTab('suprido_dashboard');
-                    if (role === 'SOSFU' || role === 'ADMIN') return setActiveTab('solicitations');
+                    if (role === 'SOSFU' || role === 'ADMIN') return setActiveTab('accountability'); // Volta para accountability se estava lá
                     return setActiveTab('dashboard');
                 }} 
             />
@@ -238,7 +238,7 @@ const App: React.FC = () => {
       case 'solicitations':
         return <SolicitationsView onNavigate={handleNavigation} />;
       case 'accountability':
-        return <AccountabilityView />;
+        return <AccountabilityView onNavigate={handleNavigation} />;
       case 'settings':
         return <SettingsView />;
       case 'profile':

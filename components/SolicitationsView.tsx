@@ -50,7 +50,7 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
           all: allItems.length,
           new: allItems.filter(s => s.status === 'WAITING_SOSFU_ANALYSIS').length,
           analysis: allItems.filter(s => ['WAITING_SEFIN_SIGNATURE', 'WAITING_SOSFU_PAYMENT', 'WAITING_SUPRIDO_CONFIRMATION', 'WAITING_CORRECTION'].includes(s.status)).length,
-          done: allItems.filter(s => ['PAID', 'APPROVED', 'REJECTED'].includes(s.status)).length
+          done: allItems.filter(s => ['PAID', 'APPROVED', 'REJECTED', 'ARCHIVED'].includes(s.status)).length
       });
 
     } catch (error) {
@@ -108,8 +108,8 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
               list = list.filter(s => ['WAITING_SEFIN_SIGNATURE', 'WAITING_SOSFU_PAYMENT', 'WAITING_SUPRIDO_CONFIRMATION', 'WAITING_CORRECTION'].includes(s.status));
               break;
           case 'DONE':
-              // Concluídas = Pagos ou Rejeitados
-              list = list.filter(s => ['PAID', 'APPROVED', 'REJECTED'].includes(s.status));
+              // Concluídas = Pagos, Rejeitados ou Arquivados
+              list = list.filter(s => ['PAID', 'APPROVED', 'REJECTED', 'ARCHIVED'].includes(s.status));
               break;
           case 'ALL':
           default:
