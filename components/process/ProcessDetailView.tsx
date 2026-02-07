@@ -5,7 +5,9 @@ import { StatusBadge } from '../StatusBadge';
 import { AccountabilityWizard } from '../accountability/AccountabilityWizard';
 import { JuriReviewPanel } from '../accountability/JuriReviewPanel';
 import { SosfuAuditPanel } from '../accountability/SosfuAuditPanel';
-import { ProcessTimeline } from './ProcessTimeline'; // Importação da Nova Timeline
+import { ProcessTimeline } from './ProcessTimeline';
+import { NewDocumentModal } from './NewDocumentModal';
+import { ExpenseExecutionWizard } from '../execution/ExpenseExecutionWizard';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { 
@@ -37,12 +39,17 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [creatingPC, setCreatingPC] = useState(false);
+  const [confirmPaymentLoading, setConfirmPaymentLoading] = useState(false);
+  const [confirmReceiptLoading, setConfirmReceiptLoading] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<string>('USER');
   const [comarcaData, setComarcaData] = useState<any>(null);
   
   // Document Viewer State
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
   const [juriReviewOpen, setJuriReviewOpen] = useState(false);
+  const [newDocModalOpen, setNewDocModalOpen] = useState(false);
+  const [editingDoc, setEditingDoc] = useState<any>(null);
+  const [tramitarLoading, setTramitarLoading] = useState(false);
 
   useEffect(() => {
     fetchProcessData();
@@ -72,7 +79,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
           const { data: profile } = await supabase.from('profiles').select('dperfil:perfil_id(slug)').eq('id', user.id).single();
           const dperfil = profile?.dperfil as unknown as { slug: string } | null;
           if (dperfil?.slug) {
-              setCurrentUserRole(dperfil.slug);
+              setCurrentUserRole(dperfil.slug.toUpperCase());
           }
       }
   };
@@ -105,7 +112,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
             .select('*')
             .eq('solicitation_id', processId)
             .order('created_at', { ascending: true });
-        setDocuments(docs || []);
+        setDocuments((docs || []).filter((d: any) => !d.metadata?.deleted));
         
         if (docs && docs.length > 0 && !selectedDoc && initialTab === 'DOSSIER') {
             setSelectedDoc(docs[0]);
@@ -164,6 +171,92 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
       }
   };
 
+  // ─── PHASE 1: SOSFU Confirma Pagamento ───
+  const handleConfirmPayment = async () => {
+      if (!confirm('Confirmar que o pagamento foi processado e os recursos liberados para o suprido?')) return;
+      setConfirmPaymentLoading(true);
+      try {
+          const { data: { user } } = await supabase.auth.getUser();
+          const now = new Date().toISOString();
+
+          const { error } = await supabase.from('solicitations').update({
+              status: 'WAITING_SUPRIDO_CONFIRMATION'
+          }).eq('id', processId);
+          if (error) throw error;
+
+          await supabase.from('historico_tramitacao').insert({
+              solicitation_id: processId,
+              status_from: 'WAITING_SOSFU_PAYMENT',
+              status_to: 'WAITING_SUPRIDO_CONFIRMATION',
+              actor_name: user?.email,
+              description: 'Pagamento confirmado pela SOSFU. Recursos liberados ao suprido.',
+              created_at: now
+          });
+
+          await fetchProcessData();
+      } catch (err) {
+          console.error('Erro ao confirmar pagamento:', err);
+          alert('Erro ao confirmar pagamento. Tente novamente.');
+      } finally {
+          setConfirmPaymentLoading(false);
+      }
+  };
+
+  // ─── PHASE 2: Suprido Confirma Recebimento ───
+  const handleConfirmReceipt = async () => {
+      if (!confirm('Confirmar que você recebeu os recursos em sua conta bancária?')) return;
+      setConfirmReceiptLoading(true);
+      try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user || !processData) return;
+          const now = new Date().toISOString();
+
+          // 1. Transition solicitation to PAID
+          const { error } = await supabase.from('solicitations').update({
+              status: 'PAID'
+          }).eq('id', processId);
+          if (error) throw error;
+
+          // 2. Insert history entry
+          await supabase.from('historico_tramitacao').insert({
+              solicitation_id: processId,
+              status_from: 'WAITING_SUPRIDO_CONFIRMATION',
+              status_to: 'PAID',
+              actor_name: user.email,
+              description: 'Suprido confirmou recebimento dos recursos. Início da fase de Prestação de Contas.',
+              created_at: now
+          });
+
+          // 3. Auto-create accountability record if none exists
+          if (!accountabilityData) {
+              const deadline = new Date();
+              deadline.setDate(deadline.getDate() + 30);
+
+              const { data: newPC, error: pcError } = await supabase.from('accountabilities').insert({
+                  process_number: processData.process_number,
+                  requester_id: user.id,
+                  solicitation_id: processData.id,
+                  value: processData.value,
+                  total_spent: 0,
+                  balance: processData.value,
+                  deadline: deadline.toISOString(),
+                  status: 'DRAFT'
+              }).select().single();
+
+              if (pcError) console.error('Erro ao criar PC automática:', pcError);
+              else setAccountabilityData(newPC);
+          }
+
+          await fetchProcessData();
+          setActiveTab('ACCOUNTABILITY'); // Navigate to PC tab
+      } catch (err) {
+          console.error('Erro ao confirmar recebimento:', err);
+          alert('Erro ao confirmar recebimento. Tente novamente.');
+      } finally {
+          setConfirmReceiptLoading(false);
+      }
+  };
+
   const renderDocumentContent = (doc: any) => {
       if (!doc) return null;
       
@@ -213,8 +306,15 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
   };
 
   const handleGeneratePDF = async (docType: string, title: string, content?: string) => {
-      setLoading(true);
-      try {
+    // Dedup: se já existe um doc deste tipo, apenas abre o existente
+    const existing = documents.find((d: any) => d.document_type === docType);
+    if (existing) {
+        setSelectedDoc(existing);
+        return;
+    }
+
+    setLoading(true);
+    try {
            const { data: doc, error } = await supabase.from('process_documents').insert({
                solicitation_id: processId,
                title: title,
@@ -234,6 +334,59 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
       }
   };
 
+  // --- FUNÇÕES DE TRAMITAÇÃO E CRUD ---
+
+  const pendingMinutas = documents.filter((d: any) => d.metadata?.is_draft === true);
+  const canTramitarSOSFU = currentUserRole === 'USER' && processData?.status === 'PENDING' && pendingMinutas.length === 0;
+  const canTramitarGestor = currentUserRole === 'USER' && pendingMinutas.length > 0;
+  const isArchived = processData?.status === 'ARCHIVED';
+
+  const handleTramitar = async (destino: 'GESTOR' | 'SOSFU') => {
+    if (destino === 'SOSFU' && pendingMinutas.length > 0) {
+      alert(`Existem ${pendingMinutas.length} minuta(s) pendente(s) de assinatura do Gestor. Tramite primeiro para o Gestor.`);
+      return;
+    }
+
+    const destinoLabel = destino === 'SOSFU' ? 'SOSFU' : 'Gestor';
+    if (!confirm(`Confirma a tramitação do processo para ${destinoLabel}?`)) return;
+
+    setTramitarLoading(true);
+    try {
+      const newStatus = destino === 'SOSFU' ? 'WAITING_SOSFU' : 'WAITING_MANAGER';
+      const { error } = await supabase.from('solicitations')
+        .update({ status: newStatus })
+        .eq('id', processId);
+
+      if (error) throw error;
+      await fetchProcessData();
+    } catch (err) {
+      console.error('Erro ao tramitar:', err);
+    } finally {
+      setTramitarLoading(false);
+    }
+  };
+
+  const handleDeleteDoc = async (doc: any) => {
+    if (!confirm(`Excluir "${doc.title}"? Esta ação é irreversível.`)) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user?.id || '').single();
+      const auditEntry = {
+        action: 'DELETE',
+        user_id: user?.id,
+        user_name: profile?.full_name || user?.email,
+        timestamp: new Date().toISOString(),
+      };
+      // Soft delete via metadata
+      await supabase.from('process_documents')
+        .update({ metadata: { ...doc.metadata, deleted: true, audit_log: [...(doc.metadata?.audit_log || []), auditEntry] } })
+        .eq('id', doc.id);
+      await fetchProcessData();
+    } catch (err) {
+      console.error('Erro ao excluir:', err);
+    }
+  };
+
   // --- PAINEL DE AUDITORIA TÉCNICA (SOSFU) --- (Extraído para SosfuAuditPanel.tsx)
 
 
@@ -241,11 +394,54 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
     if (!processData) return <div className="p-8 text-center text-gray-500">Carregando dados...</div>;
 
     // Lógica para Banner de Status Específico
-    const isWaitingManager = accountabilityData?.status === 'WAITING_MANAGER';
+    const isWaitingManager = accountabilityData?.status === 'WAITING_MANAGER' || processData?.status === 'WAITING_MANAGER';
     const managerName = processData.manager_name || 'Gestor da Unidade';
+
+    const isWaitingSupridoConfirmation = processData.status === 'WAITING_SUPRIDO_CONFIRMATION';
 
     return (
         <div className="animate-in fade-in space-y-6">
+
+            {/* ═══ Banner: Confirmar Recebimento (Suprido) ═══ */}
+            {isWaitingSupridoConfirmation && currentUserRole === 'USER' && (
+                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 rounded-2xl p-6 shadow-md">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 bg-emerald-100 rounded-full text-emerald-600 animate-pulse">
+                                <Wallet size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-emerald-900">💰 Recursos Creditados</h3>
+                                <p className="text-emerald-700 text-sm mt-1 max-w-xl leading-relaxed">
+                                    O pagamento foi processado pela SOSFU. Confirme o recebimento dos recursos na sua conta bancária para iniciar a <strong>Prestação de Contas</strong>.
+                                    <br/><span className="text-xs text-emerald-600">Prazo para PC: 30 dias após confirmação (Res. CNJ 169/2013)</span>
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleConfirmReceipt}
+                            disabled={confirmReceiptLoading}
+                            className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-black text-sm hover:bg-emerald-700 transition-all flex items-center gap-2 shadow-lg shadow-emerald-200 whitespace-nowrap disabled:opacity-50"
+                        >
+                            {confirmReceiptLoading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                            Confirmar Recebimento
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ═══ Banner: Pagamento Realizado (SOSFU informativo) ═══ */}
+            {processData.status === 'PAID' && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex items-center gap-4">
+                    <div className="p-2.5 bg-emerald-100 rounded-full text-emerald-600">
+                        <CheckCircle2 size={20} />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-emerald-800 text-sm">Recurso Recebido ✓</h3>
+                        <p className="text-emerald-600 text-xs mt-0.5">O suprido confirmou o recebimento. A fase de Prestação de Contas está aberta.</p>
+                    </div>
+                </div>
+            )}
             
             {/* Banner de Status: AGUARDANDO GESTOR */}
             {isWaitingManager && (
@@ -270,6 +466,11 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                         <span className="text-[10px] text-amber-600 font-medium">Revisão pelo Gestor</span>
                     </div>
                 </div>
+            )}
+
+            {/* Painel de Assinatura de Minutas (Gestor) na Overview */}
+            {isWaitingManager && currentUserRole === 'GESTOR' && (
+                <ManagerReviewPanel />
             )}
 
             {/* Cards de Resumo */}
@@ -427,15 +628,26 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
               {/* === SIDEBAR ESQUERDA === */}
               <div className="w-[280px] min-w-[280px] bg-white border-r border-gray-200 flex flex-col">
                   {/* Header da Sidebar */}
-                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                      <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                          <FolderOpen size={15} className="text-blue-600" />
-                          Autos do Processo
-                      </h3>
-                      <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                          {documents.length} docs
-                      </span>
-                  </div>
+                    <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                            <FolderOpen size={15} className="text-blue-600" />
+                            Autos do Processo
+                        </h3>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                                {documents.length} docs
+                            </span>
+                            {!isArchived && (
+                                <button
+                                    onClick={() => { setEditingDoc(null); setNewDocModalOpen(true); }}
+                                    className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                                    title="Novo Documento"
+                                >
+                                    <Plus size={14} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
 
                   {/* Lista de Documentos */}
                   <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -445,7 +657,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                               <button
                                   key={doc.id || i}
                                   onClick={() => handleDocClick(i)}
-                                  className={`w-full text-left px-4 py-3 border-b border-gray-50 transition-all ${
+                                  className={`w-full text-left px-4 py-3 border-b border-gray-50 transition-all group ${
                                       isActive 
                                           ? 'bg-blue-50 border-l-[3px] border-l-blue-600' 
                                           : 'hover:bg-gray-50 border-l-[3px] border-l-transparent'
@@ -478,9 +690,27 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                                               })}
                                           </p>
                                       </div>
-                                      {doc.document_type === 'ATTESTATION' && (
-                                          <Download size={12} className="text-green-500 mt-1 shrink-0" />
-                                      )}
+                                        {doc.metadata?.is_draft && (
+                                            <span className="text-[8px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 mt-0.5 shrink-0 uppercase tracking-wider">Minuta</span>
+                                        )}
+                                        {doc.document_type === 'GENERIC' && doc.metadata?.created_by && !isArchived && (
+                                            <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setEditingDoc(doc); setNewDocModalOpen(true); }}
+                                                    className="p-1 rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors"
+                                                    title="Editar"
+                                                >
+                                                    <FileSignature size={11} />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleDeleteDoc(doc); }}
+                                                    className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-600 transition-colors"
+                                                    title="Excluir"
+                                                >
+                                                    <X size={11} />
+                                                </button>
+                                            </div>
+                                        )}
                                   </div>
                               </button>
                           );
@@ -610,65 +840,162 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
       );
   };
 
-  const ExecutionTab = () => {
-      const handleGen = (type: string, title: string) => {
-          if (confirm(`Gerar ${title}?`)) {
-              handleGeneratePDF(type, title);
-          }
-      };
+  const [executionWizardOpen, setExecutionWizardOpen] = useState(false);
 
+  const ExecutionTab = () => {
       const executionDocs = [
-          { type: 'NE', label: 'Nota de Empenho', icon: Wallet, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { type: 'NL', label: 'Nota de Liquidação', icon: FileCheck, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { type: 'OB', label: 'Ordem Bancária', icon: DollarSign, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+          { type: 'PORTARIA_SF', label: 'Portaria SF', icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50', signer: 'Ordenador SEFIN' },
+          { type: 'CERTIDAO_REGULARIDADE', label: 'Certidão de Regularidade', icon: Shield, color: 'text-emerald-600', bg: 'bg-emerald-50', signer: 'Ordenador SEFIN' },
+          { type: 'NOTA_EMPENHO', label: 'Nota de Empenho (NE)', icon: Wallet, color: 'text-amber-600', bg: 'bg-amber-50', signer: 'Ordenador SEFIN' },
+          { type: 'LIQUIDACAO', label: 'Doc. de Liquidação (DL)', icon: FileCheck, color: 'text-purple-600', bg: 'bg-purple-50', signer: 'Analista SOSFU' },
+          { type: 'ORDEM_BANCARIA', label: 'Ordem Bancária (OB)', icon: DollarSign, color: 'text-indigo-600', bg: 'bg-indigo-50', signer: 'Analista SOSFU' },
       ];
+
+      // All 5 execution docs exist and are signed?
+      const allDocsSigned = executionDocs.every(doc => {
+          const existing = documents.find(d => d.document_type === doc.type);
+          return existing?.status === 'SIGNED';
+      });
 
       return (
           <div className="space-y-6 animate-in fade-in">
+
+              {/* ═══ SOSFU Payment Confirmation Card ═══ */}
+              {processData?.status === 'WAITING_SOSFU_PAYMENT' && ['SOSFU', 'ADMIN'].includes(currentUserRole) && (
+                  <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl p-6 text-white shadow-lg border border-emerald-500/30">
+                      <div className="flex items-center justify-between flex-wrap gap-4">
+                          <div className="flex items-center gap-4">
+                              <div className="p-3 bg-white/15 rounded-xl backdrop-blur">
+                                  <BadgeCheck size={24} />
+                              </div>
+                              <div>
+                                  <h3 className="text-xl font-black">Confirmar Pagamento</h3>
+                                  <p className="text-emerald-100 text-sm mt-0.5 max-w-lg">
+                                      Todos os documentos foram assinados pelo Ordenador. Confirme que o pagamento foi processado para notificar o suprido.
+                                  </p>
+                              </div>
+                          </div>
+                          <button
+                              onClick={handleConfirmPayment}
+                              disabled={confirmPaymentLoading}
+                              className="px-6 py-3 bg-white text-emerald-700 rounded-xl text-sm font-black shadow-lg hover:bg-emerald-50 transition-all flex items-center gap-2 disabled:opacity-50"
+                          >
+                              {confirmPaymentLoading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                              Confirmar Pagamento
+                          </button>
+                      </div>
+                  </div>
+              )}
+
+              {/* ═══ Status: Waiting Suprido Confirmation ═══ */}
+              {processData?.status === 'WAITING_SUPRIDO_CONFIRMATION' && ['SOSFU', 'ADMIN'].includes(currentUserRole) && (
+                  <div className="bg-teal-50 border border-teal-200 rounded-2xl p-5 flex items-center gap-4">
+                      <div className="p-2.5 bg-teal-100 rounded-full text-teal-600">
+                          <Clock size={20} />
+                      </div>
+                      <div>
+                          <h3 className="font-bold text-teal-800 text-sm">Aguardando Confirmação do Suprido</h3>
+                          <p className="text-teal-600 text-xs mt-0.5">O pagamento foi confirmado. O suprido precisa confirmar o recebimento dos recursos para iniciar a Prestação de Contas.</p>
+                      </div>
+                  </div>
+              )}
+              {/* Header Card */}
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg">
+                  <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                          <div className="p-3 bg-white/15 rounded-xl backdrop-blur">
+                              <Wallet size={24} />
+                          </div>
+                          <div>
+                              <h3 className="text-xl font-black">Execução da Despesa</h3>
+                              <p className="text-blue-100 text-sm mt-0.5">Gere os 5 documentos financeiros e tramite para assinatura do Ordenador.</p>
+                          </div>
+                      </div>
+                      {['SOSFU', 'ADMIN'].includes(currentUserRole) && (
+                          <button onClick={() => setExecutionWizardOpen(true)}
+                              className="px-6 py-3 bg-white text-blue-700 rounded-xl text-sm font-black shadow-lg hover:bg-blue-50 transition-all flex items-center gap-2">
+                              <FileText size={16} /> Iniciar Execução
+                          </button>
+                      )}
+                  </div>
+              </div>
+
+              {/* Documents Grid */}
               <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                      <Wallet size={20} className="text-gray-400"/> Execução Financeira
-                  </h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-4">Status dos Documentos</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                       {executionDocs.map(doc => {
                           const existing = documents.find(d => d.document_type === doc.type);
                           const Icon = doc.icon;
+                          const isSigned = existing?.status === 'SIGNED';
+                          const isMinuta = existing?.status === 'MINUTA';
                           return (
-                              <div key={doc.type} className="border border-gray-100 rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden bg-gray-50/50">
-                                  <div className="flex justify-between items-start">
-                                      <div className={`p-2 rounded-lg ${existing ? 'bg-green-100 text-green-600' : doc.bg + ' ' + doc.color}`}>
-                                          {existing ? <CheckCircle2 size={20}/> : <Icon size={20}/>}
+                              <div key={doc.type} className={`border rounded-xl p-4 flex flex-col gap-3 transition-all ${
+                                  isSigned ? 'border-emerald-200 bg-emerald-50' : isMinuta ? 'border-amber-200 bg-amber-50/30' : 'border-gray-100 bg-gray-50/50'
+                              }`}>
+                                  <div className="flex items-center justify-between">
+                                      <div className={`p-2 rounded-lg ${isSigned ? 'bg-emerald-100 text-emerald-600' : isMinuta ? 'bg-amber-100 text-amber-600' : doc.bg + ' ' + doc.color}`}>
+                                          {isSigned ? <CheckCircle2 size={18} /> : isMinuta ? <Clock size={18} /> : <Icon size={18} />}
                                       </div>
                                       {existing && (
-                                          <button 
-                                            onClick={() => setSelectedDoc(existing)}
-                                            className="text-xs font-bold text-blue-600 hover:underline"
-                                          >
-                                              Visualizar
-                                          </button>
+                                          <button onClick={() => setSelectedDoc(existing)} className="text-[10px] font-bold text-blue-600 hover:underline">Ver</button>
                                       )}
                                   </div>
                                   <div>
-                                      <h4 className="font-bold text-gray-700 text-sm">{doc.label}</h4>
-                                      <p className="text-xs text-gray-400 mt-1">
-                                          {existing ? `Gerado em ${new Date(existing.created_at).toLocaleDateString()}` : 'Pendente de emissão'}
+                                      <h4 className="font-bold text-gray-700 text-xs">{doc.label}</h4>
+                                      <p className="text-[10px] text-gray-400 mt-1">
+                                          {isSigned ? '✓ Assinado' : isMinuta ? '⏳ Minuta' : 'Pendente'}
                                       </p>
+                                      <p className="text-[9px] text-gray-400 mt-0.5">→ {doc.signer}</p>
                                   </div>
-                                  
-                                  {!existing && ['SOSFU', 'ADMIN', 'SEFIN'].includes(currentUserRole) && (
-                                      <button 
-                                        onClick={() => handleGen(doc.type, doc.label)}
-                                        className="mt-2 w-full py-2 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors shadow-sm"
-                                      >
-                                          Gerar Documento
-                                      </button>
-                                  )}
                               </div>
                           );
                       })}
                   </div>
               </div>
+
+              {/* Triple Check Summary */}
+              {processData && (processData.ne_valor || processData.dl_valor || processData.ob_valor) && (
+                  <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                      <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-4">Triple Check: NE → DL → OB</h4>
+                      <div className="grid grid-cols-3 gap-6 text-center">
+                          <div className="p-4 bg-amber-50 rounded-xl">
+                              <p className="text-[9px] font-bold text-amber-600 uppercase">Nota de Empenho</p>
+                              <p className="text-xl font-black text-gray-800">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(processData.ne_valor || 0)}</p>
+                          </div>
+                          <div className="p-4 bg-purple-50 rounded-xl">
+                              <p className="text-[9px] font-bold text-purple-600 uppercase">Liquidação</p>
+                              <p className="text-xl font-black text-gray-800">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(processData.dl_valor || 0)}</p>
+                          </div>
+                          <div className="p-4 bg-indigo-50 rounded-xl">
+                              <p className="text-[9px] font-bold text-indigo-600 uppercase">Ordem Bancária</p>
+                              <p className="text-xl font-black text-gray-800">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(processData.ob_valor || 0)}</p>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
+              {/* Execution Wizard Modal */}
+              {executionWizardOpen && processData && (
+                  <ExpenseExecutionWizard
+                      isOpen={executionWizardOpen}
+                      onClose={() => setExecutionWizardOpen(false)}
+                      process={{
+                          id: processId,
+                          process_number: processData.process_number,
+                          beneficiary: processData.beneficiary,
+                          value: processData.value,
+                          unit: processData.unit,
+                          ptres_code: processData.ptres_code,
+                          dotacao_code: processData.dotacao_code,
+                          ne_numero: processData.ne_numero,
+                          dl_numero: processData.dl_numero,
+                          ob_numero: processData.ob_numero,
+                          portaria_sf_numero: processData.portaria_sf_numero,
+                      }}
+                      onSuccess={fetchProcessData}
+                  />
+              )}
           </div>
       );
   };
@@ -797,37 +1124,118 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
   };
 
   const ManagerReviewPanel = () => {
-      const handleApprove = async () => {
-          if (!confirm('Confirma o atesto das contas?')) return;
-          setLoading(true);
+      const [signingId, setSigningId] = useState<string | null>(null);
+      
+      // Minutas pendentes de assinatura neste processo
+      const processDraftDocs = documents.filter((d: any) => d.metadata?.is_draft === true);
+      const isMinutaMode = processData?.status === 'WAITING_MANAGER' && processDraftDocs.length > 0;
+      const isPcMode = accountabilityData?.status === 'WAITING_MANAGER';
+
+      // --- ASSINAR MINUTA INDIVIDUAL ---
+      const handleSignMinuta = async (doc: any) => {
+          if (!confirm(`Assinar "${doc.title}"?`)) return;
+          setSigningId(doc.id);
           try {
-              // Aprovar PC -> Enviar para SOSFU
-              const { error } = await supabase.from('accountabilities')
-                  .update({ status: 'WAITING_SOSFU' })
-                  .eq('id', accountabilityData.id);
+              const { data: { user } } = await supabase.auth.getUser();
+              const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user?.id || '').single();
               
-              if (error) throw error;
+              const auditEntry = {
+                  action: 'SIGN',
+                  user_id: user?.id,
+                  user_name: profile?.full_name || user?.email,
+                  timestamp: new Date().toISOString(),
+              };
               
-              // Gerar Certidão de Atesto automaticamente
-              await handleGeneratePDF('ATTESTATION', 'Certidão de Atesto (Gestor)');
+              await supabase.from('process_documents')
+                  .update({
+                      metadata: {
+                          ...doc.metadata,
+                          is_draft: false,
+                          editable: false,
+                          signed: true,
+                          signed_by: profile?.full_name || user?.email,
+                          signed_at: new Date().toISOString(),
+                          audit_log: [...(doc.metadata?.audit_log || []), auditEntry]
+                      }
+                  })
+                  .eq('id', doc.id);
               
+              // Recarrega dados
               await fetchProcessData();
-          } catch(err) {
-              console.error(err);
-              console.error('Erro ao aprovar.');
+              
+              // Verifica se era a última minuta → auto-devolver ao Suprido
+              const remaining = processDraftDocs.filter((d: any) => d.id !== doc.id);
+              if (remaining.length === 0) {
+                  await supabase.from('solicitations')
+                      .update({ status: 'PENDING' })
+                      .eq('id', processId);
+                  
+                  // Registrar no histórico de tramitação
+                  await supabase.from('historico_tramitacao').insert({
+                      solicitation_id: processId,
+                      status_from: 'WAITING_MANAGER',
+                      status_to: 'PENDING',
+                      actor_name: profile?.full_name || user?.email,
+                      description: 'Minutas assinadas pelo Gestor. Processo devolvido ao suprido.'
+                  });
+                  
+                  await fetchProcessData();
+              }
+          } catch (err) {
+              console.error('Erro ao assinar minuta:', err);
           } finally {
-              setLoading(false);
+              setSigningId(null);
           }
       };
+
+      // --- ATESTAR PC (existente) ---
+      const handleApprove = async () => {
+        if (!confirm('Confirma o atesto das contas?')) return;
+        setLoading(true);
+        try {
+            const { error } = await supabase.from('accountabilities')
+                .update({ status: 'WAITING_SOSFU' })
+                .eq('id', accountabilityData.id);
+            
+            if (error) throw error;
+            
+            const existingAttestation = documents.find((d: any) => d.document_type === 'ATTESTATION');
+            if (existingAttestation) {
+                await supabase.from('process_documents')
+                    .update({ 
+                        title: 'Certidão de Atesto (Gestor)',
+                        metadata: { ...existingAttestation.metadata, is_draft: false, editable: false, signed: true, signed_at: new Date().toISOString() }
+                    })
+                    .eq('id', existingAttestation.id);
+            } else {
+                await handleGeneratePDF('ATTESTATION', 'Certidão de Atesto (Gestor)');
+            }
+            
+            await fetchProcessData();
+        } catch(err) {
+            console.error(err);
+            console.error('Erro ao aprovar.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
       const handleCorrection = async () => {
           if (!confirm('Devolver para correção?')) return;
           setLoading(true);
           try {
-              const { error } = await supabase.from('accountabilities')
-                  .update({ status: 'CORRECTION' })
-                  .eq('id', accountabilityData.id);
-              if (error) throw error;
+              if (isPcMode) {
+                  const { error } = await supabase.from('accountabilities')
+                      .update({ status: 'CORRECTION' })
+                      .eq('id', accountabilityData.id);
+                  if (error) throw error;
+              } else {
+                  // Devolver solicitação
+                  const { error } = await supabase.from('solicitations')
+                      .update({ status: 'WAITING_CORRECTION' })
+                      .eq('id', processId);
+                  if (error) throw error;
+              }
               await fetchProcessData();
           } catch(err) {
               console.error(err);
@@ -837,6 +1245,85 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
           }
       };
 
+      // --- MODO MINUTA: ASSINATURA INDIVIDUAL ---
+      if (isMinutaMode) {
+          return (
+              <div className="bg-white p-8 rounded-xl border border-orange-200 shadow-sm">
+                  <div className="flex items-start gap-4 mb-6">
+                      <div className="p-3 bg-orange-100 text-orange-600 rounded-lg">
+                          <FileSignature size={24} />
+                      </div>
+                      <div>
+                          <h3 className="text-xl font-bold text-gray-800">Minutas Pendentes de Assinatura</h3>
+                          <p className="text-gray-500">O suprido tramitou documentos para sua análise e assinatura. Revise cada minuta individualmente.</p>
+                      </div>
+                  </div>
+
+                  {/* Lista de Minutas */}
+                  <div className="space-y-3 mb-6">
+                      {processDraftDocs.map((doc: any) => (
+                          <div key={doc.id} className="flex items-center justify-between p-4 bg-orange-50/50 rounded-xl border border-orange-100 group">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                  <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+                                      <FileText size={16} />
+                                  </div>
+                                  <div className="min-w-0">
+                                      <p className="text-sm font-bold text-gray-800 truncate">{doc.title}</p>
+                                      <p className="text-[10px] text-gray-400 mt-0.5">
+                                          {doc.metadata?.subType || doc.document_type} • {new Date(doc.created_at).toLocaleDateString('pt-BR')}
+                                      </p>
+                                  </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                  <button
+                                      onClick={() => setSelectedDoc(doc)}
+                                      className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                  >
+                                      <Eye size={12} className="inline mr-1" /> Ver
+                                  </button>
+                                  <button
+                                      onClick={() => { setEditingDoc(doc); setNewDocModalOpen(true); }}
+                                      className="px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                                  >
+                                      <FileSignature size={12} className="inline mr-1" /> Editar
+                                  </button>
+                                  <button
+                                      onClick={() => handleSignMinuta(doc)}
+                                      disabled={signingId === doc.id}
+                                      className="px-4 py-1.5 text-xs font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+                                  >
+                                      {signingId === doc.id ? (
+                                          <Loader2 size={12} className="animate-spin" />
+                                      ) : (
+                                          <Check size={12} />
+                                      )}
+                                      Assinar
+                                  </button>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+
+                  {/* Info box */}
+                  <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100 text-xs text-blue-700">
+                      <AlertCircle size={14} className="shrink-0" />
+                      <span>Ao assinar todas as minutas, o processo será devolvido automaticamente ao suprido para tramitação ao SOSFU.</span>
+                  </div>
+
+                  {/* Devolver para correção */}
+                  <div className="mt-4">
+                      <button 
+                          onClick={handleCorrection}
+                          className="w-full py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 text-sm"
+                      >
+                          <AlertTriangle size={16} /> Devolver para Correção
+                      </button>
+                  </div>
+              </div>
+          );
+      }
+
+      // --- MODO PC: ATESTO DE PRESTAÇÃO DE CONTAS (existente) ---
       return (
           <div className="bg-white p-8 rounded-xl border border-amber-200 shadow-sm">
               <div className="flex items-start gap-4 mb-6">
@@ -906,9 +1393,45 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                     </p>
                 </div>
             </div>
-            <button className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-gray-900 transition-all">
-                Ações do Processo
-            </button>
+            <div className="flex items-center gap-2">
+                {/* Botão Novo Doc */}
+                {!isArchived && (
+                    <button
+                        onClick={() => { setEditingDoc(null); setNewDocModalOpen(true); }}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all shadow-sm"
+                    >
+                        <Plus size={16} /> Novo Doc
+                    </button>
+                )}
+                {/* Tramitar → Gestor */}
+                {canTramitarGestor && (
+                    <button
+                        onClick={() => handleTramitar('GESTOR')}
+                        disabled={tramitarLoading}
+                        className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold hover:bg-amber-600 transition-all shadow-sm disabled:opacity-50"
+                    >
+                        {tramitarLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                        Tramitar → Gestor
+                    </button>
+                )}
+                {/* Tramitar → SOSFU */}
+                {canTramitarSOSFU && (
+                    <button
+                        onClick={() => handleTramitar('SOSFU')}
+                        disabled={tramitarLoading}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50"
+                    >
+                        {tramitarLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                        Tramitar → SOSFU
+                    </button>
+                )}
+                {/* Minutas pendentes badge */}
+                {pendingMinutas.length > 0 && currentUserRole === 'USER' && (
+                    <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-1 rounded-md border border-amber-200">
+                        {pendingMinutas.length} minuta(s) pendente(s)
+                    </span>
+                )}
+            </div>
         </div>
 
         <div className="flex-1 max-w-[1600px] w-full mx-auto px-8 py-8 flex flex-col">
@@ -928,8 +1451,8 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                 {[
                     { id: 'OVERVIEW', label: 'Visão Geral', icon: Eye },
                     { id: 'DOSSIER', label: 'Dossiê Digital', icon: FolderOpen },
-                    { id: 'EXECUTION', label: 'Execução', icon: Wallet },
                     { id: 'ANALYSIS', label: 'Análise Técnica', icon: ShieldCheck },
+                    { id: 'EXECUTION', label: 'Execução', icon: Wallet },
                     { id: 'ACCOUNTABILITY', label: 'Prestação de Contas', icon: Receipt },
                     { id: 'ARCHIVE', label: 'Arquivo', icon: Archive },
                 ].map(t => (
@@ -978,7 +1501,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                                 onRefresh={fetchProcessData}
                                 processId={processId}
                             />
-                        ) : currentUserRole === 'GESTOR' && accountabilityData?.status === 'WAITING_MANAGER' ? (
+                        ) : currentUserRole === 'GESTOR' && (accountabilityData?.status === 'WAITING_MANAGER' || processData?.status === 'WAITING_MANAGER') ? (
                             <ManagerReviewPanel />
                         ) : accountabilityData ? (
                             <AccountabilityWizard 
@@ -1217,6 +1740,16 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* MODAL NOVO DOCUMENTO */}
+            {newDocModalOpen && (
+                <NewDocumentModal
+                    processId={processId}
+                    editingDoc={editingDoc}
+                    onClose={() => { setNewDocModalOpen(false); setEditingDoc(null); }}
+                    onSave={() => fetchProcessData()}
+                />
             )}
         </div>
     </div>
