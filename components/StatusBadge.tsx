@@ -22,6 +22,11 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
     },
     
     // FASE 2: ANÁLISE TÉCNICA
+    'WAITING_SOSFU': { 
+      label: 'Em Análise Técnica (SOSFU)', 
+      color: 'bg-blue-50 text-blue-700 border-blue-200',
+      icon: Clock
+    },
     'WAITING_SOSFU_ANALYSIS': { 
       label: 'Em Análise Técnica (SOSFU)', 
       color: 'bg-blue-50 text-blue-700 border-blue-200',

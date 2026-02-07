@@ -186,6 +186,10 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
             }).select('id').single();
 
             if (error) throw error;
+
+            // Documentos iniciais (COVER, REQUEST, ATTESTATION) são criados
+            // automaticamente pelo trigger trg_generate_docs no banco de dados.
+            // NÃO inserir manualmente aqui para evitar duplicidade.
             
             setGeneratedProcessNumber(procNum);
             setGeneratedId(solData.id);

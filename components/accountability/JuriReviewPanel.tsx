@@ -145,6 +145,18 @@ export const JuriReviewPanel: React.FC<JuriReviewPanelProps> = ({
     const totalParticipantsApproved = useMemo(() =>
         participants.reduce((acc, p) => acc + p.qty_approved, 0), [participants]);
 
+    // Helper: sync meal/lanche expenses with a given participant total
+    const syncExpensesWithParticipants = (newTotal: number) => {
+        setExpenses(prev => prev.map(e => {
+            const name = e.item_name.toLowerCase();
+            const isMeal = name.includes('refei') || name.includes('almo') || name.includes('jantar') || name.includes('lanche');
+            if (!isMeal) return e;
+            const updated = { ...e, qty_approved: newTotal };
+            updated.total_approved = updated.qty_approved * updated.unit_price_approved;
+            return updated;
+        }));
+    };
+
     // Check for police exception
     const policeItem = participants.find(p =>
         p.item_name.toLowerCase().includes('polic') || p.item_name.toLowerCase().includes('escolta')
@@ -154,9 +166,13 @@ export const JuriReviewPanel: React.FC<JuriReviewPanelProps> = ({
     // --- Handlers ---
 
     const handleParticipantChange = (id: string, newQty: number) => {
-        setParticipants(prev =>
-            prev.map(p => p.id === id ? { ...p, qty_approved: Math.max(0, newQty) } : p)
+        const updatedParticipants = participants.map(p =>
+            p.id === id ? { ...p, qty_approved: Math.max(0, newQty) } : p
         );
+        setParticipants(updatedParticipants);
+        // Recalculate total and sync expenses
+        const newTotal = updatedParticipants.reduce((acc, p) => acc + p.qty_approved, 0);
+        syncExpensesWithParticipants(newTotal);
     };
 
     const handleExpenseChange = (id: string, field: 'qty_approved' | 'unit_price_approved', value: number) => {
@@ -216,10 +232,10 @@ export const JuriReviewPanel: React.FC<JuriReviewPanelProps> = ({
             };
 
             if (type === 'aprovar') {
-                updates.value = totalApproved; // Update with approved total
-                updates.status = 'APPROVED';
+                updates.value = totalApproved;
+                updates.status = 'WAITING_SEFIN_SIGNATURE';
             } else if (type === 'diligenciar') {
-                updates.status = 'DILIGÊNCIA';
+                updates.status = 'WAITING_CORRECTION';
             }
 
             const { error } = await supabase
@@ -500,35 +516,34 @@ export const JuriReviewPanel: React.FC<JuriReviewPanelProps> = ({
                 <div className="border-t border-slate-200 bg-slate-50 p-4 flex justify-between items-center shrink-0">
                     <button
                         onClick={onClose}
+                        title="Fecha o painel sem salvar nenhuma alteração. Nenhum dado será modificado."
                         className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-100 transition-all"
                     >
                         Cancelar
                     </button>
                     <div className="flex gap-3">
-                        {/* Save draft */}
                         <button
                             onClick={() => handleSave('save')}
                             disabled={saving}
+                            title="Salva os ajustes de participantes e custos sem alterar o status do processo. Use para revisar antes de decidir."
                             className="px-5 py-2.5 bg-white border border-blue-200 text-blue-600 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-blue-50 transition-all flex items-center gap-2 disabled:opacity-50"
                         >
                             {saving && actionType === 'save' ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                             Salvar Ajustes
                         </button>
-
-                        {/* Diligenciar */}
                         <button
-                            onClick={() => handleSave('diligenciar')}
+                            onClick={() => { if (confirm('Confirma a devolução do processo para correção pelo Suprido?')) handleSave('diligenciar'); }}
                             disabled={saving}
+                            title="Devolve o processo ao Suprido para correção de pendências ou documentação complementar."
                             className="px-5 py-2.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-amber-100 transition-all flex items-center gap-2 disabled:opacity-50"
                         >
                             {saving && actionType === 'diligenciar' ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                             Diligenciar
                         </button>
-
-                        {/* Aprovar */}
                         <button
-                            onClick={() => handleSave('aprovar')}
+                            onClick={() => { if (confirm(`Confirma a aprovação e encaminhamento para autorização SEFIN no valor de ${formatCurrency(totalApproved)}?`)) handleSave('aprovar'); }}
                             disabled={saving || totalApproved === 0}
+                            title="Aprova a solicitação com os valores ajustados e encaminha para assinatura do Ordenador de Despesa (SEFIN)."
                             className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 flex items-center gap-2 disabled:opacity-50 disabled:shadow-none"
                         >
                             {saving && actionType === 'aprovar' ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}

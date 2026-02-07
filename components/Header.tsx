@@ -10,13 +10,47 @@ interface HeaderProps {
   userProfile?: any;
 }
 
+// ==================== MODULE CONFIGS ====================
+// Each independent module defines its own branding
+const MODULE_CONFIGS: Record<string, { title: string; subtitle: string; color: string; bgColor: string; textColor: string; accentBg: string; accentText: string }> = {
+  sefin_dashboard: {
+    title: 'SEFIN TJPA',
+    subtitle: '• Secretaria de Finanças',
+    color: 'emerald',
+    bgColor: 'bg-emerald-50',
+    textColor: 'text-emerald-700',
+    accentBg: 'bg-emerald-50',
+    accentText: 'text-emerald-600',
+  },
+  gestor_dashboard: {
+    title: 'Gabinete do Gestor',
+    subtitle: '• Gestão de Unidade',
+    color: 'amber',
+    bgColor: 'bg-amber-50',
+    textColor: 'text-amber-700',
+    accentBg: 'bg-amber-50',
+    accentText: 'text-amber-600',
+  },
+  suprido_dashboard: {
+    title: 'Portal do Usuário',
+    subtitle: '• Servidor Público',
+    color: 'indigo',
+    bgColor: 'bg-indigo-50',
+    textColor: 'text-indigo-700',
+    accentBg: 'bg-indigo-50',
+    accentText: 'text-indigo-600',
+  },
+};
+
+// Modules that manage their own internal navigation (no tabs in main header)
+const INDEPENDENT_MODULES = ['sefin_dashboard', 'gestor_dashboard', 'suprido_dashboard'];
+
 export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNavigate, userProfile }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   
   const allTabs = [
     { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard, roles: ['ADMIN', 'SOSFU', 'SEFIN', 'PRESIDENCIA', 'SGP', 'AJSEFIN'] },
-    // REMOVIDO 'GESTOR' DAQUI POIS ELE TEM SEU PRÓPRIO DASHBOARD UNIFICADO
     { id: 'suprido_dashboard', label: 'Portal do Usuário', icon: Briefcase, roles: ['USER', 'SERVIDOR'] }, 
     { id: 'gestor_dashboard', label: 'Gabinete do Gestor', icon: Gavel, roles: ['GESTOR', 'ADMIN'] },
     { id: 'sefin_dashboard', label: 'Gabinete SEFIN', icon: Scale, roles: ['SEFIN', 'ADMIN'] },
@@ -29,6 +63,14 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
 
   const userRole = userProfile?.dperfil?.slug || 'SERVIDOR';
   const availableTabs = allTabs.filter(tab => tab.roles.includes(userRole));
+
+  // Determine if current module is independent (has its own internal navigation)
+  const isIndependentModule = INDEPENDENT_MODULES.includes(activeTab || '');
+  const moduleConfig = MODULE_CONFIGS[activeTab || ''];
+
+  // For independent modules, don't show the standard nav tabs
+  // Only show the module's own dashboard tab (for the user to return to their home)
+  const visibleTabs = isIndependentModule ? [] : availableTabs;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -45,6 +87,14 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
 
   const getInitials = (name: string) => (name || 'U').substring(0, 2).toUpperCase();
 
+  // Dynamic branding based on active module
+  const headerTitle = moduleConfig?.title || 'SOSFU TJPA';
+  const headerSubtitle = moduleConfig?.subtitle || '• Suprimento de Fundos';
+  const titleColor = moduleConfig?.textColor || 'text-blue-600';
+  const subtitleColor = moduleConfig ? moduleConfig.accentText.replace('600', '400') : 'text-blue-400';
+  const activeTabBg = moduleConfig?.accentBg || 'bg-blue-50';
+  const activeTabText = moduleConfig?.accentText || 'text-blue-600';
+
   return (
     <>
     <header className="bg-white border-b border-gray-200 h-16 px-4 md:px-6 flex items-center justify-between sticky top-0 z-50">
@@ -52,24 +102,24 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
         <div className="flex items-center gap-3 cursor-pointer group" onClick={() => onTabChange && onTabChange(availableTabs[0]?.id || 'profile')}>
             <img src="/assets/brasao-tjpa.png" alt="Brasão TJPA" className="h-9 md:h-10 w-auto opacity-90 group-hover:scale-105 transition-transform"/>
             <div className="hidden lg:block">
-                <h1 className="text-blue-600 font-bold text-base leading-tight">SOSFU TJPA</h1>
-                <p className="text-blue-400 text-[9px] font-bold tracking-wider uppercase">• Suprimento de Fundos</p>
+                <h1 className={`${titleColor} font-bold text-base leading-tight`}>{headerTitle}</h1>
+                <p className={`${subtitleColor} text-[9px] font-bold tracking-wider uppercase`}>{headerSubtitle}</p>
             </div>
         </div>
         
-        <div className="h-8 w-px bg-gray-200 hidden md:block"></div>
+        {visibleTabs.length > 0 && <div className="h-8 w-px bg-gray-200 hidden md:block"></div>}
         
-        {/* Desktop Navigation */}
-        {onTabChange && (
+        {/* Desktop Navigation — Hidden for independent modules */}
+        {onTabChange && visibleTabs.length > 0 && (
             <nav className="hidden md:flex items-center gap-1">
-                {availableTabs.map((tab) => {
+                {visibleTabs.map((tab) => {
                     const Icon = tab.icon;
                     const isActive = activeTab === tab.id;
                     return (
                         <button 
                             key={tab.id} 
                             onClick={() => onTabChange(tab.id)} 
-                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${isActive ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${isActive ? `${activeTabBg} ${activeTabText}` : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
                             title={tab.label}
                         >
                             <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />

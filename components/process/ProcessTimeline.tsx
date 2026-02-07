@@ -21,7 +21,7 @@ interface ProcessTimelineProps {
 const STEPS = [
     { id: 0, label: 'Solicitação', shortLabel: 'Solic.', icon: FileText, statuses: ['PENDING', 'DRAFT'], color: 'blue' },
     { id: 1, label: 'Atesto do Gestor', shortLabel: 'Atesto', icon: UserCheck, statuses: ['WAITING_MANAGER'], color: 'indigo' },
-    { id: 2, label: 'Análise SOSFU', shortLabel: 'Análise', icon: Search, statuses: ['WAITING_SOSFU_ANALYSIS', 'WAITING_CORRECTION'], color: 'violet' },
+    { id: 2, label: 'Análise SOSFU', shortLabel: 'Análise', icon: Search, statuses: ['WAITING_SOSFU', 'WAITING_SOSFU_ANALYSIS', 'WAITING_CORRECTION'], color: 'violet' },
     { id: 3, label: 'Autorização SEFIN', shortLabel: 'Autoriz.', icon: Scale, statuses: ['WAITING_SEFIN_SIGNATURE'], color: 'amber' },
     { id: 4, label: 'Pagamento', shortLabel: 'Pagam.', icon: Wallet, statuses: ['WAITING_SOSFU_PAYMENT', 'WAITING_SUPRIDO_CONFIRMATION', 'PAID'], color: 'emerald' },
     { id: 5, label: 'Prestação de Contas', shortLabel: 'Prest.', icon: Receipt, statuses: ['PC_PENDING', 'PC_ANALYSIS', 'PC_APPROVED'], color: 'cyan' },
@@ -32,6 +32,7 @@ const STATUS_LABELS: Record<string, string> = {
     'PENDING': 'Pendente',
     'DRAFT': 'Rascunho',
     'WAITING_MANAGER': 'Aguardando Atesto',
+    'WAITING_SOSFU': 'Em Análise SOSFU',
     'WAITING_SOSFU_ANALYSIS': 'Em Análise SOSFU',
     'WAITING_CORRECTION': 'Devolvida p/ Correção',
     'WAITING_SEFIN_SIGNATURE': 'Aguardando SEFIN',
@@ -92,10 +93,15 @@ export const ProcessTimeline: React.FC<ProcessTimelineProps> = ({ status, solici
         }
         if (status === 'WAITING_SUPRIDO_CONFIRMATION' || status === 'WAITING_SOSFU_PAYMENT') return 4;
         if (status === 'WAITING_SEFIN_SIGNATURE') return 3;
-        if (status === 'WAITING_SOSFU_ANALYSIS' || status === 'WAITING_CORRECTION') return 2;
+        if (status === 'WAITING_SOSFU' || status === 'WAITING_SOSFU_ANALYSIS' || status === 'WAITING_CORRECTION') return 2;
         if (status === 'WAITING_MANAGER') return 1;
         return 0;
     };
+
+    // O step "Atesto do Gestor" já foi concluído se o histórico mostra a transição
+    const isAtestoCompleted = history.some(h => 
+        h.status_from === 'WAITING_MANAGER' && h.status_to === 'PENDING'
+    );
 
     const activeIndex = getCurrentStepIndex();
 
@@ -137,15 +143,27 @@ export const ProcessTimeline: React.FC<ProcessTimelineProps> = ({ status, solici
                     <div className="absolute left-6 right-6 top-5 h-0.5 bg-gray-200 z-0"></div>
                     
                     {/* Progress Track */}
-                    <div 
-                        className="absolute left-6 top-5 h-0.5 bg-gradient-to-r from-green-400 to-green-500 z-0 transition-all duration-1000 ease-out"
-                        style={{ width: `calc(${(activeIndex / (STEPS.length - 1)) * 100}% - 48px)` }}
-                    ></div>
+                    {(() => {
+                        const effectiveProgress = (isAtestoCompleted && activeIndex === 0) ? 1 : activeIndex;
+                        return (
+                            <div 
+                                className="absolute left-6 top-5 h-0.5 bg-gradient-to-r from-green-400 to-green-500 z-0 transition-all duration-1000 ease-out"
+                                style={{ width: `calc(${(effectiveProgress / (STEPS.length - 1)) * 100}% - 48px)` }}
+                            ></div>
+                        );
+                    })()}
 
                     {STEPS.map((step, index) => {
-                        const isCompleted = index < activeIndex;
-                        const isCurrent = index === activeIndex;
-                        const isFuture = index > activeIndex;
+                        // Override: se o Gestor já atestou e status é PENDING, 
+                        // step 0 e 1 devem ser "completed", step 0 é "current"
+                        let isCompleted = index < activeIndex;
+                        let isCurrent = index === activeIndex;
+                        let isFuture = index > activeIndex;
+                        
+                        if (isAtestoCompleted && activeIndex === 0) {
+                            if (index === 0) { isCompleted = true; isCurrent = false; isFuture = false; }
+                            if (index === 1) { isCompleted = true; isCurrent = false; isFuture = false; }
+                        }
                         const Icon = step.icon;
                         const entryData = getStepTimestamp(index);
                         const completionTime = getStepCompletionTime(index);

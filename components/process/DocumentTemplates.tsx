@@ -212,20 +212,37 @@ export const AttestationTemplate: React.FC<DocumentProps> = ({ data, user, gesto
     const managerName = data.manager_name || gestor?.full_name || 'GESTOR DA UNIDADE';
     const customContent = document?.metadata?.content;
     const dateLocation = getFormattedDate(user.municipio);
+    const isDraft = document?.metadata?.is_draft === true;
 
     return (
         <BaseDocumentLayout docId={`CERT-${data.process_number.replace(/\D/g,'')}`}>
-            <div className="text-center mb-12">
+            {/* Marca d'água MINUTA para documentos em rascunho */}
+            {isDraft && (
+                <>
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
+                        <span className="text-[120px] font-black text-amber-200/30 uppercase tracking-[0.3em] -rotate-45 select-none whitespace-nowrap">
+                            MINUTA
+                        </span>
+                    </div>
+                    <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-center relative z-10">
+                        <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">
+                            ⚠ Minuta — Documento pendente de assinatura do Gestor
+                        </span>
+                    </div>
+                </>
+            )}
+
+            <div className={`text-center mb-12 ${isDraft ? 'relative z-10' : ''}`}>
                 <h2 className="text-2xl font-bold uppercase tracking-wide">CERTIDÃO DE ATESTO DA CHEFIA IMEDIATA</h2>
                 <p className="text-sm font-bold text-gray-600 mt-2">Processo Nº {data.process_number}</p>
             </div>
 
             {customContent ? (
-                <div className="text-justify text-lg leading-relaxed font-serif space-y-8 px-4 whitespace-pre-wrap">
+                <div className={`text-justify text-lg leading-relaxed font-serif space-y-8 px-4 whitespace-pre-wrap ${isDraft ? 'relative z-10' : ''}`}>
                     {customContent}
                 </div>
             ) : (
-                <div className="text-justify text-lg leading-relaxed font-serif space-y-8 px-4">
+                <div className={`text-justify text-lg leading-relaxed font-serif space-y-8 px-4 ${isDraft ? 'relative z-10' : ''}`}>
                     <p>
                         <strong>CERTIFICO</strong>, no uso das minhas atribuições legais e em conformidade com o Regulamento de Suprimento de Fundos do Tribunal de Justiça do Estado do Pará, que a despesa pretendida pelo servidor <strong>{data.beneficiary.toUpperCase()}</strong> no processo <strong>{data.process_number}</strong> reveste-se de interesse público e atende aos critérios de conveniência e oportunidade desta unidade judiciária.
                     </p>
@@ -238,12 +255,14 @@ export const AttestationTemplate: React.FC<DocumentProps> = ({ data, user, gesto
                 </div>
             )}
 
-            <div className="mt-20 text-center">
+            <div className={`mt-20 text-center ${isDraft ? 'relative z-10' : ''}`}>
                 <p className="font-medium mb-12">{dateLocation}.</p>
                 <div className="inline-block border-t border-black pt-4 px-12">
                     <p className="font-bold text-gray-900 uppercase text-lg">{managerName}</p>
                     <p className="text-base text-gray-700 italic">Gestor / Magistrado Responsável</p>
-                    <p className="text-[10px] text-gray-400 mt-2 font-sans">Assinatura Digital - Token de Validação</p>
+                    <p className="text-[10px] text-gray-400 mt-2 font-sans">
+                        {isDraft ? 'Pendente de Assinatura Digital' : 'Assinatura Digital - Token de Validação'}
+                    </p>
                 </div>
             </div>
         </BaseDocumentLayout>

@@ -10,7 +10,7 @@ import { SettingsView } from './components/SettingsView';
 import { ProfileView } from './components/ProfileView';
 import { SupridoDashboard } from './components/suprido/SupridoDashboard';
 import { GestorDashboard } from './components/gestor/GestorDashboard';
-import { SefinDashboard } from './components/sefin/SefinDashboard';
+import { SefinCockpit } from './components/sefin/SefinCockpit';
 import { EmergencySolicitation } from './components/suprido/EmergencySolicitation';
 import { JurySolicitation } from './components/suprido/JurySolicitation';
 import { ProcessDetailView } from './components/process/ProcessDetailView';
@@ -222,7 +222,7 @@ const App: React.FC = () => {
       case 'gestor_dashboard':
         return <GestorDashboard onNavigate={handleNavigation} />;
       case 'sefin_dashboard':
-        return <SefinDashboard onNavigate={handleNavigation} />;
+        return <SefinCockpit onNavigate={handleNavigation} />;
       case 'solicitation_emergency':
         return <EmergencySolicitation onNavigate={handleNavigation} />;
       case 'solicitation_jury':
@@ -285,9 +285,13 @@ const App: React.FC = () => {
         userProfile={userProfile}
       />
       
-      <main className="max-w-[1600px] mx-auto px-6 py-8">
-        {renderContent()}
-      </main>
+      {activeTab === 'sefin_dashboard' ? (
+        <div>{renderContent()}</div>
+      ) : (
+        <main className="max-w-[1600px] mx-auto px-6 py-8">
+          {renderContent()}
+        </main>
+      )}
     </div>
   );
 };
