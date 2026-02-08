@@ -21,7 +21,7 @@ import { EmergencySolicitation } from './components/suprido/EmergencySolicitatio
 import { JurySolicitation } from './components/suprido/JurySolicitation';
 import { ProcessDetailView } from './components/process/ProcessDetailView';
 import { AccountabilityWizard } from './components/accountability/AccountabilityWizard';
-import { LoginPage } from './components/LoginPage';
+import { LoginView } from './components/LoginView';
 import { DASHBOARD_STATS } from './constants';
 import { Loader2, Map as MapIcon } from 'lucide-react';
 
@@ -217,7 +217,7 @@ const App: React.FC = () => {
   }
 
   if (!session) {
-    return <LoginPage />;
+    return <LoginView />;
   }
 
   const renderContent = () => {
