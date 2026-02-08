@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
     PanelTop,
     FileText,
-    Users,
     BellRing,
     Sun,
     Moon,
@@ -66,12 +65,6 @@ export const AjsefinHeader: React.FC<AjsefinHeaderProps> = ({
             label: 'Análise Jurídica',
             shortLabel: 'Processos',
             icon: <Scale size={18} />
-        },
-        {
-            id: 'equipe',
-            label: 'Equipe Técnica',
-            shortLabel: 'Equipe',
-            icon: <Users size={18} />
         }
     ];
 
