@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Save, Database, Copy, CheckCircle2, Settings, MapPin } from 'lucide-react';
+import { Save, Database, Copy, CheckCircle2, Settings, MapPin, Building2, Sliders } from 'lucide-react';
 import { ComarcasSettings } from './ComarcasSettings';
+import { UnidadesSettings } from './UnidadesSettings';
+import { ParametersSettings } from './ParametersSettings';
 
-type SubTab = 'system' | 'comarcas';
+type SubTab = 'parameters' | 'system' | 'comarcas' | 'unidades';
 
 export const GeneralSettings: React.FC = () => {
     const [autoBackup, setAutoBackup] = useState(true);
     const [copied, setCopied] = useState(false);
-    const [activeSubTab, setActiveSubTab] = useState<SubTab>('system');
+    const [activeSubTab, setActiveSubTab] = useState<SubTab>('parameters');
 
     const copySQL = () => {
         const sql = `ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
@@ -20,8 +22,10 @@ GRANT SELECT ON public.dperfil TO anon, authenticated, service_role;`;
     };
 
     const subTabs: { id: SubTab; label: string; icon: React.ElementType }[] = [
+        { id: 'parameters', label: 'Parâmetros', icon: Sliders },
         { id: 'system', label: 'Sistema', icon: Settings },
         { id: 'comarcas', label: 'Comarcas', icon: MapPin },
+        { id: 'unidades', label: 'Unidades', icon: Building2 },
     ];
 
     return (
@@ -54,8 +58,12 @@ GRANT SELECT ON public.dperfil TO anon, authenticated, service_role;`;
             </div>
 
             {/* Tab Content */}
-            {activeSubTab === 'comarcas' ? (
+            {activeSubTab === 'parameters' ? (
+                <ParametersSettings />
+            ) : activeSubTab === 'comarcas' ? (
                 <ComarcasSettings />
+            ) : activeSubTab === 'unidades' ? (
+                <UnidadesSettings />
             ) : (
                 <div className="space-y-6 max-w-3xl">
                     {/* Diagnóstico e Reparo */}

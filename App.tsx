@@ -12,6 +12,7 @@ import { ProfileView } from './components/ProfileView';
 import { SupridoDashboard } from './components/suprido/SupridoDashboard';
 import { GestorDashboard } from './components/gestor/GestorDashboard';
 import { SefinCockpit } from './components/sefin/SefinCockpit';
+import { AjsefinCockpit } from './components/ajsefin/AjsefinCockpit';
 import { EmergencySolicitation } from './components/suprido/EmergencySolicitation';
 import { JurySolicitation } from './components/suprido/JurySolicitation';
 import { ProcessDetailView } from './components/process/ProcessDetailView';
@@ -150,6 +151,8 @@ const App: React.FC = () => {
                 setActiveTab('gestor_dashboard');
             } else if (role === 'SEFIN') {
                 setActiveTab('sefin_dashboard');
+            } else if (role === 'AJSEFIN') {
+                setActiveTab('ajsefin_dashboard');
             }
         }
       }
@@ -224,6 +227,8 @@ const App: React.FC = () => {
         return <GestorDashboard onNavigate={handleNavigation} />;
       case 'sefin_dashboard':
         return <SefinCockpit onNavigate={handleNavigation} />;
+      case 'ajsefin_dashboard':
+        return <AjsefinCockpit onNavigate={handleNavigation} />;
       case 'solicitation_emergency':
         return <EmergencySolicitation onNavigate={handleNavigation} />;
       case 'solicitation_jury':
@@ -241,6 +246,7 @@ const App: React.FC = () => {
                     if (processInitialTab === 'ARCHIVE') return setActiveTab('archive');
                     const role = userProfile?.dperfil?.slug;
                     if (role === 'SEFIN') return setActiveTab('sefin_dashboard');
+                    if (role === 'AJSEFIN') return setActiveTab('ajsefin_dashboard');
                     if (role === 'GESTOR') return setActiveTab('gestor_dashboard');
                     if (role === 'USER') return setActiveTab('suprido_dashboard');
                     if (role === 'SOSFU' || role === 'ADMIN') return setActiveTab('accountability');
@@ -287,7 +293,7 @@ const App: React.FC = () => {
         userProfile={userProfile}
       />
       
-      {activeTab === 'sefin_dashboard' ? (
+      {activeTab === 'sefin_dashboard' || activeTab === 'ajsefin_dashboard' ? (
         <div id="main-content">{renderContent()}</div>
       ) : (
         <main id="main-content" className="max-w-[1600px] mx-auto px-6 py-8">

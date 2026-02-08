@@ -64,6 +64,28 @@ interface ComarcaStats {
     } | null;
 }
 
+interface UnidadeAdmin {
+    id: number;
+    nome: string;
+    sigla: string | null;
+    tipo: string;
+    vinculacao: string | null;
+    responsavel: string | null;
+    lat: number;
+    lng: number;
+}
+
+const TIPO_MARKER_COLORS: Record<string, string> = {
+    'Secretaria': '#9333ea',
+    'Departamento': '#2563eb',
+    'Coordenadoria': '#059669',
+    'Serviço': '#d97706',
+    'Assessoria': '#4f46e5',
+    'Seção': '#0891b2',
+    'Gabinete': '#e11d48',
+    'Outro': '#6b7280',
+};
+
 interface SefinMapViewProps {
     darkMode?: boolean;
     onNavigate?: (page: string, processId?: string) => void;
@@ -258,7 +280,7 @@ const SidebarItem = memo(({ stat, isSelected, onClick }: {
     </button>
 ));
 
-// ==================== MARKER ====================
+// ==================== COMARCA MARKER ====================
 const ComarcaMarker = memo(({ stat, isSelected, radius, color, onClick }: {
     stat: ComarcaStats; isSelected: boolean; radius: number; color: string; onClick: () => void;
 }) => (
@@ -288,13 +310,81 @@ const ComarcaMarker = memo(({ stat, isSelected, radius, color, onClick }: {
     </CircleMarker>
 ));
 
+// ==================== UNIDADE ADMIN MARKER ====================
+const UnidadeAdminMarker = memo(({ unidade }: { unidade: UnidadeAdmin }) => {
+    const markerColor = TIPO_MARKER_COLORS[unidade.tipo] || TIPO_MARKER_COLORS['Outro'];
+    return (
+        <CircleMarker
+            center={[unidade.lat, unidade.lng]}
+            pathOptions={{
+                color: '#1e293b',
+                fillColor: markerColor,
+                fillOpacity: 0.85,
+                weight: 2.5,
+                dashArray: '4 2',
+            }}
+            radius={10}
+        >
+            <LeafletTooltip direction="top" offset={[0, -12]} opacity={0.95}>
+                <div className="text-center px-2 py-0.5">
+                    <span className="font-black text-xs block text-slate-800">
+                        {unidade.sigla || unidade.nome}
+                    </span>
+                    <span className="text-[9px] text-slate-400 block">{unidade.tipo}</span>
+                </div>
+            </LeafletTooltip>
+            <Popup minWidth={200} maxWidth={320} className="comarca-popup">
+                <div className="w-full">
+                    <div className="pb-2 mb-2 border-b border-slate-200">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[10px] font-black"
+                                 style={{ backgroundColor: markerColor }}>
+                                {unidade.sigla?.slice(0, 2) || unidade.nome.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                                <h3 className="font-black text-slate-800 text-sm leading-tight">{unidade.nome}</h3>
+                                {unidade.sigla && (
+                                    <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">{unidade.sigla}</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="space-y-1.5 text-[11px]">
+                        <div className="flex items-center gap-2">
+                            <span className="text-slate-400 font-bold w-20">Tipo:</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{
+                                backgroundColor: markerColor + '20', color: markerColor
+                            }}>{unidade.tipo}</span>
+                        </div>
+                        {unidade.vinculacao && (
+                            <div className="flex items-center gap-2">
+                                <span className="text-slate-400 font-bold w-20">Vinculação:</span>
+                                <span className="text-slate-700 font-medium">{unidade.vinculacao}</span>
+                            </div>
+                        )}
+                        {unidade.responsavel && (
+                            <div className="flex items-center gap-2">
+                                <span className="text-slate-400 font-bold w-20">Titular:</span>
+                                <span className="text-slate-700 font-medium">{unidade.responsavel}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </Popup>
+        </CircleMarker>
+    );
+});
+
 // ==================== MAIN COMPONENT ====================
 export const SefinMapView: React.FC<SefinMapViewProps> = ({ darkMode = false }) => {
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState<ComarcaStats[]>([]);
+    const [unidadesAdmin, setUnidadesAdmin] = useState<UnidadeAdmin[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [mapFocus, setMapFocus] = useState<{ center: [number, number]; zoom: number } | null>(null);
     const [selectedComarca, setSelectedComarca] = useState<string | null>(null);
+    const [showComarcas, setShowComarcas] = useState(true);
+    const [showUnidades, setShowUnidades] = useState(true);
 
     useEffect(() => {
         let cancelled = false;
@@ -302,7 +392,7 @@ export const SefinMapView: React.FC<SefinMapViewProps> = ({ darkMode = false }) 
 
         const fetchData = async () => {
             try {
-                const [comarcasRes, profilesRes] = await Promise.all([
+                const [comarcasRes, profilesRes, unidadesRes] = await Promise.all([
                     supabase
                         .from('dcomarcas')
                         .select('idcomarca, comarca, entrancia, polo, regiao, latitude, longitude')
@@ -313,6 +403,12 @@ export const SefinMapView: React.FC<SefinMapViewProps> = ({ darkMode = false }) 
                         .select('full_name, email, avatar_url, matricula')
                         .not('full_name', 'is', null)
                         .limit(100),
+                    supabase
+                        .from('dUnidadesAdmin')
+                        .select('id, nome, sigla, tipo, vinculacao, responsavel, latitude, longitude')
+                        .eq('ativo', true)
+                        .not('latitude', 'is', null)
+                        .not('longitude', 'is', null),
                 ]);
 
                 if (cancelled) return;
@@ -382,6 +478,19 @@ export const SefinMapView: React.FC<SefinMapViewProps> = ({ darkMode = false }) 
                 });
 
                 setStats(result);
+
+                // Map admin units
+                const adminUnits: UnidadeAdmin[] = (unidadesRes.data || []).map((u: any) => ({
+                    id: u.id,
+                    nome: u.nome,
+                    sigla: u.sigla,
+                    tipo: u.tipo,
+                    vinculacao: u.vinculacao,
+                    responsavel: u.responsavel,
+                    lat: u.latitude,
+                    lng: u.longitude,
+                }));
+                setUnidadesAdmin(adminUnits);
             } catch (err) {
                 console.error('SefinMapView fetch error:', err);
             } finally {
@@ -453,9 +562,13 @@ export const SefinMapView: React.FC<SefinMapViewProps> = ({ darkMode = false }) 
                         <p className="text-lg font-black text-blue-600 font-mono">{CURRENCY_COMPACT.format(totalPrestado)}</p>
                         <p className="text-[9px] text-slate-400 uppercase font-bold">Total Prestado</p>
                     </div>
-                    <div className="text-center px-4">
+                    <div className="text-center px-4 border-r border-slate-200">
                         <p className="text-lg font-black text-slate-700">{comarcasAtivas}</p>
                         <p className="text-[9px] text-slate-400 uppercase font-bold">Comarcas Ativas</p>
+                    </div>
+                    <div className="text-center px-4">
+                        <p className="text-lg font-black text-purple-600">{unidadesAdmin.length}</p>
+                        <p className="text-[9px] text-slate-400 uppercase font-bold">Unidades Admin.</p>
                     </div>
                 </div>
             </div>
@@ -513,7 +626,7 @@ export const SefinMapView: React.FC<SefinMapViewProps> = ({ darkMode = false }) 
                             url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                         />
                         <ZoomControl position="bottomright" />
-                        {stats.map(stat => (
+                        {showComarcas && stats.map(stat => (
                             <ComarcaMarker
                                 key={stat.comarca}
                                 stat={stat}
@@ -522,6 +635,9 @@ export const SefinMapView: React.FC<SefinMapViewProps> = ({ darkMode = false }) 
                                 color={getColor(stat)}
                                 onClick={() => handleComarcaClick(stat)}
                             />
+                        ))}
+                        {showUnidades && unidadesAdmin.map(u => (
+                            <UnidadeAdminMarker key={`ua-${u.id}`} unidade={u} />
                         ))}
                     </MapContainer>
 
@@ -544,6 +660,20 @@ export const SefinMapView: React.FC<SefinMapViewProps> = ({ darkMode = false }) 
                                     <span className="text-[10px] text-gray-600">{label}</span>
                                 </div>
                             ))}
+                        </div>
+                        {/* Layer Toggles */}
+                        <div className="mt-3 pt-2 border-t border-gray-200 space-y-1.5">
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Camadas</p>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={showComarcas} onChange={() => setShowComarcas(v => !v)}
+                                    className="w-3 h-3 rounded accent-emerald-600" />
+                                <span className="text-[10px] text-gray-600 font-medium">Comarcas</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={showUnidades} onChange={() => setShowUnidades(v => !v)}
+                                    className="w-3 h-3 rounded accent-purple-600" />
+                                <span className="text-[10px] text-gray-600 font-medium">Unidades Admin.</span>
+                            </label>
                         </div>
                     </div>
 

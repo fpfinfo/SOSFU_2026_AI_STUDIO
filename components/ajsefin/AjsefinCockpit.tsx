@@ -1,22 +1,19 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { SefinHeader } from './SefinHeader';
-import type { SefinViewType } from './SefinHeader';
-import { SefinDashboard } from './SefinDashboard';
-import { SefinExplorerView } from './SefinExplorerView';
-import { SefinIntelligenceView } from './SefinIntelligenceView';
-import { SefinTeamView } from './SefinTeamView';
-import { ReportsView } from '../ReportsView';
+import React, { useState, useEffect, useCallback } from 'react';
+import { AjsefinHeader } from './AjsefinHeader';
+import type { AjsefinViewType } from './AjsefinHeader';
+import { AjsefinDashboard } from './AjsefinDashboard';
+import { AjsefinProcessView } from './AjsefinProcessView';
 import { supabase } from '../../lib/supabase';
 
-const SEEN_COUNT_KEY = 'sefin_last_seen_count';
-const DARK_MODE_KEY = 'sefin_dark_mode';
+const SEEN_COUNT_KEY = 'ajsefin_last_seen_count';
+const DARK_MODE_KEY = 'ajsefin_dark_mode';
 
-interface SefinCockpitProps {
+interface AjsefinCockpitProps {
     onNavigate: (page: string, processId?: string) => void;
 }
 
-export const SefinCockpit: React.FC<SefinCockpitProps> = ({ onNavigate }) => {
-    const [activeView, setActiveView] = useState<SefinViewType>('control');
+export const AjsefinCockpit: React.FC<AjsefinCockpitProps> = ({ onNavigate }) => {
+    const [activeView, setActiveView] = useState<AjsefinViewType>('painel');
     const [lastSeenCount, setLastSeenCount] = useState(0);
     const [darkMode, setDarkMode] = useState(false);
     const [pendingCount, setPendingCount] = useState(0);
@@ -31,31 +28,32 @@ export const SefinCockpit: React.FC<SefinCockpitProps> = ({ onNavigate }) => {
         if (savedDark) setDarkMode(savedDark === 'true');
     }, []);
 
-    // Fetch counts
+    // Fetch counts — Processos aguardando análise AJSEFIN
     useEffect(() => {
         const fetchCounts = async () => {
             try {
+                // Processos que precisam de análise jurídica
                 const { data } = await supabase
-                    .from('sefin_signing_tasks')
+                    .from('solicitations')
                     .select('id, created_at, status')
-                    .eq('status', 'PENDING');
+                    .in('status', ['WAITING_AJSEFIN_ANALYSIS', 'WAITING_SOSFU_ANALYSIS']);
 
                 if (data) {
                     setPendingCount(data.length);
                     const now = Date.now();
                     const urgent = data.filter(t => {
                         const hours = (now - new Date(t.created_at).getTime()) / (1000 * 60 * 60);
-                        return hours > 24;
+                        return hours > 48; // Mais de 48h sem análise = urgente
                     }).length;
                     setUrgentCount(urgent);
                 }
             } catch (err) {
-                console.error('Sefin fetch counts error:', err);
+                console.error('AJSEFIN fetch counts error:', err);
             }
         };
 
         fetchCounts();
-        const interval = setInterval(fetchCounts, 60000); // Refresh every minute
+        const interval = setInterval(fetchCounts, 60000);
         return () => clearInterval(interval);
     }, []);
 
@@ -88,25 +86,22 @@ export const SefinCockpit: React.FC<SefinCockpitProps> = ({ onNavigate }) => {
 
     const renderActiveView = () => {
         switch (activeView) {
-            case 'control':
-                return <SefinDashboard onNavigate={onNavigate} darkMode={darkMode} />;
-            case 'explorer':
-                return <SefinExplorerView darkMode={darkMode} onNavigate={onNavigate} />;
-            case 'intelligence':
-                return <SefinIntelligenceView darkMode={darkMode} />;
-            case 'mapa':
-                return <ReportsView />;
-            case 'team':
-                return <SefinTeamView darkMode={darkMode} />;
+            case 'painel':
+                return <AjsefinDashboard onNavigate={onNavigate} darkMode={darkMode} />;
+            case 'processos':
+                return <AjsefinProcessView onNavigate={onNavigate} darkMode={darkMode} />;
+            case 'equipe':
+                // Equipe reutiliza o painel com foco na seção de equipe
+                return <AjsefinDashboard onNavigate={onNavigate} darkMode={darkMode} showTeamOnly />;
             default:
-                return <SefinDashboard onNavigate={onNavigate} darkMode={darkMode} />;
+                return <AjsefinDashboard onNavigate={onNavigate} darkMode={darkMode} />;
         }
     };
 
     return (
         <div className={`min-h-[calc(100vh-64px)] flex flex-col transition-colors duration-300 ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
             {/* Internal Navigation */}
-            <SefinHeader
+            <AjsefinHeader
                 activeView={activeView}
                 onNavigate={setActiveView}
                 pendingCount={pendingCount}

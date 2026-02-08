@@ -32,6 +32,15 @@ const MODULE_CONFIGS: Record<string, { title: string; subtitle: string; color: s
     accentBg: 'bg-amber-50',
     accentText: 'text-amber-600',
   },
+  ajsefin_dashboard: {
+    title: 'AJSEFIN TJPA',
+    subtitle: '• Assessoria Jurídica',
+    color: 'teal',
+    bgColor: 'bg-teal-50',
+    textColor: 'text-teal-700',
+    accentBg: 'bg-teal-50',
+    accentText: 'text-teal-600',
+  },
   suprido_dashboard: {
     title: 'Portal do Usuário',
     subtitle: '• Servidor Público',
@@ -44,17 +53,18 @@ const MODULE_CONFIGS: Record<string, { title: string; subtitle: string; color: s
 };
 
 // Modules that manage their own internal navigation (no tabs in main header)
-const INDEPENDENT_MODULES = ['sefin_dashboard', 'gestor_dashboard', 'suprido_dashboard'];
+const INDEPENDENT_MODULES = ['sefin_dashboard', 'gestor_dashboard', 'suprido_dashboard', 'ajsefin_dashboard'];
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNavigate, userProfile }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   
   const allTabs = [
-    { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard, roles: ['ADMIN', 'SOSFU', 'SEFIN', 'PRESIDENCIA', 'SGP', 'AJSEFIN'] },
+    { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard, roles: ['ADMIN', 'SOSFU', 'SEFIN', 'PRESIDENCIA', 'SGP'] },
     { id: 'suprido_dashboard', label: 'Portal do Usuário', icon: Briefcase, roles: ['USER', 'SERVIDOR'] }, 
     { id: 'gestor_dashboard', label: 'Gabinete do Gestor', icon: Gavel, roles: ['GESTOR', 'ADMIN'] },
     { id: 'sefin_dashboard', label: 'Gabinete SEFIN', icon: Scale, roles: ['SEFIN', 'ADMIN'] },
+    { id: 'ajsefin_dashboard', label: 'Gabinete AJSEFIN', icon: Scale, roles: ['AJSEFIN', 'ADMIN'] },
     { id: 'solicitations', label: 'Gestão de Solicitações', icon: FileText, roles: ['ADMIN', 'SOSFU'] },
     { id: 'accountability', label: 'Gestão de Contas', icon: CheckSquare, roles: ['ADMIN', 'SOSFU'] },
     { id: 'archive', label: 'Arquivo', icon: Archive, roles: ['ADMIN', 'SOSFU'] },
