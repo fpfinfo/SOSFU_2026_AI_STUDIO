@@ -5,6 +5,7 @@ import { SefinDashboard } from './SefinDashboard';
 import { SefinExplorerView } from './SefinExplorerView';
 import { SefinIntelligenceView } from './SefinIntelligenceView';
 import { SefinTeamView } from './SefinTeamView';
+import { SefinMapView } from './SefinMapView';
 import { supabase } from '../../lib/supabase';
 
 const SEEN_COUNT_KEY = 'sefin_last_seen_count';
@@ -93,6 +94,8 @@ export const SefinCockpit: React.FC<SefinCockpitProps> = ({ onNavigate }) => {
                 return <SefinExplorerView darkMode={darkMode} onNavigate={onNavigate} />;
             case 'intelligence':
                 return <SefinIntelligenceView darkMode={darkMode} />;
+            case 'mapa':
+                return <SefinMapView darkMode={darkMode} onNavigate={onNavigate} />;
             case 'team':
                 return <SefinTeamView darkMode={darkMode} />;
             default:

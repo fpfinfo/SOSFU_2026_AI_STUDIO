@@ -55,9 +55,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
     { id: 'suprido_dashboard', label: 'Portal do Usuário', icon: Briefcase, roles: ['USER', 'SERVIDOR'] }, 
     { id: 'gestor_dashboard', label: 'Gabinete do Gestor', icon: Gavel, roles: ['GESTOR', 'ADMIN'] },
     { id: 'sefin_dashboard', label: 'Gabinete SEFIN', icon: Scale, roles: ['SEFIN', 'ADMIN'] },
-    { id: 'solicitations', label: 'Gestão de Solicitações', icon: FileText, roles: ['ADMIN', 'SOSFU', 'SEFIN'] },
-    { id: 'accountability', label: 'Gestão de Contas', icon: CheckSquare, roles: ['ADMIN', 'SOSFU', 'SEFIN'] },
-    { id: 'archive', label: 'Arquivo', icon: Archive, roles: ['ADMIN', 'SOSFU', 'SEFIN'] },
+    { id: 'solicitations', label: 'Gestão de Solicitações', icon: FileText, roles: ['ADMIN', 'SOSFU'] },
+    { id: 'accountability', label: 'Gestão de Contas', icon: CheckSquare, roles: ['ADMIN', 'SOSFU'] },
+    { id: 'archive', label: 'Arquivo', icon: Archive, roles: ['ADMIN', 'SOSFU'] },
     { id: 'reports', label: 'Relatórios', icon: PieChart, roles: ['ADMIN', 'SOSFU', 'PRESIDENCIA'] },
     { id: 'settings', label: 'Configurações', icon: Settings, roles: ['ADMIN', 'SOSFU'] },
   ];
@@ -101,7 +101,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
     <header className="bg-white border-b border-gray-200 h-16 px-4 md:px-6 flex items-center justify-between sticky top-0 z-50" role="banner">
       <div className="flex items-center gap-6">
         <Tooltip content="Voltar ao painel principal" position="bottom" delay={400}>
-        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => onTabChange && onTabChange(availableTabs[0]?.id || 'profile')}>
+        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => {
+          if (isIndependentModule && activeTab) onTabChange?.(activeTab);
+          else onTabChange?.(availableTabs[0]?.id || 'profile');
+        }}>
             <img src="/assets/brasao-tjpa.png" alt="Brasão TJPA" className="h-9 md:h-10 w-auto opacity-90 group-hover:scale-105 transition-transform"/>
             <div className="hidden lg:block">
                 <h1 className={`${titleColor} font-bold text-base leading-tight`}>{headerTitle}</h1>

@@ -6,10 +6,11 @@ import {
     Users,
     BellRing,
     Sun,
-    Moon
+    Moon,
+    Map as MapIcon
 } from 'lucide-react';
 
-export type SefinViewType = 'control' | 'explorer' | 'intelligence' | 'team';
+export type SefinViewType = 'control' | 'explorer' | 'intelligence' | 'team' | 'mapa';
 
 interface SefinHeaderProps {
     activeView: SefinViewType;
@@ -62,22 +63,16 @@ export const SefinHeader: React.FC<SefinHeaderProps> = ({
             badgeType: urgentCount > 0 ? 'urgent' : 'default'
         },
         {
-            id: 'explorer',
-            label: 'Explorador',
-            shortLabel: 'Explorer',
-            icon: <Search size={18} />
+            id: 'mapa',
+            label: 'Mapa de Situação',
+            shortLabel: 'Mapa',
+            icon: <MapIcon size={18} />
         },
         {
             id: 'intelligence',
             label: 'Inteligência',
             shortLabel: 'Intel',
             icon: <TrendingUp size={18} />
-        },
-        {
-            id: 'team',
-            label: 'Equipe',
-            shortLabel: 'Equipe',
-            icon: <Users size={18} />
         }
     ];
 

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
     Search, Calendar, Download, Eye, FileText, User, DollarSign,
     ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown,
-    Building2, Filter, CheckCircle2, Clock, XCircle, Loader2
+    Building2, Filter, CheckCircle2, Clock, XCircle, Loader2, FileDown
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -35,11 +35,11 @@ const formatCurrency = (v: number) =>
 
 const getDocLabel = (type: string) => {
     switch (type) {
-        case 'PORTARIA_SF': return 'Portaria SF';
-        case 'CERTIDAO_REGULARIDADE': return 'Certidão';
-        case 'NOTA_EMPENHO': return 'NE';
-        case 'LIQUIDACAO': return 'DL';
-        case 'ORDEM_BANCARIA': return 'OB';
+        case 'PORTARIA_SF': return 'PORTARIA';
+        case 'CERTIDAO_REGULARIDADE': return 'CERTIDAO_REGULARIDADE';
+        case 'NOTA_EMPENHO': return 'NOTA_EMPENHO';
+        case 'LIQUIDACAO': return 'DECISAO';
+        case 'ORDEM_BANCARIA': return 'ORDEM_BANCARIA';
         default: return type;
     }
 };
@@ -47,18 +47,18 @@ const getDocLabel = (type: string) => {
 function StatusBadge({ status }: { status: string }) {
     const config: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
         'PENDING': { label: 'Pendente', color: 'bg-amber-100 text-amber-700', icon: <Clock size={12} /> },
-        'SIGNED': { label: 'Assinado', color: 'bg-emerald-100 text-emerald-700', icon: <CheckCircle2 size={12} /> },
+        'SIGNED': { label: 'Assinado', color: 'bg-blue-100 text-blue-700', icon: <CheckCircle2 size={12} /> },
         'REJECTED': { label: 'Devolvido', color: 'bg-red-100 text-red-700', icon: <XCircle size={12} /> },
     };
     const c = config[status] || { label: status, color: 'bg-slate-100 text-slate-700', icon: null };
     return (
-        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${c.color}`}>
+        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${c.color}`}>
             {c.icon}{c.label}
         </span>
     );
 }
 
-type SortField = 'nup' | 'tipo' | 'beneficiary' | 'valor' | 'status' | 'data';
+type SortField = 'nup' | 'tipo' | 'suprido' | 'unidade' | 'valor' | 'status' | 'data';
 type SortDirection = 'asc' | 'desc';
 
 export const SefinExplorerView: React.FC<SefinExplorerViewProps> = ({ darkMode = false, onNavigate }) => {
@@ -71,9 +71,7 @@ export const SefinExplorerView: React.FC<SefinExplorerViewProps> = ({ darkMode =
     const [sortField, setSortField] = useState<SortField>('data');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-    useEffect(() => {
-        fetchAllTasks();
-    }, []);
+    useEffect(() => { fetchAllTasks(); }, []);
 
     const fetchAllTasks = async () => {
         setLoading(true);
@@ -99,9 +97,7 @@ export const SefinExplorerView: React.FC<SefinExplorerViewProps> = ({ darkMode =
             }
         } catch (err) {
             console.error('Explorer fetch error:', err);
-        } finally {
-            setLoading(false);
-        }
+        } finally { setLoading(false); }
     };
 
     const handleSort = (field: SortField) => {
@@ -115,18 +111,14 @@ export const SefinExplorerView: React.FC<SefinExplorerViewProps> = ({ darkMode =
     };
 
     const SortableHeader = ({ field, label }: { field: SortField; label: string }) => (
-        <th
-            className={`text-left text-xs font-semibold px-4 py-3 cursor-pointer select-none transition-colors ${
-                darkMode ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-            onClick={() => handleSort(field)}
-        >
+        <th className="text-left text-xs font-bold px-4 py-3.5 cursor-pointer select-none transition-colors text-slate-500 hover:bg-slate-100 uppercase tracking-wider"
+            onClick={() => handleSort(field)}>
             <div className="flex items-center gap-1">
                 {label}
                 {sortField === field ? (
-                    sortDirection === 'asc' ? <ArrowUp size={14} className="text-emerald-500" /> : <ArrowDown size={14} className="text-emerald-500" />
+                    sortDirection === 'asc' ? <ArrowUp size={13} className="text-emerald-500" /> : <ArrowDown size={13} className="text-emerald-500" />
                 ) : (
-                    <ArrowUpDown size={14} className="text-slate-300" />
+                    <ArrowUpDown size={13} className="text-slate-300" />
                 )}
             </div>
         </th>
@@ -134,21 +126,19 @@ export const SefinExplorerView: React.FC<SefinExplorerViewProps> = ({ darkMode =
 
     const filteredTasks = useMemo(() => {
         let result = tasks.filter(task => {
-            // Text filter
             if (localSearch) {
                 const q = localSearch.toLowerCase();
                 const nup = task.solicitation?.process_number?.toLowerCase() || '';
                 const ben = task.solicitation?.beneficiary?.toLowerCase() || '';
                 const tipo = task.document_type?.toLowerCase() || '';
-                if (!nup.includes(q) && !ben.includes(q) && !tipo.includes(q)) return false;
+                const origin = task.solicitation?.origin?.toLowerCase() || '';
+                if (!nup.includes(q) && !ben.includes(q) && !tipo.includes(q) && !origin.includes(q)) return false;
             }
-            // Status filter
             if (statusFilter !== 'all') {
                 if (statusFilter === 'pending' && task.status !== 'PENDING') return false;
                 if (statusFilter === 'signed' && task.status !== 'SIGNED') return false;
                 if (statusFilter === 'returned' && task.status !== 'REJECTED') return false;
             }
-            // Date range
             if (dateRange.start || dateRange.end) {
                 const d = new Date(task.created_at).toISOString().split('T')[0];
                 if (dateRange.start && d < dateRange.start) return false;
@@ -162,7 +152,8 @@ export const SefinExplorerView: React.FC<SefinExplorerViewProps> = ({ darkMode =
             switch (sortField) {
                 case 'nup': aV = a.solicitation?.process_number || ''; bV = b.solicitation?.process_number || ''; break;
                 case 'tipo': aV = a.document_type; bV = b.document_type; break;
-                case 'beneficiary': aV = a.solicitation?.beneficiary || ''; bV = b.solicitation?.beneficiary || ''; break;
+                case 'suprido': aV = a.solicitation?.beneficiary || ''; bV = b.solicitation?.beneficiary || ''; break;
+                case 'unidade': aV = a.solicitation?.origin || ''; bV = b.solicitation?.origin || ''; break;
                 case 'valor': aV = a.value || 0; bV = b.value || 0; break;
                 case 'status': aV = a.status; bV = b.status; break;
                 case 'data': aV = new Date(a.created_at).getTime(); bV = new Date(b.created_at).getTime(); break;
@@ -183,11 +174,12 @@ export const SefinExplorerView: React.FC<SefinExplorerViewProps> = ({ darkMode =
     }, [filteredTasks, currentPage]);
 
     const handleExportCSV = () => {
-        const headers = ['NUP', 'Tipo', 'Beneficiário', 'Valor', 'Status', 'Data'];
+        const headers = ['NUP', 'Tipo', 'Suprido', 'Unidade', 'Valor', 'Status', 'Data'];
         const rows = filteredTasks.map(t => [
             t.solicitation?.process_number || '',
             getDocLabel(t.document_type),
             t.solicitation?.beneficiary || '',
+            t.solicitation?.origin || '',
             t.value?.toString() || '0',
             t.status,
             new Date(t.created_at).toLocaleDateString('pt-BR')
@@ -211,111 +203,123 @@ export const SefinExplorerView: React.FC<SefinExplorerViewProps> = ({ darkMode =
     }
 
     return (
-        <div className="p-6 space-y-6">
-            {/* Search & Filters */}
-            <div className={`rounded-2xl border p-4 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+        <div className="max-w-[1400px] mx-auto px-6 py-6 space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Search Bar + Date + Export */}
+            <div className="bg-white rounded-2xl border-2 border-slate-100 p-5">
                 <div className="flex flex-col lg:flex-row gap-4">
+                    {/* Search */}
                     <div className="flex-1 relative">
-                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
-                            type="text" placeholder="Buscar por NUP, beneficiário, tipo..."
+                            type="text" placeholder="Buscar por NUP, suprido, unidade, tipo..."
                             value={localSearch}
                             onChange={e => { setLocalSearch(e.target.value); setCurrentPage(1); }}
-                            className={`w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-300 focus:border-emerald-300 transition-all ${
-                                darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'bg-slate-50 border-slate-200'
-                            }`}
+                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-200 focus:border-emerald-300 transition-all"
                         />
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Calendar size={18} className="text-slate-400" />
-                        <input type="date" value={dateRange.start} onChange={e => { setDateRange(p => ({ ...p, start: e.target.value })); setCurrentPage(1); }}
-                            className={`px-3 py-2 border rounded-lg text-sm ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'}`} />
-                        <span className="text-slate-400">até</span>
-                        <input type="date" value={dateRange.end} onChange={e => { setDateRange(p => ({ ...p, end: e.target.value })); setCurrentPage(1); }}
-                            className={`px-3 py-2 border rounded-lg text-sm ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'}`} />
-                    </div>
-                    <button onClick={handleExportCSV}
-                        className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-600 transition-colors">
-                        <Download size={16} /> Exportar CSV
-                    </button>
-                </div>
 
-                {/* Quick Filters */}
-                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100">
-                    <Filter size={14} className="text-slate-400 mr-1" />
-                    {[
-                        { label: 'Todos', value: 'all' },
-                        { label: 'Pendentes', value: 'pending' },
-                        { label: 'Assinados', value: 'signed' },
-                        { label: 'Devolvidos', value: 'returned' }
-                    ].map(f => (
-                        <button key={f.value}
-                            onClick={() => { setStatusFilter(f.value); setCurrentPage(1); }}
-                            className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                                statusFilter === f.value
-                                    ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200'
-                                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                            }`}>
-                            {f.label}
+                    {/* Date Range */}
+                    <div className="flex items-center gap-2">
+                        <Calendar size={16} className="text-slate-400 shrink-0" />
+                        <input type="date" value={dateRange.start}
+                            onChange={e => { setDateRange(p => ({ ...p, start: e.target.value })); setCurrentPage(1); }}
+                            className="px-3 py-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm" />
+                        <span className="text-slate-400 text-sm">até</span>
+                        <input type="date" value={dateRange.end}
+                            onChange={e => { setDateRange(p => ({ ...p, end: e.target.value })); setCurrentPage(1); }}
+                            className="px-3 py-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm" />
+                    </div>
+
+                    {/* Export */}
+                    <div className="flex items-center gap-2">
+                        <button onClick={handleExportCSV}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl hover:bg-emerald-600 transition-all shadow-sm">
+                            <Download size={15} /> CSV
                         </button>
-                    ))}
-                    <span className={`ml-auto text-xs ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                        {filteredTasks.length} resultado(s)
-                    </span>
+                        <button onClick={() => window.print()}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-red-500 text-white text-sm font-bold rounded-xl hover:bg-red-600 transition-all shadow-sm">
+                            <FileDown size={15} /> PDF
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* Table */}
-            <div className={`rounded-2xl border overflow-hidden ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+            {/* Quick Filters */}
+            <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mr-1">Filtros Rápidos</span>
+                {[
+                    { label: 'Todos', value: 'all' },
+                    { label: 'Assinados', value: 'signed' },
+                    { label: 'Pendentes', value: 'pending' },
+                    { label: 'Devolvidos', value: 'returned' }
+                ].map(f => (
+                    <button key={f.value}
+                        onClick={() => { setStatusFilter(f.value); setCurrentPage(1); }}
+                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                            statusFilter === f.value
+                                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200'
+                                : 'bg-white border-2 border-slate-200 text-slate-500 hover:border-emerald-300 hover:text-emerald-600'
+                        }`}>
+                        {f.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* Data Table */}
+            <div className="bg-white rounded-2xl border-2 border-slate-100 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full">
-                        <thead className={`border-b ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                        <thead className="bg-slate-50 border-b-2 border-slate-100">
                             <tr>
                                 <SortableHeader field="nup" label="NUP" />
                                 <SortableHeader field="tipo" label="Tipo" />
-                                <SortableHeader field="beneficiary" label="Beneficiário" />
+                                <SortableHeader field="suprido" label="Suprido" />
+                                <SortableHeader field="unidade" label="Unidade" />
                                 <SortableHeader field="valor" label="Valor" />
                                 <SortableHeader field="status" label="Status" />
                                 <SortableHeader field="data" label="Data" />
-                                <th className={`text-center text-xs font-semibold px-4 py-3 ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>Ações</th>
+                                <th className="text-center text-xs font-bold px-4 py-3.5 text-slate-500 uppercase tracking-wider">Ações</th>
                             </tr>
                         </thead>
-                        <tbody className={`divide-y ${darkMode ? 'divide-slate-700' : 'divide-slate-100'}`}>
+                        <tbody className="divide-y divide-slate-100">
                             {paginatedTasks.length > 0 ? (
                                 paginatedTasks.map(task => (
-                                    <tr key={task.id} className={`transition-colors ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50'}`}>
-                                        <td className="px-4 py-3">
-                                            <span className={`font-medium ${darkMode ? 'text-white' : 'text-slate-800'}`}>
-                                                {task.solicitation?.process_number || 'N/A'}
-                                            </span>
+                                    <tr key={task.id} className="hover:bg-slate-50/70 transition-colors">
+                                        <td className="px-4 py-3.5">
+                                            <span className="font-bold text-sm text-slate-800">{task.solicitation?.process_number || 'N/A'}</span>
                                         </td>
-                                        <td className="px-4 py-3">
-                                            <span className={`text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>{getDocLabel(task.document_type)}</span>
+                                        <td className="px-4 py-3.5">
+                                            <span className="text-sm text-slate-600">{getDocLabel(task.document_type)}</span>
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-4 py-3.5">
                                             <div className="flex items-center gap-2">
                                                 <User size={14} className="text-slate-400" />
-                                                <span className={`text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                                <span className="text-sm text-slate-600 truncate max-w-[200px]">
                                                     {task.solicitation?.beneficiary || 'N/A'}
                                                 </span>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-1">
-                                                <DollarSign size={14} className="text-slate-400" />
-                                                <span className={`text-sm font-medium ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>{formatCurrency(task.value || 0)}</span>
+                                        <td className="px-4 py-3.5">
+                                            <div className="flex items-center gap-2">
+                                                <Building2 size={14} className="text-slate-400" />
+                                                <span className="text-sm text-slate-600 truncate max-w-[180px]">
+                                                    {task.solicitation?.origin || 'N/A'}
+                                                </span>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3"><StatusBadge status={task.status} /></td>
-                                        <td className="px-4 py-3">
-                                            <span className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                                {new Date(task.created_at).toLocaleDateString('pt-BR')}
-                                            </span>
+                                        <td className="px-4 py-3.5">
+                                            <div className="flex items-center gap-1">
+                                                <DollarSign size={14} className="text-slate-400" />
+                                                <span className="text-sm font-bold text-slate-700">{formatCurrency(task.value || 0)}</span>
+                                            </div>
                                         </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <button
-                                                onClick={() => onNavigate?.('process_detail', task.solicitation_id)}
-                                                className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-slate-600 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'}`}
+                                        <td className="px-4 py-3.5"><StatusBadge status={task.status} /></td>
+                                        <td className="px-4 py-3.5">
+                                            <span className="text-sm text-slate-500">{new Date(task.created_at).toLocaleDateString('pt-BR')}</span>
+                                        </td>
+                                        <td className="px-4 py-3.5 text-center">
+                                            <button onClick={() => onNavigate?.('process_detail', task.solicitation_id)}
+                                                className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-emerald-600 transition-colors"
                                                 title="Visualizar processo">
                                                 <Eye size={16} />
                                             </button>
@@ -324,9 +328,9 @@ export const SefinExplorerView: React.FC<SefinExplorerViewProps> = ({ darkMode =
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={7} className="px-4 py-12 text-center">
-                                        <FileText size={40} className="mx-auto mb-3 text-slate-300" />
-                                        <p className={`text-sm ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Nenhum documento encontrado</p>
+                                    <td colSpan={8} className="px-4 py-16 text-center">
+                                        <FileText size={40} className="mx-auto mb-3 text-slate-200" />
+                                        <p className="text-sm text-slate-400 font-medium">Nenhum documento encontrado</p>
                                     </td>
                                 </tr>
                             )}
@@ -336,21 +340,21 @@ export const SefinExplorerView: React.FC<SefinExplorerViewProps> = ({ darkMode =
 
                 {/* Pagination */}
                 {filteredTasks.length > 0 && (
-                    <div className={`px-4 py-3 border-t flex items-center justify-between ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-                        <span className={`text-sm ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                    <div className="px-5 py-3.5 border-t-2 border-slate-100 bg-slate-50 flex items-center justify-between">
+                        <span className="text-sm text-slate-400">
                             Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredTasks.length)} de {filteredTasks.length}
                         </span>
                         <div className="flex items-center gap-2">
                             <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                                className={`p-1.5 border rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
-                                <ChevronLeft size={18} />
+                                className="p-2 border-2 border-slate-200 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white">
+                                <ChevronLeft size={16} />
                             </button>
-                            <span className={`text-sm min-w-[80px] text-center ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                            <span className="text-sm min-w-[80px] text-center text-slate-600 font-medium">
                                 {currentPage} de {totalPages || 1}
                             </span>
                             <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages}
-                                className={`p-1.5 border rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
-                                <ChevronRight size={18} />
+                                className="p-2 border-2 border-slate-200 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white">
+                                <ChevronRight size={16} />
                             </button>
                         </div>
                     </div>

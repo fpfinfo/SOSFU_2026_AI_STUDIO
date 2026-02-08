@@ -2,9 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
     Briefcase, FileText, CheckCircle2, Search, DollarSign, ChevronRight,
     Scale, Loader2, XCircle, Award, FileCheck, CreditCard, Send, AlertTriangle,
-    Pen, Clock, Users, ArrowRight, BarChart3, Filter, Inbox, User, X,
-    CheckSquare, Square, FileSignature, Eye, Lock, KeyRound, AlertCircle,
-    Zap, TrendingUp, Calendar
+    BarChart3, Inbox, Filter, CheckSquare, Square, X, FileSignature,
+    Zap, TrendingUp, Calendar, Mail, Activity, Users, Eye
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Tooltip } from '../ui/Tooltip';
@@ -25,76 +24,44 @@ interface SigningTask {
     status: string;
     created_at: string;
     solicitation?: { process_number: string; beneficiary: string; value: number };
+    process_number: string;
+    beneficiary: string;
 }
 
-type ListFilter = 'ALL' | 'PENDING' | 'SIGNED';
+type ListFilter = 'PENDING' | 'SIGNED';
+type QueueTab = 'inbox' | 'minha_fila' | 'processados';
 
 // ==================== UTILITIES ====================
-const formatCurrency = (v: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+const formatCurrency = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const getDocIcon = (type: string) => {
     switch (type) {
-        case 'PORTARIA_SF': return <FileText size={18} />;
-        case 'CERTIDAO_REGULARIDADE': return <Award size={18} />;
-        case 'NOTA_EMPENHO': return <DollarSign size={18} />;
-        case 'LIQUIDACAO': return <FileCheck size={18} />;
-        case 'ORDEM_BANCARIA': return <CreditCard size={18} />;
-        default: return <FileText size={18} />;
+        case 'PORTARIA_SF': return <FileText size={16} />;
+        case 'NOTA_EMPENHO': return <CreditCard size={16} />;
+        case 'CERTIDAO_REGULARIDADE': return <FileCheck size={16} />;
+        case 'DOCUMENTO_LIQUIDACAO': return <DollarSign size={16} />;
+        default: return <FileText size={16} />;
     }
 };
 
 const getDocLabel = (type: string) => {
     switch (type) {
-        case 'PORTARIA_SF': return 'Portaria SF';
+        case 'PORTARIA_SF': return 'Portaria';
+        case 'NOTA_EMPENHO': return 'Nota de Empenho';
         case 'CERTIDAO_REGULARIDADE': return 'Certidão';
-        case 'NOTA_EMPENHO': return 'NE';
-        case 'LIQUIDACAO': return 'DL';
-        case 'ORDEM_BANCARIA': return 'OB';
+        case 'DOCUMENTO_LIQUIDACAO': return 'Doc. Liquidação';
         default: return type;
     }
 };
 
 const getDocColor = (type: string) => {
     switch (type) {
-        case 'PORTARIA_SF': return { bg: 'bg-sky-100', text: 'text-sky-700' };
-        case 'CERTIDAO_REGULARIDADE': return { bg: 'bg-teal-100', text: 'text-teal-700' };
-        case 'NOTA_EMPENHO': return { bg: 'bg-amber-100', text: 'text-amber-700' };
-        case 'LIQUIDACAO': return { bg: 'bg-violet-100', text: 'text-violet-700' };
-        case 'ORDEM_BANCARIA': return { bg: 'bg-rose-100', text: 'text-rose-700' };
-        default: return { bg: 'bg-slate-100', text: 'text-slate-700' };
+        case 'PORTARIA_SF': return { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-200' };
+        case 'NOTA_EMPENHO': return { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200' };
+        case 'CERTIDAO_REGULARIDADE': return { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200' };
+        default: return { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200' };
     }
 };
-
-// ==================== KPI CARD ====================
-interface KPICardProps {
-    label: string;
-    value: number;
-    sublabel: string;
-    icon: React.ReactNode;
-    gradient: string;
-    onClick?: () => void;
-}
-
-const KPICard: React.FC<KPICardProps> = ({ label, value, sublabel, icon, gradient, onClick }) => (
-    <div
-        onClick={onClick}
-        className={`rounded-2xl overflow-hidden transition-all duration-300 ${onClick ? 'cursor-pointer hover:shadow-xl hover:scale-[1.03]' : ''}`}
-    >
-        <div className={`bg-gradient-to-br ${gradient} p-5 text-white`}>
-            <div className="flex items-center justify-between">
-                <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">{label}</p>
-                    <p className="text-4xl font-black mt-1">{value}</p>
-                </div>
-                <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">{icon}</div>
-            </div>
-        </div>
-        <div className="px-5 py-2.5 bg-white border border-slate-100 border-t-0 rounded-b-2xl">
-            <p className="text-[11px] text-slate-500 font-medium">{sublabel}</p>
-        </div>
-    </div>
-);
 
 // ==================== SIGNATURE CONFIRM MODAL ====================
 interface SignatureModalProps {
@@ -109,152 +76,430 @@ interface SignatureModalProps {
 const SignatureConfirmModal: React.FC<SignatureModalProps> = ({
     isOpen, onClose, onConfirm, documentsCount, totalValue, isProcessing
 }) => {
-    const [pin, setPin] = useState(['', '', '', '', '', '']);
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState(false);
-    const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+    const [pin, setPin] = useState(['', '', '', '']);
+    const [error, setError] = useState('');
+    const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
     useEffect(() => {
-        if (isOpen) {
-            setPin(['', '', '', '', '', '']);
-            setError(null);
-            setSuccess(false);
-            setTimeout(() => inputRefs.current[0]?.focus(), 100);
-        }
+        if (isOpen) { setPin(['', '', '', '']); setError(''); setTimeout(() => inputsRef.current[0]?.focus(), 100); }
     }, [isOpen]);
-
-    const handleChange = (index: number, value: string) => {
-        if (value.length > 1) {
-            const digits = value.replace(/\D/g, '').slice(0, 6).split('');
-            const newPin = [...pin];
-            digits.forEach((d, i) => { if (index + i < 6) newPin[index + i] = d; });
-            setPin(newPin);
-            inputRefs.current[Math.min(index + digits.length, 5)]?.focus();
-            return;
-        }
-        if (!/^\d*$/.test(value)) return;
-        const newPin = [...pin];
-        newPin[index] = value;
-        setPin(newPin);
-        if (value && index < 5) inputRefs.current[index + 1]?.focus();
-    };
-
-    const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
-        if (e.key === 'Backspace' && !pin[index] && index > 0) inputRefs.current[index - 1]?.focus();
-        if (e.key === 'Enter') handleSubmit();
-        if (e.key === 'Escape') onClose();
-    };
-
-    const handleSubmit = async () => {
-        const pinStr = pin.join('');
-        if (pinStr.length !== 6) { setError('Digite todos os 6 dígitos.'); return; }
-        setError(null);
-        try {
-            await onConfirm(pinStr);
-            setSuccess(true);
-            setTimeout(onClose, 1500);
-        } catch {
-            setError('Erro ao assinar. Tente novamente.');
-            setPin(['', '', '', '', '', '']);
-            inputRefs.current[0]?.focus();
-        }
-    };
 
     if (!isOpen) return null;
 
+    const handleChange = (index: number, value: string) => {
+        if (!/^\d?$/.test(value)) return;
+        const newPin = [...pin];
+        newPin[index] = value;
+        setPin(newPin);
+        setError('');
+        if (value && index < 3) inputsRef.current[index + 1]?.focus();
+    };
+
+    const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+        if (e.key === 'Backspace' && !pin[index] && index > 0) {
+            inputsRef.current[index - 1]?.focus();
+        }
+    };
+
+    const handleSubmit = async () => {
+        const fullPin = pin.join('');
+        if (fullPin.length < 4) return;
+        try {
+            await onConfirm(fullPin);
+            onClose();
+        } catch (err: any) {
+            setError(err?.message || 'PIN inválido. Tente novamente.');
+            setPin(['', '', '', '']);
+            setTimeout(() => inputsRef.current[0]?.focus(), 100);
+        }
+    };
+
+    const isFilled = pin.every(d => d !== '');
+
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}></div>
-            <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+            onClick={(e) => e.target === e.currentTarget && onClose()}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in-95 duration-200">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-5 text-white">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-sm"><Lock size={20} /></div>
-                            <div>
-                                <h2 className="font-bold text-lg">Confirmar Assinatura</h2>
-                                <p className="text-sm text-emerald-100">{documentsCount} {documentsCount === 1 ? 'documento' : 'documentos'}</p>
-                            </div>
-                        </div>
-                        <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"><X size={20} /></button>
+                <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-emerald-50 border-2 border-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <FileSignature className="text-emerald-600" size={28} />
                     </div>
+                    <h2 className="text-xl font-black text-slate-800">Confirmar Assinatura</h2>
+                    <p className="text-sm text-slate-500 mt-2">
+                        {documentsCount} documento{documentsCount > 1 ? 's' : ''} • {formatCurrency(totalValue)}
+                    </p>
                 </div>
 
-                <div className="p-6">
-                    {/* Summary */}
-                    <div className="bg-slate-50 rounded-2xl p-4 mb-6 flex items-center justify-between">
-                        <div>
-                            <p className="text-xs text-slate-400">Documentos</p>
-                            <p className="text-2xl font-black text-slate-800">{documentsCount}</p>
-                        </div>
-                        {totalValue > 0 && (
-                            <div className="text-right">
-                                <p className="text-xs text-slate-400">Valor Total</p>
-                                <p className="text-xl font-black text-emerald-600">{formatCurrency(totalValue)}</p>
-                            </div>
-                        )}
+                {/* PIN Input */}
+                <div className="mb-2">
+                    <div className="flex items-center justify-center gap-3 mb-3">
+                        {pin.map((digit, i) => (
+                            <input key={i} ref={el => { inputsRef.current[i] = el; }}
+                                type="password" inputMode="numeric" maxLength={1} value={digit}
+                                onChange={e => handleChange(i, e.target.value)}
+                                onKeyDown={e => handleKeyDown(i, e)}
+                                className={`w-14 h-16 text-center text-2xl font-black border-2 rounded-xl
+                                    focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition-all
+                                    ${error ? 'border-red-300 bg-red-50' : 'border-slate-200'}`}
+                            />
+                        ))}
                     </div>
-
-                    {success ? (
-                        <div className="text-center py-8">
-                            <CheckCircle2 size={64} className="mx-auto text-emerald-500 mb-4 animate-bounce" />
-                            <h3 className="text-xl font-bold text-slate-800">Assinatura Confirmada!</h3>
-                            <p className="text-slate-500 mt-1">Documentos assinados com sucesso.</p>
-                        </div>
-                    ) : (
-                        <>
-                            <label className="block text-sm font-medium text-slate-700 mb-3 text-center">
-                                Digite seu PIN de 6 dígitos
-                            </label>
-                            <div className="flex justify-center gap-2.5 mb-6">
-                                {pin.map((digit, index) => (
-                                    <input
-                                        key={index}
-                                        ref={el => { inputRefs.current[index] = el; }}
-                                        type="password" inputMode="numeric" maxLength={6}
-                                        value={digit}
-                                        onChange={e => handleChange(index, e.target.value)}
-                                        onKeyDown={e => handleKeyDown(index, e)}
-                                        disabled={isProcessing}
-                                        className={`w-12 h-14 text-center text-2xl font-bold border-2 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
-                                            error ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50 focus:border-emerald-400'
-                                        }`}
-                                    />
-                                ))}
-                            </div>
-
-                            {error && (
-                                <div className="flex items-center gap-2 text-red-600 bg-red-50 rounded-xl p-3 mb-4">
-                                    <AlertCircle size={16} /><span className="text-sm">{error}</span>
-                                </div>
-                            )}
-
-                            <div className="flex gap-3">
-                                <button onClick={onClose} disabled={isProcessing}
-                                    className="flex-1 px-4 py-3 border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-colors">
-                                    Cancelar
-                                </button>
-                                <button onClick={handleSubmit} disabled={isProcessing || pin.join('').length !== 6}
-                                    className={`flex-1 px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
-                                        pin.join('').length === 6 ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg' : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                    }`}>
-                                    {isProcessing ? <><Loader2 size={16} className="animate-spin" /> Assinando...</> : <><KeyRound size={16} /> Assinar</>}
-                                </button>
-                            </div>
-                        </>
+                    {error && (
+                        <p className="text-center text-sm text-red-500 font-medium">{error}</p>
                     )}
+                    <p className="text-center text-[10px] text-slate-400 mt-2">PIN padrão de teste: 1234</p>
                 </div>
 
-                <div className="bg-slate-50 px-6 py-3 text-center border-t border-slate-100">
-                    <p className="text-[10px] text-slate-400">Assinatura digital com validade jurídica</p>
+                {/* Actions */}
+                <div className="flex gap-3">
+                    <button onClick={onClose}
+                        className="flex-1 px-4 py-3 border-2 border-slate-200 text-slate-600 font-bold rounded-xl
+                            hover:bg-slate-50 transition-all text-sm">
+                        Cancelar
+                    </button>
+                    <button onClick={handleSubmit} disabled={!isFilled || isProcessing}
+                        className="flex-1 px-4 py-3 bg-emerald-600 text-white font-bold rounded-xl
+                            hover:bg-emerald-700 transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                        {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <FileSignature size={16} />}
+                        {isProcessing ? 'Assinando...' : 'Assinar'}
+                    </button>
                 </div>
             </div>
         </div>
     );
 };
 
-// ==================== TASK CARD ====================
-interface TaskCardProps {
+// ==================== ORDENADOR CARD ====================
+interface OrdenadorCardProps {
+    name: string;
+    role: string;
+    isCurrentUser: boolean;
+    pendingCount: number;
+    todayCount: number;
+    totalCount: number;
+    workloadPercent: number;
+    avatarUrl?: string;
+}
+
+const OrdenadorCard: React.FC<OrdenadorCardProps> = ({
+    name, role, isCurrentUser, pendingCount, todayCount, totalCount, workloadPercent, avatarUrl
+}) => {
+    const initials = name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+    
+    return (
+        <div className={`bg-white rounded-2xl border-2 p-5 transition-all hover:shadow-md ${
+            isCurrentUser ? 'border-amber-300 shadow-amber-50' : 'border-slate-200'
+        }`}>
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-4">
+                {avatarUrl ? (
+                    <img src={avatarUrl} alt={name}
+                        className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm" />
+                ) : (
+                    <div className="w-11 h-11 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600">
+                        {initials}
+                    </div>
+                )}
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-slate-800 truncate">{name}</p>
+                        {isCurrentUser && (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold uppercase">
+                                Você
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-xs text-slate-500">{role}</p>
+                </div>
+            </div>
+
+            {/* Workload Bar */}
+            <div className="mb-4">
+                <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-slate-400 font-medium">Carga de Trabalho</span>
+                    <span className={`font-bold ${workloadPercent > 80 ? 'text-red-500' : workloadPercent > 50 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                        {workloadPercent}%
+                    </span>
+                </div>
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-500 ${
+                        workloadPercent > 80 ? 'bg-red-400' : workloadPercent > 50 ? 'bg-amber-400' : 'bg-emerald-400'
+                    }`} style={{ width: `${Math.min(100, workloadPercent)}%` }} />
+                </div>
+            </div>
+
+            {/* Metrics */}
+            <div className="grid grid-cols-3 gap-3">
+                <div className="text-center">
+                    <p className="text-2xl font-black text-slate-800">{pendingCount}</p>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Pendentes</p>
+                </div>
+                <div className="text-center">
+                    <p className="text-2xl font-black text-amber-500">{todayCount}</p>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Hoje</p>
+                </div>
+                <div className="text-center">
+                    <p className="text-2xl font-black text-slate-800">{totalCount}</p>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Total</p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ==================== GESTÃO DE EQUIPE (DYNAMIC) ====================
+interface TeamMemberLocal {
+    id: string;
+    full_name: string;
+    email: string;
+    matricula: string;
+    avatar_url: string | null;
+    funcao: string;
+}
+
+const SEFIN_TEAM_KEY = 'sefin_team_members';
+const FUNCOES = ['Ordenador de Despesa', 'Analista', 'Assessor', 'Coordenador'] as const;
+
+interface GestaoEquipeSectionProps {
+    signingTasks: SigningTask[];
+    signedTasks: SigningTask[];
+    userName: string;
+}
+
+const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks, signedTasks, userName }) => {
+    const [members, setMembers] = useState<TeamMemberLocal[]>([]);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [searching, setSearching] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<any | null>(null);
+    const [selectedFuncao, setSelectedFuncao] = useState<string>(FUNCOES[0]);
+    const [removingId, setRemovingId] = useState<string | null>(null);
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        const saved = localStorage.getItem(SEFIN_TEAM_KEY);
+        if (saved) { try { setMembers(JSON.parse(saved)); } catch { /* ignore */ } }
+    }, []);
+
+    const saveMembers = useCallback((newMembers: TeamMemberLocal[]) => {
+        setMembers(newMembers);
+        localStorage.setItem(SEFIN_TEAM_KEY, JSON.stringify(newMembers));
+    }, []);
+
+    // Debounced search from Supabase profiles
+    useEffect(() => {
+        if (!searchQuery || searchQuery.length < 2) { setSearchResults([]); return; }
+        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+        searchTimeoutRef.current = setTimeout(async () => {
+            setSearching(true);
+            try {
+                const term = `%${searchQuery}%`;
+                const { data } = await supabase.from('profiles')
+                    .select('id, full_name, email, matricula, avatar_url, cpf')
+                    .or(`full_name.ilike.${term},matricula.ilike.${term},email.ilike.${term},cpf.ilike.${term}`)
+                    .limit(10);
+                const memberIds = new Set(members.map(m => m.id));
+                setSearchResults((data || []).filter(u => !memberIds.has(u.id)));
+            } catch (err) { console.error('Search error:', err); }
+            finally { setSearching(false); }
+        }, 350);
+
+        return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
+    }, [searchQuery, members]);
+
+    const handleAddMember = () => {
+        if (!selectedUser) return;
+        const newMember: TeamMemberLocal = {
+            id: selectedUser.id, full_name: selectedUser.full_name,
+            email: selectedUser.email || '', matricula: selectedUser.matricula || '',
+            avatar_url: selectedUser.avatar_url, funcao: selectedFuncao,
+        };
+        saveMembers([...members, newMember]);
+        setShowAddModal(false); setSelectedUser(null); setSearchQuery(''); setSearchResults([]);
+        setSelectedFuncao(FUNCOES[0]);
+    };
+
+    const handleRemoveMember = (id: string) => {
+        saveMembers(members.filter(m => m.id !== id));
+        setRemovingId(null);
+    };
+
+    const getInitials = (name: string) => name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+
+    return (
+        <div>
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                        <Users size={18} className="text-amber-600" />
+                    </div>
+                    <h2 className="text-lg font-black text-slate-800">Gestão de Equipe</h2>
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-bold">{members.length}</span>
+                </div>
+                <button onClick={() => setShowAddModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white text-sm font-bold rounded-xl hover:bg-emerald-600 transition-all shadow-sm">
+                    <Users size={14} /> Adicionar Membro
+                </button>
+            </div>
+
+            {members.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {members.map(member => (
+                        <div key={member.id} className={`bg-white rounded-2xl border-2 p-4 transition-all hover:shadow-md group ${
+                            userName.toLowerCase().includes(member.full_name.split(' ')[0].toLowerCase())
+                                ? 'border-amber-300 shadow-amber-50' : 'border-slate-200'
+                        }`}>
+                            <div className="flex items-center gap-3">
+                                {member.avatar_url ? (
+                                    <img src={member.avatar_url} alt={member.full_name}
+                                        className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" />
+                                ) : (
+                                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                                        {getInitials(member.full_name)}
+                                    </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-sm font-bold text-slate-800 truncate">{member.full_name}</p>
+                                        {userName.toLowerCase().includes(member.full_name.split(' ')[0].toLowerCase()) && (
+                                            <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-bold uppercase">Você</span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-slate-500">{member.funcao}</p>
+                                </div>
+                                <button onClick={() => setRemovingId(removingId === member.id ? null : member.id)}
+                                    className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                                    title="Remover membro">
+                                    <X size={14} />
+                                </button>
+                            </div>
+
+                            {removingId === member.id && (
+                                <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                                    <p className="text-xs text-red-600 font-medium">Remover este membro?</p>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => handleRemoveMember(member.id)}
+                                            className="px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-lg hover:bg-red-600">Sim</button>
+                                        <button onClick={() => setRemovingId(null)}
+                                            className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-lg hover:bg-slate-200">Não</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {member.funcao === 'Ordenador de Despesa' && (
+                                <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-100">
+                                    <div className="text-center">
+                                        <p className="text-lg font-black text-slate-800">{Math.ceil(signingTasks.length / Math.max(1, members.filter(m => m.funcao === 'Ordenador de Despesa').length))}</p>
+                                        <p className="text-[9px] text-slate-400 uppercase font-medium">Pendentes</p>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-lg font-black text-amber-500">{signingTasks.filter(t => (Date.now() - new Date(t.created_at).getTime()) / 3600000 < 24).length}</p>
+                                        <p className="text-[9px] text-slate-400 uppercase font-medium">Hoje</p>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-lg font-black text-slate-800">{Math.ceil((signingTasks.length + signedTasks.length) / Math.max(1, members.filter(m => m.funcao === 'Ordenador de Despesa').length))}</p>
+                                        <p className="text-[9px] text-slate-400 uppercase font-medium">Total</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-10 text-center">
+                    <Users size={32} className="text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 font-medium">Nenhum membro na equipe ainda</p>
+                    <button onClick={() => setShowAddModal(true)}
+                        className="text-emerald-600 text-sm font-bold mt-2 hover:underline">+ Adicionar primeiro membro</button>
+                </div>
+            )}
+
+            {/* ADD MEMBER MODAL */}
+            {showAddModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+                    onClick={(e) => e.target === e.currentTarget && setShowAddModal(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-lg font-black text-slate-800">Adicionar Membro</h3>
+                            <button onClick={() => { setShowAddModal(false); setSelectedUser(null); setSearchQuery(''); setSearchResults([]); }}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="mb-4">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Buscar Servidor</label>
+                            <div className="relative">
+                                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input type="text" placeholder="Digite nome, matrícula, CPF ou email..."
+                                    value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setSelectedUser(null); }}
+                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-300"
+                                    autoFocus />
+                            </div>
+
+                            {(searchResults.length > 0 || searching) && !selectedUser && (
+                                <div className="mt-1 bg-white border-2 border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                                    {searching ? (
+                                        <div className="p-4 text-center text-slate-400 text-sm flex items-center justify-center gap-2">
+                                            <Loader2 size={14} className="animate-spin" /> Buscando...
+                                        </div>
+                                    ) : (
+                                        searchResults.map(user => (
+                                            <button key={user.id}
+                                                onClick={() => { setSelectedUser(user); setSearchQuery(user.full_name); setSearchResults([]); }}
+                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-emerald-50 transition-colors text-left border-b border-slate-50 last:border-0">
+                                                {user.avatar_url ? (
+                                                    <img src={user.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
+                                                ) : (
+                                                    <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">
+                                                        {getInitials(user.full_name || '')}
+                                                    </div>
+                                                )}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-bold text-slate-800 truncate">{user.full_name}</p>
+                                                    <p className="text-[11px] text-slate-500">
+                                                        {user.matricula && <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold mr-1.5">Mat: {user.matricula}</span>}
+                                                        {user.cpf && <span className="text-slate-400">CPF: {user.cpf}</span>}
+                                                    </p>
+                                                    {user.email && <p className="text-[10px] text-slate-400 truncate">{user.email}</p>}
+                                                </div>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mb-6">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Função</label>
+                            <select value={selectedFuncao} onChange={e => setSelectedFuncao(e.target.value)}
+                                className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-300 appearance-none cursor-pointer">
+                                {FUNCOES.map(f => <option key={f} value={f}>{f}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button onClick={() => { setShowAddModal(false); setSelectedUser(null); setSearchQuery(''); }}
+                                className="flex-1 px-4 py-3 border-2 border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all text-sm">
+                                Cancelar
+                            </button>
+                            <button onClick={handleAddMember} disabled={!selectedUser}
+                                className="flex-1 px-4 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                                Salvar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ==================== TASK ROW ====================
+interface TaskRowProps {
     task: SigningTask;
     isSelected: boolean;
     onToggleSelect: () => void;
@@ -263,91 +508,64 @@ interface TaskCardProps {
     onView: () => void;
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, isSelected, onToggleSelect, onSign, onReject, onView }) => {
-    const created = new Date(task.created_at);
-    const hoursAgo = Math.round((Date.now() - created.getTime()) / (1000 * 60 * 60));
-    const isUrgent = hoursAgo > 24;
-    const SLA_HOURS = 48;
-    const hoursRemaining = SLA_HOURS - hoursAgo;
-    const slaPercent = Math.max(0, Math.min(100, (hoursRemaining / SLA_HOURS) * 100));
-    const slaColor = hoursRemaining > 24 ? 'bg-emerald-400' : hoursRemaining > 12 ? 'bg-amber-400' : 'bg-red-500';
+const TaskRow: React.FC<TaskRowProps> = ({ task, isSelected, onToggleSelect, onSign, onReject, onView }) => {
     const docColor = getDocColor(task.document_type);
+    const hours = (Date.now() - new Date(task.created_at).getTime()) / (1000 * 60 * 60);
+    const isUrgent = hours > 24;
 
     return (
-        <div className={`bg-white rounded-2xl border-2 transition-all duration-200 overflow-hidden ${
-            isSelected ? 'border-emerald-400 ring-2 ring-emerald-100 shadow-lg' : 'border-slate-200 hover:border-sky-300 hover:shadow-md'
+        <div className={`flex items-center gap-4 px-4 py-3.5 border-b border-slate-100 hover:bg-slate-50/70 transition-all group ${
+            isSelected ? 'bg-emerald-50/50' : ''
         }`}>
-            {/* SLA Progress */}
-            <div className="h-1 bg-slate-100 w-full">
-                <div className={`h-full ${slaColor} transition-all duration-500`} style={{ width: `${slaPercent}%` }} />
+            {/* Checkbox */}
+            <button onClick={onToggleSelect} className="shrink-0">
+                {isSelected 
+                    ? <CheckSquare size={18} className="text-emerald-600" />
+                    : <Square size={18} className="text-slate-300 group-hover:text-slate-400" />
+                }
+            </button>
+
+            {/* Doc Type Icon */}
+            <div className={`w-9 h-9 rounded-lg ${docColor.bg} ${docColor.text} flex items-center justify-center shrink-0`}>
+                {getDocIcon(task.document_type)}
             </div>
 
-            <div className="p-4">
-                <div className="flex items-center gap-4">
-                    {/* Checkbox */}
-                    <button onClick={onToggleSelect}
-                        className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all ${
-                            isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 hover:border-emerald-400 text-transparent hover:text-emerald-300'
-                        }`}>
-                        <CheckCircle2 size={14} />
-                    </button>
-
-                    {/* Type Badge */}
-                    <div className={`w-11 h-11 rounded-xl ${docColor.bg} ${docColor.text} flex items-center justify-center shrink-0`}>
-                        {getDocIcon(task.document_type)}
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-slate-800 text-sm truncate">
-                                {task.solicitation?.process_number || 'N/A'}
-                            </span>
-                            <span className={`px-2 py-0.5 text-[10px] font-bold ${docColor.bg} ${docColor.text} rounded-full`}>
-                                {getDocLabel(task.document_type)}
-                            </span>
-                            {isUrgent && (
-                                <span className="px-2 py-0.5 text-[10px] font-bold bg-red-100 text-red-700 rounded-full animate-pulse">
-                                    URGENTE
-                                </span>
-                            )}
-                        </div>
-                        <p className="text-xs text-slate-500 truncate mt-0.5">
-                            {task.solicitation?.beneficiary || task.title}
-                        </p>
-                    </div>
-
-                    {/* Value + Time */}
-                    <div className="text-right shrink-0">
-                        <p className="font-bold text-slate-800 text-sm">{formatCurrency(task.value)}</p>
-                        <p className="text-[10px] text-slate-400">Valor do Processo</p>
-                        <p className={`text-[11px] ${isUrgent ? 'text-red-600 font-bold' : 'text-slate-400'}`}>
-                            {hoursAgo < 1 ? 'Agora' : `${hoursAgo}h atrás`}
-                        </p>
-                    </div>
-                </div>
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-slate-800 truncate">{task.solicitation?.process_number || task.title}</p>
+                <p className="text-xs text-slate-500 truncate">
+                    {task.solicitation?.beneficiary} • {getDocLabel(task.document_type)}
+                </p>
             </div>
+
+            {/* Value */}
+            <div className="text-right shrink-0 hidden md:block">
+                <p className="text-sm font-bold text-slate-700">{formatCurrency(task.value || 0)}</p>
+            </div>
+
+            {/* Urgency */}
+            {isUrgent && (
+                <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-red-100 text-red-600 shrink-0">
+                    +24h
+                </span>
+            )}
 
             {/* Actions */}
-            <div className="flex items-center gap-2 px-4 py-3 bg-slate-50/80 border-t border-slate-100">
-                <Tooltip content="Examinar o documento antes de assinar" position="top">
-                <button onClick={onView}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-medium rounded-lg hover:bg-sky-50 hover:border-sky-200 hover:text-sky-700 transition-all">
-                    <Eye size={13} /> Examinar
-                </button>
+            <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Tooltip content="Examinar processo" position="top">
+                    <button onClick={onView} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                        <Eye size={15} className="text-slate-400" />
+                    </button>
                 </Tooltip>
-                <div className="flex-1" />
-                <Tooltip content="Devolver o documento para correção do solicitante" position="top">
-                <button onClick={onReject}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-all">
-                    <XCircle size={13} /> Devolver
-                </button>
+                <Tooltip content="Assinar" position="top">
+                    <button onClick={onSign} className="p-1.5 hover:bg-emerald-50 rounded-lg transition-colors">
+                        <FileSignature size={15} className="text-emerald-500" />
+                    </button>
                 </Tooltip>
-                <Tooltip content="Assinar digitalmente como Ordenador de Despesa" position="top">
-                <button onClick={onSign}
-                    className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600 shadow-sm transition-all">
-                    <Pen size={13} /> Assinar
-                </button>
+                <Tooltip content="Devolver" position="top">
+                    <button onClick={onReject} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors">
+                        <XCircle size={15} className="text-red-400" />
+                    </button>
                 </Tooltip>
             </div>
         </div>
@@ -369,6 +587,7 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, dark
     const [processing, setProcessing] = useState(false);
     const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [rejectReason, setRejectReason] = useState('');
+    const [queueTab, setQueueTab] = useState<QueueTab>('inbox');
 
     useEffect(() => { fetchSefinData(); }, []);
 
@@ -395,7 +614,6 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, dark
 
             if (allTasks) {
                 const enriched: SigningTask[] = [];
-                // Batch enrich with solicitation data
                 const solIds = [...new Set(allTasks.map(t => t.solicitation_id))];
                 const solMap: Record<string, any> = {};
                 if (solIds.length > 0) {
@@ -425,6 +643,7 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, dark
             return s;
         }, 0);
     }, [signingTasks]);
+
     const urgentCount = useMemo(() => {
         return signingTasks.filter(t => {
             const h = (Date.now() - new Date(t.created_at).getTime()) / (1000 * 60 * 60);
@@ -460,14 +679,27 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, dark
         }
     }, [signingTasks, selectedTaskIds.size]);
 
-    const handleBatchSign = async (_pin: string) => {
+    const handleBatchSign = async (enteredPin: string) => {
         if (selectedTaskIds.size === 0) return;
+
+        // Validate PIN against database
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Usuário não autenticado.');
+
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('signature_pin')
+            .eq('id', user.id)
+            .single();
+
+        const validPin = profile?.signature_pin || '1234';
+        if (enteredPin !== validPin) {
+            throw new Error('PIN inválido. Verifique e tente novamente.');
+        }
+
         setProcessing(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
             const now = new Date().toISOString();
-
-            // ─── PHASE 1: Sign ALL selected tasks FIRST ───
             const affectedSolicitationIds = new Set<string>();
             for (const taskId of selectedTaskIds) {
                 const task = signingTasks.find(t => t.id === taskId);
@@ -483,13 +715,11 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, dark
                 affectedSolicitationIds.add(task.solicitation_id);
             }
 
-            // ─── PHASE 2: Check each solicitation AFTER all tasks signed ───
             for (const solId of affectedSolicitationIds) {
                 const { data: remaining } = await supabase.from('sefin_signing_tasks')
                     .select('id').eq('solicitation_id', solId).eq('status', 'PENDING');
 
                 if (!remaining || remaining.length === 0) {
-                    // All SEFIN tasks for this process are signed → advance status
                     await supabase.from('solicitations').update({
                         status: 'WAITING_SOSFU_PAYMENT'
                     }).eq('id', solId);
@@ -565,125 +795,71 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, dark
 
     // ==================== RENDER ====================
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12 font-sans space-y-8">
+        <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-            {/* ===== HEADER ===== */}
-            <div className="bg-gradient-to-br from-emerald-800 via-emerald-900 to-teal-900 rounded-3xl p-8 shadow-2xl relative overflow-hidden text-white">
-                <div className="relative z-10 flex items-center justify-between">
-                    <div>
-                        <p className="text-emerald-300 text-xs font-bold uppercase tracking-widest mb-1">Secretaria de Finanças</p>
-                        <h1 className="text-3xl font-black tracking-tight">
-                            Gabinete do Ordenador
-                        </h1>
-                        <p className="text-emerald-200 text-sm mt-2 max-w-xl leading-relaxed">
-                            Bom dia, <strong>{userName}</strong>. Gerencie assinaturas de despesa, portarias e atos de concessão.
-                        </p>
-                    </div>
-                    <div className="hidden lg:flex items-center gap-4">
-                        <div className="text-center p-4 bg-white/10 rounded-2xl backdrop-blur-sm">
-                            <p className="text-3xl font-black text-amber-300">{signingTasks.length}</p>
-                            <p className="text-[10px] text-emerald-200 uppercase tracking-widest">Pendentes</p>
-                        </div>
-                        <div className="text-center p-4 bg-white/10 rounded-2xl backdrop-blur-sm">
-                            <p className="text-3xl font-black text-emerald-300">{signedTasks.length}</p>
-                            <p className="text-[10px] text-emerald-200 uppercase tracking-widest">Assinados</p>
-                        </div>
-                    </div>
-                </div>
-                {/* Decorative elements */}
-                <div className="absolute -right-20 -top-20 w-80 h-80 bg-emerald-600/20 rounded-full blur-3xl" />
-                <div className="absolute right-20 -bottom-20 w-60 h-60 bg-teal-500/15 rounded-full blur-3xl" />
-                <div className="absolute left-1/2 top-0 w-96 h-96 bg-emerald-400/5 rounded-full blur-3xl" />
+            {/* ===== WELCOME BANNER ===== */}
+            <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 rounded-2xl p-6 shadow-lg">
+                <h2 className="text-xl font-black text-white">Gabinete SEFIN</h2>
+                <p className="text-sm text-emerald-100 mt-1.5">
+                    Olá, <span className="font-bold text-white">{userName}</span>. Gerencie aqui as autorizações de despesa e atos de concessão pendentes de assinatura.
+                </p>
             </div>
 
-            {/* ===== KPI CARDS ===== */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                <KPICard
-                    label="Pendentes" value={signingTasks.length}
-                    sublabel="Aguardando assinatura"
-                    icon={<FileText size={24} />}
-                    gradient="from-amber-400 to-orange-500"
-                    onClick={() => setListFilter('PENDING')}
-                />
-                <KPICard
-                    label="Assinados" value={signedTasks.length}
-                    sublabel="Documentos processados"
-                    icon={<CheckCircle2 size={24} />}
-                    gradient="from-emerald-400 to-teal-500"
-                    onClick={() => setListFilter('SIGNED')}
-                />
-                <KPICard
-                    label="Urgentes" value={urgentCount}
-                    sublabel="+24h sem assinatura"
-                    icon={<AlertTriangle size={24} />}
-                    gradient="from-red-400 to-rose-500"
-                />
-                <KPICard
-                    label="Valor Total" value={0}
-                    sublabel={formatCurrency(totalPendingValue)}
-                    icon={<DollarSign size={24} />}
-                    gradient="from-blue-400 to-indigo-500"
-                />
-            </div>
+            {/* ===== SECTION B: GESTÃO DE EQUIPE (DYNAMIC) ===== */}
+            <GestaoEquipeSection
+                signingTasks={signingTasks}
+                signedTasks={signedTasks}
+                userName={userName}
+            />
 
-            {/* ===== FINANCIAL SUMMARY BAR ===== */}
-            <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-5 flex items-center justify-between text-white shadow-lg">
-                <div className="flex items-center gap-4">
-                    <div className="p-3 bg-white/10 rounded-xl"><BarChart3 size={22} className="text-amber-400" /></div>
-                    <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-widest">Volume Financeiro Pendente</p>
-                        <p className="text-2xl font-black text-white">{formatCurrency(totalPendingValue)}</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-8">
-                    <div className="text-center">
-                        <p className="text-2xl font-black text-amber-400">{signingTasks.filter(t => t.document_type === 'PORTARIA_SF').length}</p>
-                        <p className="text-[10px] text-slate-400 uppercase">Portarias</p>
-                    </div>
-                    <div className="w-px h-10 bg-slate-600" />
-                    <div className="text-center">
-                        <p className="text-2xl font-black text-sky-400">{signingTasks.filter(t => t.document_type === 'CERTIDAO_REGULARIDADE').length}</p>
-                        <p className="text-[10px] text-slate-400 uppercase">Certidões</p>
-                    </div>
-                    <div className="w-px h-10 bg-slate-600" />
-                    <div className="text-center">
-                        <p className="text-2xl font-black text-emerald-400">{signingTasks.filter(t => t.document_type === 'NOTA_EMPENHO').length}</p>
-                        <p className="text-[10px] text-slate-400 uppercase">NEs</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* ===== DOCUMENT LIST ===== */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                {/* Filter Toolbar */}
-                <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/70">
-                    <div className="flex items-center gap-2">
-                        <Filter size={15} className="text-slate-400" />
-                        {(['PENDING', 'SIGNED'] as ListFilter[]).map(f => (
-                            <button key={f} onClick={() => setListFilter(f)}
-                                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                                    listFilter === f ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'
+            {/* ===== SECTION C: DOCUMENT QUEUE ===== */}
+            <div className="bg-white rounded-2xl border-2 border-slate-100 overflow-hidden">
+                {/* Queue Tabs */}
+                <div className="flex items-center gap-1 px-4 pt-4 pb-0">
+                    <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
+                        {([
+                            { id: 'inbox' as QueueTab, label: 'Inbox', icon: <Inbox size={14} />, count: signingTasks.length },
+                            { id: 'minha_fila' as QueueTab, label: 'Minha Fila', icon: <Users size={14} /> },
+                            { id: 'processados' as QueueTab, label: 'Processados', icon: <CheckCircle2 size={14} />, count: signedTasks.length },
+                        ]).map(tab => (
+                            <button key={tab.id} onClick={() => {
+                                setQueueTab(tab.id);
+                                if (tab.id === 'processados') setListFilter('SIGNED');
+                                else setListFilter('PENDING');
+                            }}
+                                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                    queueTab === tab.id
+                                        ? 'bg-emerald-500 text-white shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700 hover:bg-white'
                                 }`}>
-                                {f === 'PENDING' && <><Inbox size={14} className="inline mr-1.5" />Pendentes</>}
-                                {f === 'SIGNED' && <><CheckCircle2 size={14} className="inline mr-1.5" />Assinados</>}
+                                {tab.icon}
+                                {tab.label}
+                                {tab.count !== undefined && tab.count > 0 && (
+                                    <span className={`ml-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${
+                                        queueTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+                                    }`}>
+                                        {tab.count > 99 ? '99+' : tab.count}
+                                    </span>
+                                )}
                             </button>
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        {/* Search */}
-                        <div className="relative">
-                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input type="text" placeholder="Buscar..." value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                                className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-300" />
-                        </div>
+                    {/* Spacer */}
+                    <div className="flex-1" />
+
+                    {/* Search */}
+                    <div className="relative">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input type="text" placeholder="Buscar no histórico..." value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-300" />
                     </div>
                 </div>
 
                 {/* Batch Actions Toolbar */}
                 {listFilter === 'PENDING' && signingTasks.length > 0 && (
-                    <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100">
+                    <div className="flex items-center justify-between px-4 py-2.5 mt-2 mx-4 bg-emerald-50 rounded-xl border border-emerald-100">
                         <div className="flex items-center gap-3">
                             <button onClick={handleSelectAll}
                                 className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-emerald-600 transition-colors font-medium">
@@ -701,7 +877,7 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, dark
                         </div>
                         {selectedTaskIds.size > 0 && (
                             <button onClick={() => setShowSignModal(true)} disabled={processing}
-                                className="flex items-center gap-2 px-5 py-2 bg-emerald-500 text-white text-sm font-bold rounded-xl hover:bg-emerald-600 shadow-md transition-all disabled:opacity-50">
+                                className="flex items-center gap-2 px-5 py-2 bg-emerald-500 text-white text-sm font-bold rounded-xl hover:bg-emerald-600 shadow-sm transition-all disabled:opacity-50">
                                 <FileSignature size={16} />
                                 Assinar {selectedTaskIds.size} Doc{selectedTaskIds.size > 1 ? 's' : ''} em Lote
                             </button>
@@ -710,34 +886,31 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, dark
                 )}
 
                 {/* Tasks List */}
-                <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
+                <div className="mt-2 max-h-[500px] overflow-y-auto">
                     {filteredTasks.length > 0 ? (
                         filteredTasks.map(task => {
                             if (listFilter === 'SIGNED') {
-                                // Signed items — compact view
                                 const docColor = getDocColor(task.document_type);
                                 return (
                                     <div key={task.id}
                                         onClick={() => onNavigate('process_detail', task.solicitation_id)}
-                                        className="flex items-center gap-4 p-4 bg-slate-50/50 rounded-xl border border-slate-100 hover:bg-slate-100 transition-all cursor-pointer">
-                                        <div className={`w-10 h-10 rounded-xl ${docColor.bg} ${docColor.text} flex items-center justify-center`}>
-                                            <CheckCircle2 size={18} />
+                                        className="flex items-center gap-4 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-all cursor-pointer">
+                                        <div className={`w-9 h-9 rounded-lg ${docColor.bg} ${docColor.text} flex items-center justify-center`}>
+                                            <CheckCircle2 size={16} />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-bold text-slate-800 truncate">{task.solicitation?.process_number}</p>
                                             <p className="text-xs text-slate-500 truncate">{task.solicitation?.beneficiary} • {getDocLabel(task.document_type)}</p>
                                         </div>
-                                        <div className="text-right shrink-0">
-                                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">Assinado</span>
-                                        </div>
+                                        <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-100 text-emerald-700">Assinado</span>
                                     </div>
                                 );
                             }
 
-                            // Pending: handle reject inline
+                            // Reject inline
                             if (rejectingId === task.id) {
                                 return (
-                                    <div key={task.id} className="bg-red-50 border-2 border-red-200 rounded-2xl p-5">
+                                    <div key={task.id} className="mx-4 my-2 bg-red-50 border-2 border-red-200 rounded-2xl p-5">
                                         <p className="text-sm font-bold text-red-800 mb-3">Devolver: {task.title}</p>
                                         <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
                                             placeholder="Motivo da devolução..."
@@ -757,7 +930,7 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, dark
                             }
 
                             return (
-                                <TaskCard key={task.id} task={task}
+                                <TaskRow key={task.id} task={task}
                                     isSelected={selectedTaskIds.has(task.id)}
                                     onToggleSelect={() => handleToggleSelect(task.id)}
                                     onSign={() => handleSingleSign(task.id)}
@@ -768,52 +941,29 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, dark
                         })
                     ) : (
                         <div className="text-center py-16">
-                            <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <CheckCircle2 size={40} className="text-emerald-400" />
+                            <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <CheckCircle2 size={32} className="text-emerald-400" />
                             </div>
-                            <p className="text-slate-600 font-bold">Nenhum documento {listFilter === 'SIGNED' ? 'assinado' : 'pendente'}</p>
-                            <p className="text-sm text-slate-400 mt-1">
-                                {listFilter === 'SIGNED' ? 'Os documentos assinados aparecerão aqui.' : 'Todos os documentos foram tratados.'}
-                            </p>
+                            <p className="text-slate-600 font-bold">Nenhum processo nesta categoria</p>
+                            <p className="text-sm text-slate-400 mt-1">Todos os documentos foram tratados.</p>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* ===== PROCESSES TABLE ===== */}
-            {pendingAuth.length > 0 && (
-                <div>
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-emerald-100 text-emerald-700 rounded-lg"><Scale size={18} /></div>
-                        <h3 className="text-lg font-bold text-gray-800">Processos em Andamento</h3>
-                        <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-0.5 rounded-full">{pendingAuth.length}</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        {pendingAuth.map(proc => (
-                            <div key={proc.id} onClick={() => onNavigate('process_detail', proc.id)}
-                                className="bg-white p-5 rounded-2xl border-2 border-transparent hover:border-emerald-300 shadow-sm hover:shadow-lg transition-all cursor-pointer group">
-                                <div className="flex justify-between items-start mb-4">
-                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Assinatura Pendente</span>
-                                    <span className="text-[10px] text-slate-400">{new Date(proc.created_at).toLocaleDateString()}</span>
-                                </div>
-                                <h4 className="text-lg font-bold text-gray-800 mb-1 group-hover:text-emerald-700 transition-colors">{proc.process_number}</h4>
-                                <p className="text-sm text-gray-500 line-clamp-1">{proc.beneficiary}</p>
-                                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
-                                    <span className="font-bold text-gray-700">{formatCurrency(proc.value || 0)}</span>
-                                    <span className="text-xs font-bold text-emerald-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                                        Examinar <ChevronRight size={14} />
-                                    </span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
 
             {/* ===== HISTORY ===== */}
             <div>
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Histórico de Autorizações</h3>
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    {/* History search */}
+                    <div className="p-4 border-b border-slate-100">
+                        <div className="relative">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input type="text" placeholder="Buscar no histórico..."
+                                className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                        </div>
+                    </div>
                     <div className="divide-y divide-slate-100">
                         {approvedHistory.length === 0 ? (
                             <div className="p-10 text-center text-slate-400 text-sm">Nenhum histórico.</div>
