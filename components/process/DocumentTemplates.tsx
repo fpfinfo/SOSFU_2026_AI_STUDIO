@@ -1,4 +1,5 @@
 import React from 'react';
+import { DocumentSignatureFooter } from '../ui/DocumentSignatureFooter';
 
 // Interfaces
 interface DocumentProps {
@@ -195,14 +196,20 @@ export const RequestTemplate: React.FC<DocumentProps> = ({ data, user, document 
             </div>
         )}
 
-        <div className="mt-20 text-center">
-            <p className="font-medium mb-8">{dateLocation}.</p>
-            <div className="inline-block border-t border-black pt-2 px-12">
-                <p className="font-bold text-gray-900 uppercase">{data.beneficiary}</p>
-                <p className="text-sm text-gray-600">Requerente / Suprido</p>
-                <p className="text-[10px] text-gray-400 mt-1">Assinado digitalmente via SOSFU</p>
-            </div>
+        <div className="mt-16 text-center">
+            <p className="font-medium mb-4">{dateLocation}.</p>
         </div>
+
+        <DocumentSignatureFooter
+            documentId={`REQ-${data.process_number?.replace(/\D/g,'')}`}
+            signatures={[{
+                name: data.beneficiary || 'Requerente',
+                role: 'Requerente / Suprido',
+                organization: user?.lotacao || data.unit || 'Unidade Judiciária',
+                signedAt: document?.metadata?.signed_at || document?.created_at,
+                isSigned: !document?.metadata?.is_draft,
+            }]}
+        />
     </BaseDocumentLayout>
   );
 };
@@ -255,15 +262,21 @@ export const AttestationTemplate: React.FC<DocumentProps> = ({ data, user, gesto
                 </div>
             )}
 
-            <div className={`mt-20 text-center ${isDraft ? 'relative z-10' : ''}`}>
-                <p className="font-medium mb-12">{dateLocation}.</p>
-                <div className="inline-block border-t border-black pt-4 px-12">
-                    <p className="font-bold text-gray-900 uppercase text-lg">{managerName}</p>
-                    <p className="text-base text-gray-700 italic">Gestor / Magistrado Responsável</p>
-                    <p className="text-[10px] text-gray-400 mt-2 font-sans">
-                        {isDraft ? 'Pendente de Assinatura Digital' : 'Assinatura Digital - Token de Validação'}
-                    </p>
-                </div>
+            <div className={`mt-16 text-center ${isDraft ? 'relative z-10' : ''}`}>
+                <p className="font-medium mb-4">{dateLocation}.</p>
+            </div>
+
+            <div className={isDraft ? 'relative z-10' : ''}>
+                <DocumentSignatureFooter
+                    documentId={`CERT-${data.process_number?.replace(/\D/g,'')}`}
+                    signatures={[{
+                        name: managerName,
+                        role: 'Gestor / Magistrado Responsável',
+                        organization: user?.lotacao || data.unit || 'Unidade Judiciária',
+                        signedAt: document?.metadata?.signed_at,
+                        isSigned: !isDraft,
+                    }]}
+                />
             </div>
         </BaseDocumentLayout>
     );
@@ -556,12 +569,16 @@ export const GrantActTemplate: React.FC<DocumentProps> = ({ data, user, document
                 </div>
 
                 {/* Signature */}
-                <div className="mt-16 text-center space-y-4">
-                    <div className="pt-4 border-t border-slate-400 max-w-md mx-auto">
-                        <p className="text-sm font-semibold">Ordenador de Despesa</p>
-                        <p className="text-xs text-slate-600">Secretaria de Planejamento, Coordenação e Finanças</p>
-                    </div>
-                </div>
+                <DocumentSignatureFooter
+                    documentId={`PORT-${numeroPortaria}-${anoPortaria}`}
+                    signatures={[{
+                        name: metadata?.signed_by_name || 'Ordenador de Despesa',
+                        role: 'Ordenador de Despesa',
+                        organization: 'Secretaria de Planejamento, Coordenação e Finanças',
+                        signedAt: metadata?.signed_at,
+                        isSigned: document?.status === 'SIGNED' || !!metadata?.signed_at,
+                    }]}
+                />
 
                 {/* Electronic Signature Block */}
                 <ElectronicSignatureBlock document={document} metadata={metadata} formatDateFn={formatDate} />
@@ -656,12 +673,16 @@ export const RegularityCertificateTemplate: React.FC<DocumentProps> = ({ data, u
                 </div>
 
                 {/* Signature */}
-                <div className="mt-16 text-center space-y-4">
-                    <div className="pt-4 border-t border-slate-400 max-w-md mx-auto">
-                        <p className="text-sm font-semibold">Ordenador de Despesa</p>
-                        <p className="text-xs text-slate-600">Secretaria de Planejamento, Coordenação e Finanças</p>
-                    </div>
-                </div>
+                <DocumentSignatureFooter
+                    documentId={`REG-${numeroCertidao}-${anoCertidao}`}
+                    signatures={[{
+                        name: metadata?.signed_by_name || 'Ordenador de Despesa',
+                        role: 'Ordenador de Despesa',
+                        organization: 'Secretaria de Planejamento, Coordenação e Finanças',
+                        signedAt: metadata?.signed_at,
+                        isSigned: document?.status === 'SIGNED' || !!metadata?.signed_at,
+                    }]}
+                />
 
                 {/* Electronic verification notice */}
                 <div className="mt-8 text-center text-xs text-slate-500 italic border-t border-slate-200 pt-4">
@@ -750,18 +771,28 @@ export const CommitmentNoteTemplate: React.FC<DocumentProps> = ({ data, user, do
             </div>
 
             <div className="mt-auto text-center">
-                <p className="text-sm mb-12">{dateLocation}</p>
-                <div className="grid grid-cols-2 gap-12">
-                    <div className="border-t border-black pt-2">
-                        <p className="font-bold text-xs uppercase">Emitido Por</p>
-                        <p className="text-xs">Sistema SIAFE/TJPA</p>
-                    </div>
-                    <div className="border-t border-black pt-2">
-                        <p className="font-bold text-xs uppercase">Ordenador de Despesa</p>
-                        <p className="text-xs">Assinatura Digital</p>
-                    </div>
-                </div>
+                <p className="text-sm mb-4">{dateLocation}</p>
             </div>
+
+            <DocumentSignatureFooter
+                documentId={`NE-${neNum}/${year}`}
+                signatures={[
+                    {
+                        name: 'Sistema SIAFE/TJPA',
+                        role: 'Emissão Automática',
+                        organization: 'Tribunal de Justiça do Estado do Pará',
+                        isSigned: true,
+                        signedAt: document?.created_at,
+                    },
+                    {
+                        name: document?.metadata?.signed_by_name || 'Ordenador de Despesa',
+                        role: 'Ordenador de Despesa',
+                        organization: 'SEFIN/SEPLAN',
+                        signedAt: document?.metadata?.signed_at,
+                        isSigned: document?.status === 'SIGNED' || !!document?.metadata?.signed_at,
+                    },
+                ]}
+            />
         </BaseDocumentLayout>
     );
 };
@@ -821,13 +852,20 @@ export const LiquidationNoteTemplate: React.FC<DocumentProps> = ({ data, user, d
                 </div>
             </div>
 
-            <div className="mt-20 text-center">
-                <p className="text-sm mb-12">{dateLocation}</p>
-                <div className="inline-block border-t border-black pt-4 px-12">
-                    <p className="font-bold text-gray-900 uppercase">Responsável pela Liquidação</p>
-                    <p className="text-xs text-gray-600">Setor de Contabilidade / SOSFU</p>
-                </div>
+            <div className="mt-12 text-center">
+                <p className="text-sm mb-4">{dateLocation}</p>
             </div>
+
+            <DocumentSignatureFooter
+                documentId={`NL-${nlNum}/${year}`}
+                signatures={[{
+                    name: document?.metadata?.signed_by_name || 'Responsável pela Liquidação',
+                    role: 'Responsável pela Liquidação',
+                    organization: 'Setor de Contabilidade / SOSFU',
+                    signedAt: document?.metadata?.signed_at || document?.created_at,
+                    isSigned: true,
+                }]}
+            />
         </BaseDocumentLayout>
     );
 };
@@ -897,16 +935,25 @@ export const BankOrderTemplate: React.FC<DocumentProps> = ({ data, user, documen
                     </div>
                 </div>
 
-                <div className="mt-12 flex justify-between items-end">
-                    <div className="text-center w-1/3">
-                        <div className="border-b border-black mb-2"></div>
-                        <p className="text-xs font-bold">Gerente Financeiro</p>
-                    </div>
-                    <div className="text-center w-1/3">
-                        <div className="border-b border-black mb-2"></div>
-                        <p className="text-xs font-bold">Ordenador de Despesa</p>
-                    </div>
-                </div>
+                <DocumentSignatureFooter
+                    documentId={`OB-${obNum}/${year}`}
+                    signatures={[
+                        {
+                            name: document?.metadata?.signed_by_name || 'Gerente Financeiro',
+                            role: 'Gerente Financeiro',
+                            organization: 'SOSFU/TJPA',
+                            signedAt: document?.metadata?.signed_at || document?.created_at,
+                            isSigned: true,
+                        },
+                        {
+                            name: document?.metadata?.ordenador_name || 'Ordenador de Despesa',
+                            role: 'Ordenador de Despesa',
+                            organization: 'SEFIN/SEPLAN',
+                            signedAt: document?.metadata?.signed_at,
+                            isSigned: document?.status === 'SIGNED' || !!document?.metadata?.signed_at,
+                        },
+                    ]}
+                />
             </div>
         </BaseDocumentLayout>
     );
@@ -931,13 +978,20 @@ export const GenericDocumentTemplate: React.FC<DocumentProps> = ({ data, user, c
                 {finalContent || '(Documento sem conteúdo)'}
             </div>
 
-            <div className="mt-20 text-center">
-                <p className="font-medium mb-12">{dateLocation}.</p>
-                <div className="inline-block border-t border-black pt-4 px-12">
-                    <p className="font-bold text-gray-900 uppercase">{user.full_name}</p>
-                    <p className="text-sm text-gray-700">{user.cargo || 'Servidor TJPA'}</p>
-                </div>
+            <div className="mt-12 text-center">
+                <p className="font-medium mb-4">{dateLocation}.</p>
             </div>
+
+            <DocumentSignatureFooter
+                documentId={document?.id}
+                signatures={[{
+                    name: user.full_name || 'Servidor TJPA',
+                    role: user.cargo || 'Servidor TJPA',
+                    organization: user.lotacao || 'Tribunal de Justiça do Pará',
+                    signedAt: document?.metadata?.signed_at || document?.created_at,
+                    isSigned: !document?.metadata?.is_draft,
+                }]}
+            />
         </BaseDocumentLayout>
     );
 };

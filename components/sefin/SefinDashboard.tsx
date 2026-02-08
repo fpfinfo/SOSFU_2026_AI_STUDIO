@@ -263,7 +263,7 @@ interface TeamMemberLocal {
 }
 
 const SEFIN_TEAM_KEY = 'sefin_team_members';
-const FUNCOES = ['Ordenador de Despesa', 'Analista', 'Assessor', 'Coordenador'] as const;
+const SEFIN_FUNCOES_FALLBACK = ['Ordenador de Despesa', 'Analista', 'Assessor', 'Coordenador'];
 
 interface GestaoEquipeSectionProps {
     signingTasks: SigningTask[];
@@ -278,7 +278,8 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [searching, setSearching] = useState(false);
     const [selectedUser, setSelectedUser] = useState<any | null>(null);
-    const [selectedFuncao, setSelectedFuncao] = useState<string>(FUNCOES[0]);
+    const [selectedFuncao, setSelectedFuncao] = useState<string>('');
+    const [cargosFromDB, setCargosFromDB] = useState<string[]>([]);
     const [removingId, setRemovingId] = useState<string | null>(null);
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -286,6 +287,24 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
         const saved = localStorage.getItem(SEFIN_TEAM_KEY);
         if (saved) { try { setMembers(JSON.parse(saved)); } catch { /* ignore */ } }
     }, []);
+
+    // Fetch distinct cargos from profiles table
+    useEffect(() => {
+        if (!showAddModal) return;
+        (async () => {
+            try {
+                const { data } = await supabase.from('profiles')
+                    .select('cargo')
+                    .not('cargo', 'is', null)
+                    .not('cargo', 'eq', '')
+                    .order('cargo');
+                if (data) {
+                    const unique = [...new Set(data.map(d => d.cargo).filter(Boolean))] as string[];
+                    setCargosFromDB(unique.length > 0 ? unique : SEFIN_FUNCOES_FALLBACK);
+                }
+            } catch { setCargosFromDB(SEFIN_FUNCOES_FALLBACK); }
+        })();
+    }, [showAddModal]);
 
     const saveMembers = useCallback((newMembers: TeamMemberLocal[]) => {
         setMembers(newMembers);
@@ -302,7 +321,7 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
             try {
                 const term = `%${searchQuery}%`;
                 const { data } = await supabase.from('profiles')
-                    .select('id, full_name, email, matricula, avatar_url, cpf')
+                    .select('id, full_name, email, matricula, avatar_url, cpf, cargo')
                     .or(`full_name.ilike.${term},matricula.ilike.${term},email.ilike.${term},cpf.ilike.${term}`)
                     .limit(10);
                 const memberIds = new Set(members.map(m => m.id));
@@ -323,7 +342,7 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
         };
         saveMembers([...members, newMember]);
         setShowAddModal(false); setSelectedUser(null); setSearchQuery(''); setSearchResults([]);
-        setSelectedFuncao(FUNCOES[0]);
+        setSelectedFuncao('');
     };
 
     const handleRemoveMember = (id: string) => {
@@ -453,7 +472,7 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
                                     ) : (
                                         searchResults.map(user => (
                                             <button key={user.id}
-                                                onClick={() => { setSelectedUser(user); setSearchQuery(user.full_name); setSearchResults([]); }}
+                                                onClick={() => { setSelectedUser(user); setSearchQuery(user.full_name); setSearchResults([]); if (user.cargo) setSelectedFuncao(user.cargo); }}
                                                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-emerald-50 transition-colors text-left border-b border-slate-50 last:border-0">
                                                 {user.avatar_url ? (
                                                     <img src={user.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
@@ -478,10 +497,11 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
                         </div>
 
                         <div className="mb-6">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Função</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Cargo / Função</label>
                             <select value={selectedFuncao} onChange={e => setSelectedFuncao(e.target.value)}
                                 className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-300 appearance-none cursor-pointer">
-                                {FUNCOES.map(f => <option key={f} value={f}>{f}</option>)}
+                                <option value="">Selecione o cargo...</option>
+                                {cargosFromDB.map(f => <option key={f} value={f}>{f}</option>)}
                             </select>
                         </div>
 
@@ -490,7 +510,7 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
                                 className="flex-1 px-4 py-3 border-2 border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all text-sm">
                                 Cancelar
                             </button>
-                            <button onClick={handleAddMember} disabled={!selectedUser}
+                            <button onClick={handleAddMember} disabled={!selectedUser || !selectedFuncao}
                                 className="flex-1 px-4 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed">
                                 Salvar
                             </button>
