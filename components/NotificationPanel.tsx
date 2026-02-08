@@ -123,7 +123,9 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ userId, on
             <button 
                 onClick={() => { setIsOpen(!isOpen); if (!isOpen) fetchNotifications(); }}
                 className="p-2 text-gray-400 hover:text-gray-600 border border-gray-200 rounded-full bg-white shadow-sm transition-all relative hover:bg-gray-50 hover:scale-105 active:scale-95"
-                title="Notificações"
+                aria-label={unreadCount > 0 ? `Notificações — ${unreadCount} não lidas` : 'Notificações'}
+                aria-expanded={isOpen}
+                aria-haspopup="true"
             >
                 <Bell size={20} />
                 {unreadCount > 0 && (
@@ -164,6 +166,7 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ userId, on
                             <button 
                                 onClick={() => setIsOpen(false)}
                                 className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
+                                aria-label="Fechar painel de notificações"
                             >
                                 <X size={16} />
                             </button>

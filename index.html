@@ -20,12 +20,46 @@
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/assets/logo-tjpa.png" />
     <title>SOSFU TJPA</title>
+    <!-- Font Optimization: preconnect + swap -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
       body {
         font-family: "Inter", sans-serif;
         background-color: #f8fafc;
+      }
+      /* Accessibility: Respect reduced motion preferences */
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+      /* Skip to Content link for keyboard users */
+      .skip-link {
+        position: absolute;
+        top: -100%;
+        left: 16px;
+        z-index: 9999;
+        padding: 8px 16px;
+        background: #1e40af;
+        color: white;
+        font-weight: 700;
+        font-size: 14px;
+        border-radius: 0 0 8px 8px;
+        text-decoration: none;
+      }
+      .skip-link:focus {
+        top: 0;
       }
     </style>
     <script>
@@ -54,6 +88,7 @@
     </script>
   </head>
   <body>
+    <a href="#main-content" class="skip-link">Ir para o conteúdo principal</a>
     <div id="root"></div>
     <script type="module" crossorigin="anonymous" src="./index.tsx"></script>
     <script>

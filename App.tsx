@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Suspense } from 'react';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { supabase } from './lib/supabase';
 import { Header } from './components/Header';
 import { StatCard } from './components/StatCard';
@@ -277,6 +278,7 @@ const App: React.FC = () => {
   };
 
   return (
+    <ErrorBoundary fallbackTitle="Erro no Sistema SOSFU">
     <div className="min-h-screen bg-[#F8FAFC]">
       <Header 
         activeTab={activeTab} 
@@ -286,13 +288,14 @@ const App: React.FC = () => {
       />
       
       {activeTab === 'sefin_dashboard' ? (
-        <div>{renderContent()}</div>
+        <div id="main-content">{renderContent()}</div>
       ) : (
-        <main className="max-w-[1600px] mx-auto px-6 py-8">
+        <main id="main-content" className="max-w-[1600px] mx-auto px-6 py-8">
           {renderContent()}
         </main>
       )}
     </div>
+    </ErrorBoundary>
   );
 };
 

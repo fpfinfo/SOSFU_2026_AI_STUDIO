@@ -98,7 +98,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
 
   return (
     <>
-    <header className="bg-white border-b border-gray-200 h-16 px-4 md:px-6 flex items-center justify-between sticky top-0 z-50">
+    <header className="bg-white border-b border-gray-200 h-16 px-4 md:px-6 flex items-center justify-between sticky top-0 z-50" role="banner">
       <div className="flex items-center gap-6">
         <Tooltip content="Voltar ao painel principal" position="bottom" delay={400}>
         <div className="flex items-center gap-3 cursor-pointer group" onClick={() => onTabChange && onTabChange(availableTabs[0]?.id || 'profile')}>
@@ -114,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
         
         {/* Desktop Navigation — Hidden for independent modules */}
         {onTabChange && visibleTabs.length > 0 && (
-            <nav className="hidden md:flex items-center gap-1">
+            <nav className="hidden md:flex items-center gap-1" role="navigation" aria-label="Navegação principal">
                 {visibleTabs.map((tab) => {
                     const Icon = tab.icon;
                     const isActive = activeTab === tab.id;
@@ -142,6 +142,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
             <button 
                 onClick={() => setIsMenuOpen(!isMenuOpen)} 
                 className={`flex items-center gap-3 pl-2 md:pl-4 md:border-l border-gray-200 group focus:outline-none transition-all ${isMenuOpen ? 'opacity-100' : 'opacity-90'}`}
+                aria-label="Menu do usuário"
+                aria-expanded={isMenuOpen}
+                aria-haspopup="true"
             >
                 <div className="text-right hidden md:block group-hover:opacity-100 transition-opacity">
                     <p className="text-xs font-bold text-gray-800 uppercase leading-none mb-1">{userProfile?.full_name?.split(' ')[0] || 'Usuário'}</p>
