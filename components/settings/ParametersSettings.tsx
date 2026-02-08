@@ -13,8 +13,8 @@ export const ParametersSettings: React.FC = () => {
         id: '',
         max_value_extraordinary: 15000,
         price_lunch: 30,
-        price_dinner: 25,
-        price_snack: 10,
+        price_dinner: 30,
+        price_snack: 11,
         limit_servidor: 7,
         limit_defensor: 2,
         limit_promotor: 2,
@@ -69,21 +69,27 @@ export const ParametersSettings: React.FC = () => {
         setSaving(true);
         setMessage(null);
         try {
+            // Get current user for audit
+            const { data: { user } } = await supabase.auth.getUser();
+            const payload = {
+                max_value_extraordinary: config.max_value_extraordinary,
+                price_lunch: config.price_lunch,
+                price_dinner: config.price_dinner,
+                price_snack: config.price_snack,
+                limit_servidor: config.limit_servidor,
+                limit_defensor: config.limit_defensor,
+                limit_promotor: config.limit_promotor,
+                limit_policia: config.limit_policia,
+                maintenance_mode: config.maintenance_mode,
+                updated_at: new Date().toISOString(),
+                updated_by: user?.id || null,
+            };
+
             // Verifica se temos um ID para atualizar, se não, tenta criar
             if (!config.id) {
                  const { data, error: insertError } = await supabase
                     .from('app_config')
-                    .insert([{
-                        max_value_extraordinary: config.max_value_extraordinary,
-                        price_lunch: config.price_lunch,
-                        price_dinner: config.price_dinner,
-                        price_snack: config.price_snack,
-                        limit_servidor: config.limit_servidor,
-                        limit_defensor: config.limit_defensor,
-                        limit_promotor: config.limit_promotor,
-                        limit_policia: config.limit_policia,
-                        maintenance_mode: config.maintenance_mode
-                    }])
+                    .insert([payload])
                     .select()
                     .single();
                  
@@ -92,17 +98,7 @@ export const ParametersSettings: React.FC = () => {
             } else {
                 const { error } = await supabase
                     .from('app_config')
-                    .update({
-                        max_value_extraordinary: config.max_value_extraordinary,
-                        price_lunch: config.price_lunch,
-                        price_dinner: config.price_dinner,
-                        price_snack: config.price_snack,
-                        limit_servidor: config.limit_servidor,
-                        limit_defensor: config.limit_defensor,
-                        limit_promotor: config.limit_promotor,
-                        limit_policia: config.limit_policia,
-                        maintenance_mode: config.maintenance_mode
-                    })
+                    .update(payload)
                     .eq('id', config.id);
 
                 if (error) throw error;

@@ -5,12 +5,13 @@ import { StatusBadge } from '../StatusBadge';
 import { AccountabilityWizard } from '../accountability/AccountabilityWizard';
 import { JuriReviewPanel } from '../accountability/JuriReviewPanel';
 import { SosfuAuditPanel } from '../accountability/SosfuAuditPanel';
-import { ProcessTimeline } from './ProcessTimeline';
+import { WorkflowTracker } from '../ui/WorkflowTracker';
 import { NewDocumentModal } from './NewDocumentModal';
 import { ExpenseExecutionWizard } from '../execution/ExpenseExecutionWizard';
 import { AuditLogTab } from './AuditLogTab';
 import { ProcessDetailSkeleton } from '../ui/Skeleton';
 import { Tooltip } from '../ui/Tooltip';
+import { ReconciliationPanel } from '../ui/ReconciliationPanel';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { 
@@ -176,7 +177,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
   // ─── PHASE 1: SOSFU Confirma Pagamento (OPTIMISTIC UI) ───
   const handleConfirmPayment = async () => {
-      if (!confirm('Confirmar que o pagamento foi processado e os recursos liberados para o suprido?')) return;
+      if (!confirm('Comunicar ao suprido que o pagamento foi realizado e os recursos liberados?')) return;
       // Optimistic: update UI immediately
       const prevStatus = processData?.status;
       setProcessData((prev: any) => prev ? { ...prev, status: 'WAITING_SUPRIDO_CONFIRMATION' } : prev);
@@ -195,7 +196,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
               status_from: 'WAITING_SOSFU_PAYMENT',
               status_to: 'WAITING_SUPRIDO_CONFIRMATION',
               actor_name: user?.email,
-              description: 'Pagamento confirmado pela SOSFU. Recursos liberados ao suprido.',
+              description: 'Pagamento comunicado pela SOSFU. Recursos liberados ao suprido.',
               created_at: now
           });
 
@@ -863,19 +864,54 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
   const [executionWizardOpen, setExecutionWizardOpen] = useState(false);
 
   const ExecutionTab = () => {
-      const executionDocs = [
-          { type: 'PORTARIA_SF', label: 'Portaria SF', icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50', signer: 'Ordenador SEFIN' },
-          { type: 'CERTIDAO_REGULARIDADE', label: 'Certidão de Regularidade', icon: Shield, color: 'text-emerald-600', bg: 'bg-emerald-50', signer: 'Ordenador SEFIN' },
-          { type: 'NOTA_EMPENHO', label: 'Nota de Empenho (NE)', icon: Wallet, color: 'text-amber-600', bg: 'bg-amber-50', signer: 'Ordenador SEFIN' },
-          { type: 'LIQUIDACAO', label: 'Doc. de Liquidação (DL)', icon: FileCheck, color: 'text-purple-600', bg: 'bg-purple-50', signer: 'Analista SOSFU' },
-          { type: 'ORDEM_BANCARIA', label: 'Ordem Bancária (OB)', icon: DollarSign, color: 'text-indigo-600', bg: 'bg-indigo-50', signer: 'Analista SOSFU' },
+      // Documentos tramitados para SEFIN (Ordenador assina)
+      const sefinDocs = [
+          { type: 'PORTARIA_SF', label: 'Portaria SF', subtitle: 'Minuta → Ordenador', icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { type: 'CERTIDAO_REGULARIDADE', label: 'Certidão de Regularidade', subtitle: 'Minuta → Ordenador', icon: Shield, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { type: 'NOTA_EMPENHO', label: 'Nota de Empenho (NE)', subtitle: 'PDF Original → Ordenador', icon: Wallet, color: 'text-amber-600', bg: 'bg-amber-50' },
       ];
 
+      // Documentos internos (auto-assinados SOSFU, ficam no dossiê)
+      const internalDocs = [
+          { type: 'LIQUIDACAO', label: 'Doc. de Liquidação (DL)', subtitle: 'PDF Original → Dossiê', icon: FileCheck, color: 'text-fuchsia-600', bg: 'bg-fuchsia-50' },
+          { type: 'ORDEM_BANCARIA', label: 'Ordem Bancária (OB)', subtitle: 'PDF Original → Dossiê', icon: DollarSign, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+      ];
+
+      const allDocs = [...sefinDocs, ...internalDocs];
+
       // All 5 execution docs exist and are signed?
-      const allDocsSigned = executionDocs.every(doc => {
+      const allDocsSigned = allDocs.every(doc => {
           const existing = documents.find(d => d.document_type === doc.type);
           return existing?.status === 'SIGNED';
       });
+
+      const renderDocCard = (doc: typeof sefinDocs[0]) => {
+          const existing = documents.find(d => d.document_type === doc.type);
+          const Icon = doc.icon;
+          const isSigned = existing?.status === 'SIGNED';
+          const isMinuta = existing?.status === 'MINUTA';
+          return (
+              <div key={doc.type} className={`border rounded-xl p-4 flex flex-col gap-3 transition-all ${
+                  isSigned ? 'border-emerald-200 bg-emerald-50' : isMinuta ? 'border-amber-200 bg-amber-50/30' : 'border-gray-100 bg-gray-50/50'
+              }`}>
+                  <div className="flex items-center justify-between">
+                      <div className={`p-2 rounded-lg ${isSigned ? 'bg-emerald-100 text-emerald-600' : isMinuta ? 'bg-amber-100 text-amber-600' : doc.bg + ' ' + doc.color}`}>
+                          {isSigned ? <CheckCircle2 size={18} /> : isMinuta ? <Clock size={18} /> : <Icon size={18} />}
+                      </div>
+                      {existing && (
+                          <button onClick={() => setSelectedDoc(existing)} className="text-[10px] font-bold text-blue-600 hover:underline">Ver</button>
+                      )}
+                  </div>
+                  <div>
+                      <h4 className="font-bold text-gray-700 text-xs">{doc.label}</h4>
+                      <p className="text-[10px] text-gray-400 mt-1">
+                          {isSigned ? '✓ Assinado' : isMinuta ? '⏳ Minuta' : 'Pendente'}
+                      </p>
+                      <p className="text-[9px] text-gray-400 mt-0.5">→ {doc.subtitle}</p>
+                  </div>
+              </div>
+          );
+      };
 
       return (
           <div className="space-y-6 animate-in fade-in">
@@ -889,9 +925,9 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                                   <BadgeCheck size={24} />
                               </div>
                               <div>
-                                  <h3 className="text-xl font-black">Confirmar Pagamento</h3>
+                                  <h3 className="text-xl font-black">Comunicar Pagamento ao Suprido</h3>
                                   <p className="text-emerald-100 text-sm mt-0.5 max-w-lg">
-                                      Todos os documentos foram assinados pelo Ordenador. Confirme que o pagamento foi processado para notificar o suprido.
+                                      Todos os documentos foram assinados pelo Ordenador. Comunique ao suprido que o pagamento foi processado.
                                   </p>
                               </div>
                           </div>
@@ -901,7 +937,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                               className="px-6 py-3 bg-white text-emerald-700 rounded-xl text-sm font-black shadow-lg hover:bg-emerald-50 transition-all flex items-center gap-2 disabled:opacity-50"
                           >
                               {confirmPaymentLoading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                              Confirmar Pagamento
+                              Comunicar Pagamento
                           </button>
                       </div>
                   </div>
@@ -915,10 +951,11 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                       </div>
                       <div>
                           <h3 className="font-bold text-teal-800 text-sm">Aguardando Confirmação do Suprido</h3>
-                          <p className="text-teal-600 text-xs mt-0.5">O pagamento foi confirmado. O suprido precisa confirmar o recebimento dos recursos para iniciar a Prestação de Contas.</p>
+                          <p className="text-teal-600 text-xs mt-0.5">O pagamento foi comunicado. Quando o suprido confirmar o recebimento, o ciclo de Solicitação encerrará e inicia a Prestação de Contas.</p>
                       </div>
                   </div>
               )}
+
               {/* Header Card */}
               <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg">
                   <div className="flex items-center justify-between">
@@ -928,7 +965,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                           </div>
                           <div>
                               <h3 className="text-xl font-black">Execução da Despesa</h3>
-                              <p className="text-blue-100 text-sm mt-0.5">Gere os 5 documentos financeiros e tramite para assinatura do Ordenador.</p>
+                              <p className="text-blue-100 text-sm mt-0.5">Gere as minutas, anexe PDFs do SIAFE e tramite para o Ordenador.</p>
                           </div>
                       </div>
                       {['SOSFU', 'ADMIN'].includes(currentUserRole) && (
@@ -940,60 +977,45 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                   </div>
               </div>
 
-              {/* Documents Grid */}
+              {/* ═══ SECTION 1: Documentos para SEFIN (Ordenador) ═══ */}
               <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                  <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-4">Status dos Documentos</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                      {executionDocs.map(doc => {
-                          const existing = documents.find(d => d.document_type === doc.type);
-                          const Icon = doc.icon;
-                          const isSigned = existing?.status === 'SIGNED';
-                          const isMinuta = existing?.status === 'MINUTA';
-                          return (
-                              <div key={doc.type} className={`border rounded-xl p-4 flex flex-col gap-3 transition-all ${
-                                  isSigned ? 'border-emerald-200 bg-emerald-50' : isMinuta ? 'border-amber-200 bg-amber-50/30' : 'border-gray-100 bg-gray-50/50'
-                              }`}>
-                                  <div className="flex items-center justify-between">
-                                      <div className={`p-2 rounded-lg ${isSigned ? 'bg-emerald-100 text-emerald-600' : isMinuta ? 'bg-amber-100 text-amber-600' : doc.bg + ' ' + doc.color}`}>
-                                          {isSigned ? <CheckCircle2 size={18} /> : isMinuta ? <Clock size={18} /> : <Icon size={18} />}
-                                      </div>
-                                      {existing && (
-                                          <button onClick={() => setSelectedDoc(existing)} className="text-[10px] font-bold text-blue-600 hover:underline">Ver</button>
-                                      )}
-                                  </div>
-                                  <div>
-                                      <h4 className="font-bold text-gray-700 text-xs">{doc.label}</h4>
-                                      <p className="text-[10px] text-gray-400 mt-1">
-                                          {isSigned ? '✓ Assinado' : isMinuta ? '⏳ Minuta' : 'Pendente'}
-                                      </p>
-                                      <p className="text-[9px] text-gray-400 mt-0.5">→ {doc.signer}</p>
-                                  </div>
-                              </div>
-                          );
-                      })}
+                  <div className="flex items-center gap-2 mb-4">
+                      <Scale size={14} className="text-amber-600" />
+                      <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest">Tramitação SEFIN</h4>
+                      <span className="text-[9px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-md font-bold border border-amber-100">Ordenador assina</span>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mb-4">Portaria (minuta) + Certidão (minuta) + NE (PDF original do SIAFE)</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {sefinDocs.map(renderDocCard)}
                   </div>
               </div>
 
-              {/* Triple Check Summary */}
-              {processData && (processData.ne_valor || processData.dl_valor || processData.ob_valor) && (
-                  <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                      <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-4">Triple Check: NE → DL → OB</h4>
-                      <div className="grid grid-cols-3 gap-6 text-center">
-                          <div className="p-4 bg-amber-50 rounded-xl">
-                              <p className="text-[9px] font-bold text-amber-600 uppercase">Nota de Empenho</p>
-                              <p className="text-xl font-black text-gray-800">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(processData.ne_valor || 0)}</p>
-                          </div>
-                          <div className="p-4 bg-purple-50 rounded-xl">
-                              <p className="text-[9px] font-bold text-purple-600 uppercase">Liquidação</p>
-                              <p className="text-xl font-black text-gray-800">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(processData.dl_valor || 0)}</p>
-                          </div>
-                          <div className="p-4 bg-indigo-50 rounded-xl">
-                              <p className="text-[9px] font-bold text-indigo-600 uppercase">Ordem Bancária</p>
-                              <p className="text-xl font-black text-gray-800">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(processData.ob_valor || 0)}</p>
-                          </div>
-                      </div>
+              {/* ═══ SECTION 2: Documentos internos (Dossiê) ═══ */}
+              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                      <Archive size={14} className="text-indigo-600" />
+                      <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest">Dossiê Digital</h4>
+                      <span className="text-[9px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md font-bold border border-indigo-100">Auto-assinado SOSFU</span>
                   </div>
-              )}
+                  <p className="text-[10px] text-gray-400 mb-4">DL e OB — PDFs originais do SIAFE, anexados automaticamente ao dossiê</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {internalDocs.map(renderDocCard)}
+                  </div>
+              </div>
+
+              {/* Triple Check — Reconciliation Panel */}
+              <ReconciliationPanel
+                  processData={{
+                      ne_valor: processData?.ne_valor,
+                      dl_valor: processData?.dl_valor,
+                      ob_valor: processData?.ob_valor,
+                      ne_numero: processData?.ne_numero,
+                      dl_numero: processData?.dl_numero,
+                      ob_numero: processData?.ob_numero,
+                      value: processData?.value,
+                  }}
+                  documents={documents}
+              />
 
               {/* Execution Wizard Modal */}
               {executionWizardOpen && processData && (
@@ -1463,11 +1485,10 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
         <div className="flex-1 max-w-[1600px] w-full mx-auto px-8 py-8 flex flex-col">
             
-            {/* LINHA DO TEMPO (NOVA) */}
-            <div className="mb-8">
-                <ProcessTimeline 
-                    status={processData.status} 
-                    solicitationId={processData.id}
+            {/* RASTREIO DO PROCESSO (compact) */}
+            <div className="mb-6">
+                <WorkflowTracker
+                    status={processData.status}
                     accountabilityStatus={accountabilityData?.status}
                     isRejected={processData.status === 'REJECTED' || accountabilityData?.status === 'REJECTED'}
                 />

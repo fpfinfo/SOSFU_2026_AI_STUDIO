@@ -68,10 +68,10 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
 
     // FASE 5: CONCLUSÃO
     'WAITING_SUPRIDO_CONFIRMATION': { 
-      label: 'Dinheiro Enviado', 
+      label: 'Pagamento Comunicado', 
       color: 'bg-emerald-50 text-emerald-600 border-emerald-200',
       icon: Send,
-      tooltip: 'O pagamento foi realizado. O suprido precisa confirmar o recebimento dos recursos.'
+      tooltip: 'O pagamento foi comunicado pela SOSFU. O suprido precisa confirmar o recebimento dos recursos.'
     },
     'PAID': { 
       label: 'Concluído / Pago', 

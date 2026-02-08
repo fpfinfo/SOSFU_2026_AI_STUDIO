@@ -2,11 +2,15 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
     Briefcase, FileText, CheckCircle2, Search, DollarSign, ChevronRight,
     Scale, Loader2, XCircle, Award, FileCheck, CreditCard, Send, AlertTriangle,
-    BarChart3, Inbox, Filter, CheckSquare, Square, X, FileSignature,
+    Inbox, CheckSquare, Square, X, FileSignature,
     Zap, TrendingUp, Calendar, Mail, Activity, Users, Eye
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Tooltip } from '../ui/Tooltip';
+import { usePriorityScore, PRIORITY_STYLES } from '../../hooks/usePriorityScore';
+import { useStaleProcesses } from '../../hooks/useStaleProcesses';
+import { StaleProcessBanner } from '../ui/StaleProcessBanner';
+import { useRealtimeInbox } from '../../hooks/useRealtimeInbox';
 
 // ==================== TYPES ====================
 interface SefinDashboardProps {
@@ -543,12 +547,21 @@ const TaskRow: React.FC<TaskRowProps> = ({ task, isSelected, onToggleSelect, onS
                 <p className="text-sm font-bold text-slate-700">{formatCurrency(task.value || 0)}</p>
             </div>
 
-            {/* Urgency */}
-            {isUrgent && (
-                <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-red-100 text-red-600 shrink-0">
-                    +24h
-                </span>
-            )}
+            {/* Urgency Badge */}
+            {(() => {
+                const priorityLevel = isUrgent ? 'ALTO' : (hours > 48 ? 'CRITICO' : undefined);
+                const style = priorityLevel ? PRIORITY_STYLES[priorityLevel as keyof typeof PRIORITY_STYLES] : null;
+                return style ? (
+                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${style.bg} ${style.text} shrink-0 flex items-center gap-1`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
+                        {style.label}
+                    </span>
+                ) : isUrgent ? (
+                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-red-100 text-red-600 shrink-0">
+                        +24h
+                    </span>
+                ) : null;
+            })()}
 
             {/* Actions */}
             <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -590,6 +603,20 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, dark
     const [queueTab, setQueueTab] = useState<QueueTab>('inbox');
 
     useEffect(() => { fetchSefinData(); }, []);
+
+    const refetchSefin = useCallback(() => { fetchSefinData(); }, []);
+
+    // ⚡ Realtime: auto-refresh when signing tasks arrive
+    useRealtimeInbox({
+        module: 'SEFIN',
+        onAnyChange: refetchSefin,
+    });
+
+    // ⏳ Stale process detection (stuck in WAITING_SEFIN_SIGNATURE > 3 days)
+    const { staleProcesses: staleSefin } = useStaleProcesses({
+        statuses: ['WAITING_SEFIN_SIGNATURE'],
+        thresholdDays: 3,
+    });
 
     const fetchSefinData = async () => {
         setLoading(true);
@@ -651,16 +678,38 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, dark
         }).length;
     }, [signingTasks]);
 
+    // 🎯 Priority scoring for the smart queue
+    const prioritizedTasks = usePriorityScore<SigningTask>(signingTasks);
+
     const filteredTasks = useMemo(() => {
-        const base = listFilter === 'SIGNED' ? signedTasks : signingTasks;
-        if (!searchTerm) return base;
+        if (listFilter === 'SIGNED') {
+            if (!searchTerm) return signedTasks;
+            const q = searchTerm.toLowerCase();
+            return signedTasks.filter(t =>
+                t.title.toLowerCase().includes(q) ||
+                t.solicitation?.process_number?.toLowerCase().includes(q) ||
+                t.solicitation?.beneficiary?.toLowerCase().includes(q)
+            );
+        }
+        // For PENDING, use prioritized (sorted) list
+        const sorted = prioritizedTasks.map(p => p.task);
+        if (!searchTerm) return sorted;
         const q = searchTerm.toLowerCase();
-        return base.filter(t =>
+        return sorted.filter(t =>
             t.title.toLowerCase().includes(q) ||
             t.solicitation?.process_number?.toLowerCase().includes(q) ||
             t.solicitation?.beneficiary?.toLowerCase().includes(q)
         );
-    }, [signingTasks, signedTasks, listFilter, searchTerm]);
+    }, [prioritizedTasks, signedTasks, listFilter, searchTerm]);
+
+    // Build a quick lookup for priority info per task id
+    const priorityMap = useMemo(() => {
+        const map = new Map<string, { level: string; score: number; waitingHours: number }>();
+        for (const p of prioritizedTasks) {
+            map.set(p.task.id, { level: p.level, score: p.score, waitingHours: p.waitingHours });
+        }
+        return map;
+    }, [prioritizedTasks]);
 
     // ==================== HANDLERS ====================
     const handleToggleSelect = useCallback((id: string) => {
@@ -804,6 +853,13 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, dark
                     Olá, <span className="font-bold text-white">{userName}</span>. Gerencie aqui as autorizações de despesa e atos de concessão pendentes de assinatura.
                 </p>
             </div>
+
+            {/* ===== STALE PROCESS ALERT ===== */}
+            <StaleProcessBanner
+                staleProcesses={staleSefin}
+                onViewProcess={(id) => onNavigate('process_detail', id)}
+                accent="red"
+            />
 
             {/* ===== SECTION B: GESTÃO DE EQUIPE (DYNAMIC) ===== */}
             <GestaoEquipeSection

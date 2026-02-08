@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { CheckCircle2, FileText, Filter, Search, Clock, ChevronRight, UserCheck, Loader2, Plus, Wallet, TrendingUp, AlertCircle, Stamp, FileCheck, FileSignature, Send } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { CheckCircle2, FileText, Filter, Search, Clock, ChevronRight, UserCheck, Loader2, Plus, Wallet, TrendingUp, AlertCircle, Stamp, FileCheck, FileSignature, Send, Users, BarChart3, Eye } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { StatusBadge } from '../StatusBadge';
 import { Tooltip } from '../ui/Tooltip';
+import { SlaCountdown } from '../ui/SlaCountdown';
+import { useRealtimeInbox } from '../../hooks/useRealtimeInbox';
+import { useStaleProcesses } from '../../hooks/useStaleProcesses';
+import { StaleProcessBanner } from '../ui/StaleProcessBanner';
 
 interface GestorDashboardProps {
     onNavigate: (page: string, processId?: string, accountabilityId?: string) => void;
@@ -11,7 +15,8 @@ interface GestorDashboardProps {
 export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) => {
     const [loading, setLoading] = useState(true);
     const [pendingApproval, setPendingApproval] = useState<any[]>([]); // Solicitações
-    const [pendingAccountability, setPendingAccountability] = useState<any[]>([]); // PCs
+    const [pendingAccountability, setPendingAccountability] = useState<any[]>([]); // PCs WAITING_MANAGER
+    const [teamAccountability, setTeamAccountability] = useState<any[]>([]); // ALL team PCs
     const [pendingMinutas, setPendingMinutas] = useState<any[]>([]); // Minutas para assinar
     const [myRequests, setMyRequests] = useState<any[]>([]);
     const [stats, setStats] = useState({ 
@@ -25,6 +30,26 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
         approvedValue: 0
     });
     const [userName, setUserName] = useState('');
+
+    const refetchGestor = useCallback(() => {
+        fetchGestorData();
+    }, []);
+
+    // ⚡ Realtime: auto-refresh when processes arrive for GESTOR
+    useRealtimeInbox({
+        module: 'GESTOR',
+        onNewProcess: (payload) => {
+            console.log('[Realtime] Novo processo para Gestor:', payload.new?.process_number);
+            refetchGestor();
+        },
+        onAnyChange: refetchGestor,
+    });
+
+    // ⏳ Stale process detection (stuck > 5 days)
+    const { staleProcesses: staleGestor } = useStaleProcesses({
+        statuses: ['PENDING', 'WAITING_GESTOR_APPROVAL'],
+        thresholdDays: 5,
+    });
 
     useEffect(() => {
         fetchGestorData();
@@ -62,6 +87,22 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                 .ilike('solicitation.manager_email', user.email || '');
 
             if (pcError) console.error("Erro ao buscar PCs:", pcError);
+
+            // 2b. TODAS as PCs da equipe (para tracker de acompanhamento)
+            const { data: allTeamPCs } = await supabase
+                .from('accountabilities')
+                .select(`
+                    id,
+                    status,
+                    total_spent,
+                    value,
+                    deadline,
+                    created_at,
+                    solicitation:solicitation_id!inner(manager_email, process_number, beneficiary, unit),
+                    requester:requester_id(full_name)
+                `)
+                .neq('status', 'WAITING_MANAGER')
+                .ilike('solicitation.manager_email', user.email || '');
 
             // 3. Minutas pendentes de assinatura — Processos com status WAITING_MANAGER
             //    que possuem documentos is_draft: true no metadata
@@ -139,6 +180,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
 
             setPendingApproval(pendingList);
             setPendingAccountability(pcList);
+            setTeamAccountability(allTeamPCs || []);
             setPendingMinutas(minutasData);
             setMyRequests(myList);
             setStats({
@@ -296,6 +338,13 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                 </div>
              </div>
 
+            {/* ===== STALE PROCESS ALERT ===== */}
+            <StaleProcessBanner
+                staleProcesses={staleGestor}
+                onViewProcess={(id) => onNavigate('process_detail', id)}
+                accent="orange"
+            />
+
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 
                 {/* PAINEL 1: MESA DE DECISÃO (APROVAÇÕES) */}
@@ -394,9 +443,17 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                                         <span className="font-mono font-bold text-gray-800 text-sm">
                                             Total Gasto: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pc.total_spent)}
                                         </span>
-                                        <button className="text-xs font-bold text-purple-600 flex items-center gap-1 group-hover:gap-2 transition-all">
-                                            Revisar Contas <ChevronRight size={14}/>
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            <SlaCountdown
+                                                createdAt={pc.solicitation?.created_at || pc.created_at}
+                                                daysLimit={30}
+                                                label="Prazo Atesto"
+                                                compact
+                                            />
+                                            <button className="text-xs font-bold text-purple-600 flex items-center gap-1 group-hover:gap-2 transition-all">
+                                                Revisar Contas <ChevronRight size={14}/>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -460,8 +517,96 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                     </div>
                 </div>
 
-                {/* PAINEL 2: MEUS PROCESSOS (AUTO-GESTÃO) */}
-                <div className="flex flex-col h-full">
+                {/* PAINEL 2: TRACKER DE EQUIPE + MEUS PROCESSOS */}
+                <div className="flex flex-col h-full space-y-6">
+                    
+                    {/* Seção: Tracker de PC da Equipe */}
+                    {(pendingAccountability.length > 0 || teamAccountability.length > 0) && (
+                        <div className="space-y-3 animate-in slide-in-from-right-4">
+                            <div className="flex items-center justify-between px-1">
+                                <div className="flex items-center gap-2 text-cyan-700">
+                                    <Users size={20} />
+                                    <h3 className="text-sm font-bold uppercase">Acompanhamento de PC da Equipe</h3>
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px]">
+                                    <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">
+                                        {pendingAccountability.length} para atestar
+                                    </span>
+                                    <span className="bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full font-bold">
+                                        {teamAccountability.filter(pc => pc.status === 'WAITING_SOSFU').length} na SOSFU
+                                    </span>
+                                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">
+                                        {teamAccountability.filter(pc => pc.status === 'APPROVED').length} aprovadas
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                                <div className="divide-y divide-gray-100">
+                                    {teamAccountability.length === 0 && pendingAccountability.length === 0 ? (
+                                        <div className="p-8 text-center text-gray-400 text-sm">Nenhuma PC da equipe em andamento.</div>
+                                    ) : (
+                                        [...pendingAccountability, ...teamAccountability].slice(0, 8).map((pc: any) => {
+                                            const pcStatus = pc.status;
+                                            const statusConfig: Record<string, { label: string; color: string; textColor: string }> = {
+                                                'DRAFT': { label: 'Rascunho', color: 'bg-gray-100', textColor: 'text-gray-600' },
+                                                'WAITING_MANAGER': { label: 'Aguardando Seu Atesto', color: 'bg-amber-100', textColor: 'text-amber-700' },
+                                                'WAITING_SOSFU': { label: 'Análise SOSFU', color: 'bg-blue-100', textColor: 'text-blue-700' },
+                                                'CORRECTION': { label: 'Em Correção', color: 'bg-orange-100', textColor: 'text-orange-700' },
+                                                'APPROVED': { label: 'Aprovada ✓', color: 'bg-green-100', textColor: 'text-green-700' },
+                                            };
+                                            const sc = statusConfig[pcStatus] || { label: pcStatus, color: 'bg-gray-100', textColor: 'text-gray-600' };
+                                            const isActionable = pcStatus === 'WAITING_MANAGER';
+
+                                            return (
+                                                <div 
+                                                    key={pc.id}
+                                                    onClick={() => onNavigate('process_accountability', pc.solicitation_id || pc.solicitation?.id, pc.id)}
+                                                    className={`p-4 cursor-pointer transition-all flex items-center justify-between gap-4 ${
+                                                        isActionable ? 'bg-amber-50/50 hover:bg-amber-50 border-l-4 border-l-amber-500' : 'hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${sc.color} ${sc.textColor}`}>
+                                                            {pc.requester?.full_name?.charAt(0) || pc.solicitation?.beneficiary?.charAt(0) || '?'}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-bold text-gray-800 truncate">
+                                                                {pc.solicitation?.process_number || pc.process_number}
+                                                            </p>
+                                                            <p className="text-[11px] text-gray-500 truncate">
+                                                                {pc.requester?.full_name || pc.solicitation?.beneficiary}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 shrink-0">
+                                                        <span className="font-mono text-xs font-bold text-gray-700">
+                                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pc.total_spent || 0)}
+                                                        </span>
+                                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${sc.color} ${sc.textColor}`}>
+                                                            {sc.label}
+                                                        </span>
+                                                        {isActionable && (
+                                                            <Tooltip content="Revisar e atestar a prestação de contas" position="top">
+                                                                <span className="text-amber-600"><ChevronRight size={16} /></span>
+                                                            </Tooltip>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                                {(pendingAccountability.length + teamAccountability.length) > 8 && (
+                                    <div className="p-3 bg-gray-50 text-center">
+                                        <span className="text-xs text-gray-500 font-bold">
+                                            + {pendingAccountability.length + teamAccountability.length - 8} processos não exibidos
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                     <div className="flex items-center gap-3 mb-4 px-1">
                         <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg shadow-sm">
                             <FileText size={20} />

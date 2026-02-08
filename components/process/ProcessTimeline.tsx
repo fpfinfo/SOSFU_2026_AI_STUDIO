@@ -40,7 +40,7 @@ const STATUS_LABELS: Record<string, string> = {
     'WAITING_SOSFU_EXECUTION': 'Em Execução (SOSFU)',
     'WAITING_SEFIN_SIGNATURE': 'Aguardando SEFIN',
     'WAITING_SOSFU_PAYMENT': 'Aguardando Pagamento',
-    'WAITING_SUPRIDO_CONFIRMATION': 'Confirmando Recebimento',
+    'WAITING_SUPRIDO_CONFIRMATION': 'Pagamento Comunicado',
     'PAID': 'Pago',
     'REJECTED': 'Rejeitado',
     'ARCHIVED': 'Arquivado',

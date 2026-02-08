@@ -7,6 +7,37 @@ import {
 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
+// Responsive Leaflet popup overrides
+const popupStyles = document.createElement('style');
+popupStyles.textContent = `
+  .comarca-popup .leaflet-popup-content-wrapper {
+    border-radius: 16px !important;
+    padding: 0 !important;
+    box-shadow: 0 10px 40px rgba(0,0,0,.15) !important;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .comarca-popup .leaflet-popup-content {
+    margin: 12px !important;
+    width: clamp(240px, 75vw, 380px) !important;
+    max-width: calc(100vw - 60px) !important;
+  }
+  .comarca-popup .leaflet-popup-close-button {
+    top: 8px !important; right: 8px !important;
+    font-size: 20px !important; color: #94a3b8 !important;
+  }
+  @media (max-width: 640px) {
+    .comarca-popup .leaflet-popup-content {
+      width: clamp(200px, 85vw, 320px) !important;
+      margin: 8px !important;
+    }
+  }
+`;
+if (!document.getElementById('comarca-popup-styles')) {
+  popupStyles.id = 'comarca-popup-styles';
+  document.head.appendChild(popupStyles);
+}
+
 // ==================== TYPES ====================
 interface ElementoDespesa {
     codigo: string;
@@ -80,7 +111,7 @@ const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
     const prestadoPct = stat.totalConcedido > 0 ? Math.round((stat.totalPrestado / stat.totalConcedido) * 100) : 0;
 
     return (
-        <div className="min-w-[320px] max-w-[380px]">
+        <div className="w-full">
             {/* ── Header: Comarca ── */}
             <div className="flex justify-between items-start pb-2.5 mb-3 border-b border-slate-200">
                 <div>
@@ -251,7 +282,7 @@ const ComarcaMarker = memo(({ stat, isSelected, radius, color, onClick }: {
                 <span className="text-[9px] text-slate-400">{stat.processCount} processos</span>
             </div>
         </LeafletTooltip>
-        <Popup minWidth={340} maxWidth={400} className="comarca-popup">
+        <Popup minWidth={220} maxWidth={420} className="comarca-popup">
             <ComarcaPopupContent stat={stat} />
         </Popup>
     </CircleMarker>

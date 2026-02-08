@@ -819,9 +819,20 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
                 </div>
                 <div className="text-right">
                     <p className="text-[10px] text-green-400 font-bold uppercase tracking-wider">Total Geral</p>
-                    <p className="text-3xl font-black tracking-tight">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalGeneral)}</p>
+                    <p className={`text-3xl font-black tracking-tight ${totalGeneral > 15000 ? 'text-red-400' : ''}`}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalGeneral)}</p>
                 </div>
             </div>
+
+            {/* CNJ Limit Warning */}
+            {totalGeneral > 15000 && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-center gap-3">
+                    <AlertTriangle size={20} className="text-red-500 shrink-0" />
+                    <div>
+                        <strong>Limite excedido!</strong> O valor total (R$ {totalGeneral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}) ultrapassa o teto de R$ 15.000,00 estabelecido pela Resolução CNJ 169/2013.
+                        Reduza os itens ou quantidades para prosseguir.
+                    </div>
+                </div>
+            )}
 
             {/* Urgência e Gestor */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -895,7 +906,7 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
 
                 <button 
                     onClick={handleSubmit}
-                    disabled={isSubmitting || !justification}
+                    disabled={isSubmitting || !justification || totalGeneral > 15000}
                     className="w-full max-w-sm py-3.5 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-xl shadow-lg shadow-yellow-200 transition-all flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:translate-y-0"
                 >
                     {isSubmitting ? <Loader2 className="animate-spin" /> : <Save size={18} />}

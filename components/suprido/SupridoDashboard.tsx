@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Siren, Gavel, FileText, Clock, Search, ChevronRight, Loader2, Wallet, AlertTriangle, ArrowRight, Play, CheckCircle2, RotateCcw, Plus, UserCheck, Shield } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Siren, Gavel, FileText, Clock, Search, ChevronRight, Loader2, Wallet, AlertTriangle, ArrowRight, Play, CheckCircle2, RotateCcw, Plus, UserCheck, Shield, Banknote, Receipt, TrendingUp } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { StatusBadge } from '../StatusBadge';
 import { Tooltip } from '../ui/Tooltip';
+import { SlaCountdown } from '../ui/SlaCountdown';
+import { useRealtimeInbox } from '../../hooks/useRealtimeInbox';
 
 interface SupridoDashboardProps {
     onNavigate: (page: string, processId?: string, accountabilityId?: string) => void;
@@ -25,10 +27,21 @@ interface ProcessWithPC {
 
 export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }) => {
     const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState({ receivedYear: 0, inAnalysis: 0, pendingAccountability: 0 });
+    const [stats, setStats] = useState({ receivedYear: 0, inAnalysis: 0, pendingAccountability: 0, awaitingConfirmation: 0 });
     const [processes, setProcesses] = useState<ProcessWithPC[]>([]);
     const [filterTerm, setFilterTerm] = useState('');
     const [creatingPC, setCreatingPC] = useState<string | null>(null);
+    const [confirmingReceipt, setConfirmingReceipt] = useState<string | null>(null);
+
+    const refetchDashboard = useCallback(() => {
+        fetchDashboardData();
+    }, []);
+
+    // ⚡ Realtime: auto-refresh when processes are updated for this user
+    useRealtimeInbox({
+        module: 'GESTOR', // Listen for processes coming back from Gestor
+        onAnyChange: refetchDashboard,
+    });
 
     useEffect(() => {
         fetchDashboardData();
@@ -61,7 +74,8 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
             const procs = solicitations as ProcessWithPC[];
             
             const paidProcs = procs.filter(s => s.status === 'PAID');
-            const inAnalysis = procs.filter(s => s.status !== 'PAID' && s.status !== 'APPROVED' && s.status !== 'REJECTED');
+            const awaitingConf = procs.filter(s => s.status === 'WAITING_SUPRIDO_CONFIRMATION');
+            const inAnalysis = procs.filter(s => !['PAID', 'APPROVED', 'REJECTED', 'WAITING_SUPRIDO_CONFIRMATION', 'ARCHIVED'].includes(s.status));
             
             // Pending PC = Pago mas PC não está aprovada
             const pendingPC = paidProcs.filter(p => {
@@ -73,6 +87,7 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                 receivedYear: paidProcs.reduce((acc, curr) => acc + Number(curr.value), 0),
                 inAnalysis: inAnalysis.length,
                 pendingAccountability: pendingPC.length,
+                awaitingConfirmation: awaitingConf.length,
             });
 
             setProcesses(procs);
@@ -130,11 +145,62 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
         }
     };
 
+    // ─── Inline Confirm Receipt (dashboard shortcut) ───
+    const handleInlineConfirmReceipt = async (processId: string, processValue: number) => {
+        if (!confirm('Confirmar que você recebeu os recursos em sua conta bancária?')) return;
+        setConfirmingReceipt(processId);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            const now = new Date().toISOString();
+
+            // 1. Transition solicitation to PAID
+            await supabase.from('solicitations').update({ status: 'PAID' }).eq('id', processId);
+
+            // 2. Insert history entry
+            await supabase.from('historico_tramitacao').insert({
+                solicitation_id: processId,
+                status_from: 'WAITING_SUPRIDO_CONFIRMATION',
+                status_to: 'PAID',
+                actor_name: user.email,
+                description: 'Suprido confirmou recebimento dos recursos. Início da fase de Prestação de Contas.',
+                created_at: now
+            });
+
+            // 3. Auto-create PC if none exists
+            const { data: existingPC } = await supabase.from('accountabilities').select('id').eq('solicitation_id', processId).maybeSingle();
+            if (!existingPC) {
+                const { data: procData } = await supabase.from('solicitations').select('process_number').eq('id', processId).single();
+                const deadline = new Date();
+                deadline.setDate(deadline.getDate() + 30);
+
+                await supabase.from('accountabilities').insert({
+                    process_number: procData?.process_number,
+                    requester_id: user.id,
+                    solicitation_id: processId,
+                    value: processValue,
+                    total_spent: 0,
+                    balance: processValue,
+                    deadline: deadline.toISOString(),
+                    status: 'DRAFT'
+                });
+            }
+
+            await fetchDashboardData();
+        } catch (err) {
+            console.error('Erro ao confirmar recebimento:', err);
+        } finally {
+            setConfirmingReceipt(null);
+        }
+    };
+
     const getProcessType = (unit: string) => {
         if (unit?.includes('EMERGENCIAL')) return { label: 'EMERGENCIAL', color: 'bg-red-50 text-red-600 border-red-100' };
         if (unit?.includes('JÚRI')) return { label: 'EXTRA-JÚRI', color: 'bg-blue-50 text-blue-600 border-blue-100' };
         return { label: 'ORDINÁRIO', color: 'bg-gray-50 text-gray-600 border-gray-100' };
     };
+
+    const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
     const filteredProcesses = processes.filter(p => 
         p.process_number.toLowerCase().includes(filterTerm.toLowerCase()) ||
@@ -152,6 +218,56 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                     <p className="text-slate-300 max-w-2xl text-sm leading-relaxed">
                         Gerencie suas solicitações de suprimento de fundos, acompanhe aprovações e realize prestações de contas de forma digital.
                     </p>
+                </div>
+            </div>
+
+            {/* ═══ Banner: Pagamento Recebido — Confirmar Recebimento ═══ */}
+            {stats.awaitingConfirmation > 0 && (
+                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 rounded-2xl p-5 mb-8 animate-in fade-in slide-in-from-top-4">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-emerald-100 rounded-full text-emerald-600 animate-pulse shrink-0">
+                            <Banknote size={24} />
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="text-lg font-black text-emerald-900">💰 Pagamento Realizado!</h3>
+                            <p className="text-sm text-emerald-700 mt-0.5">
+                                Você tem <strong>{stats.awaitingConfirmation} processo{stats.awaitingConfirmation > 1 ? 's' : ''}</strong> aguardando confirmação de recebimento. 
+                                Confirme para iniciar a Prestação de Contas.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ═══ Cards de Resumo Financeiro ═══ */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="p-1.5 bg-emerald-50 rounded-lg text-emerald-600"><TrendingUp size={14} /></div>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Recebido</span>
+                    </div>
+                    <p className="text-lg font-black text-gray-900">{formatCurrency(stats.receivedYear)}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="p-1.5 bg-blue-50 rounded-lg text-blue-600"><Clock size={14} /></div>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Em Análise</span>
+                    </div>
+                    <p className="text-lg font-black text-gray-900">{stats.inAnalysis}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="p-1.5 bg-amber-50 rounded-lg text-amber-600"><Banknote size={14} /></div>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar</span>
+                    </div>
+                    <p className="text-lg font-black text-amber-600">{stats.awaitingConfirmation}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="p-1.5 bg-red-50 rounded-lg text-red-600"><Receipt size={14} /></div>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">PC Pendente</span>
+                    </div>
+                    <p className="text-lg font-black text-red-600">{stats.pendingAccountability}</p>
                 </div>
             </div>
 
@@ -201,14 +317,43 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                         filteredProcesses.map((proc) => {
                             const typeInfo = getProcessType(proc.unit);
                             const isPaid = proc.status === 'PAID';
+                            const isAwaitingConfirmation = proc.status === 'WAITING_SUPRIDO_CONFIRMATION';
                             const pc = proc.accountabilities?.[0]; // Pega a PC associada (se houver)
                             
                             return (
-                                <div key={proc.id} className="p-5 hover:bg-slate-50 transition-colors group flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                                <div key={proc.id} className={`p-5 transition-colors group flex flex-col gap-4 ${
+                                    isAwaitingConfirmation ? 'bg-emerald-50/50 border-l-4 border-l-emerald-500' : 'hover:bg-slate-50'
+                                }`}>
+                                    {/* ═══ Inline Confirmation Banner ═══ */}
+                                    {isAwaitingConfirmation && (
+                                        <div className="flex items-center justify-between bg-gradient-to-r from-emerald-100 to-teal-100 rounded-xl p-4 border border-emerald-200">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-emerald-200 rounded-full text-emerald-700 animate-pulse">
+                                                    <Banknote size={18} />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-black text-emerald-900">Pagamento realizado pela SOSFU</p>
+                                                    <p className="text-[11px] text-emerald-700">Confirme o recebimento para iniciar a Prestação de Contas (prazo: 30 dias)</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => handleInlineConfirmReceipt(proc.id, proc.value)}
+                                                disabled={confirmingReceipt === proc.id}
+                                                className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black shadow-lg hover:bg-emerald-700 transition-all flex items-center gap-2 disabled:opacity-50 whitespace-nowrap"
+                                            >
+                                                {confirmingReceipt === proc.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                                                Confirmar Recebimento
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                                     {/* Info Principal */}
                                     <div className="flex items-start gap-4 flex-1 cursor-pointer" onClick={() => onNavigate('process_detail', proc.id)}>
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isPaid ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
-                                            {isPaid ? <Wallet size={20} /> : <FileText size={20} />}
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                                            isAwaitingConfirmation ? 'bg-emerald-200 text-emerald-700' : isPaid ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'
+                                        }`}>
+                                            {isAwaitingConfirmation ? <Banknote size={20} /> : isPaid ? <Wallet size={20} /> : <FileText size={20} />}
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2 mb-1">
@@ -217,14 +362,18 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                                             </div>
                                             <div className="text-xs text-gray-500 flex items-center gap-4">
                                                 <span>Data: {new Date(proc.created_at).toLocaleDateString()}</span>
-                                                <span className="font-semibold text-gray-700">R$ {proc.value}</span>
+                                                <span className="font-semibold text-gray-700">{formatCurrency(proc.value)}</span>
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Status e Ações */}
                                     <div className="flex items-center gap-4 justify-end min-w-[200px]">
-                                        {!isPaid ? (
+                                        {isAwaitingConfirmation ? (
+                                            <span className="flex items-center gap-1 text-emerald-700 text-xs font-bold bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-200">
+                                                <Banknote size={14} /> Aguardando Confirmação
+                                            </span>
+                                        ) : !isPaid ? (
                                             <StatusBadge status={proc.status} size="sm" />
                                         ) : (
                                             // Lógica de Botão de Ação para PC
@@ -250,9 +399,16 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                                                         </span>
                                                     )
                                                 ) : (
-                                                    <span className="flex items-center gap-1 text-red-500 text-xs font-bold bg-red-50 px-2 py-1 rounded animate-pulse">
-                                                        <AlertTriangle size={14}/> Prestação Pendente
-                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="flex items-center gap-1 text-red-500 text-xs font-bold bg-red-50 px-2 py-1 rounded animate-pulse">
+                                                            <AlertTriangle size={14}/> Prestação Pendente
+                                                        </span>
+                                                        <SlaCountdown
+                                                            createdAt={proc.created_at}
+                                                            daysLimit={90}
+                                                            compact
+                                                        />
+                                                    </div>
                                                 )}
 
                                                 {/* Botão de Ação */}
@@ -281,6 +437,7 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                                                 )}
                                             </div>
                                         )}
+                                    </div>
                                     </div>
                                 </div>
                             );

@@ -40,7 +40,7 @@ const STEPS: { key: ExecutionStep; label: string; icon: React.ReactNode; descrip
   { key: 'NE', label: 'Nota de Empenho', icon: <DollarSign size={18} />, description: 'Registrar a Nota de Empenho (compromisso orçamentário)' },
   { key: 'DL', label: 'Doc. Liquidação', icon: <FileCheck size={18} />, description: 'Gerar o Documento de Liquidação (verificação da despesa)' },
   { key: 'OB', label: 'Ordem Bancária', icon: <CreditCard size={18} />, description: 'Emitir a Ordem Bancária para pagamento ao suprido' },
-  { key: 'TRAMITAR', label: 'Tramitar', icon: <Send size={18} />, description: 'Enviar os documentos para assinatura do Ordenador de Despesa' },
+  { key: 'TRAMITAR', label: 'Tramitar', icon: <Send size={18} />, description: 'Enviar Portaria (minuta), Certidão (minuta) e NE (PDF original) para assinatura do Ordenador' },
 ];
 
 const formatCurrency = (v: number) =>
@@ -231,7 +231,7 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
         status_from: 'WAITING_SOSFU_EXECUTION',
         status_to: 'WAITING_SEFIN_SIGNATURE',
         actor_name: user?.email,
-        description: 'Portaria SF, Certidão e NE tramitadas para assinatura do Ordenador de Despesa (SEFIN).',
+        description: 'Portaria SF (minuta), Certidão de Regularidade (minuta) e NE (PDF original) tramitadas para assinatura do Ordenador de Despesa (SEFIN).',
         created_at: new Date().toISOString()
       });
 
@@ -429,7 +429,7 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
               <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100">
                 <h3 className="text-lg font-black text-slate-800 mb-2">3. Nota de Empenho (NE)</h3>
                 <p className="text-sm text-slate-600 mb-6">
-                  Upload do PDF da NE do <strong>SIAFE</strong>. Será enviada para assinatura do Ordenador.
+                  Upload do PDF original da NE do <strong>SIAFE</strong>. O Ordenador assinará este PDF (não é minuta).
                 </p>
                 <div className="mb-6">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Valor da NE (R$)</label>
@@ -524,15 +524,15 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
               <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
                 <h3 className="text-lg font-black text-slate-800 mb-2">6. Tramitar para Ordenador (SEFIN)</h3>
                 <p className="text-sm text-slate-600 mb-6">
-                  Envie Portaria SF, Certidão e NE para assinatura do Ordenador de Despesa.
+                  Envie Portaria (minuta), Certidão (minuta) e NE (PDF original) para assinatura do Ordenador de Despesa.
                 </p>
                 <div className="space-y-3">
                   {[
-                    { key: 'PORTARIA', label: `Portaria SF ${portariaNumero ? `(${portariaNumero})` : ''}`, dest: 'SEFIN' },
-                    { key: 'CERTIDAO', label: 'Certidão de Regularidade', dest: 'SEFIN' },
-                    { key: 'NE', label: 'Nota de Empenho', dest: 'SEFIN' },
-                    { key: 'DL', label: 'Doc. de Liquidação', dest: 'SOSFU (auto)' },
-                    { key: 'OB', label: 'Ordem Bancária', dest: 'SOSFU (auto)' },
+                    { key: 'PORTARIA', label: `Portaria SF ${portariaNumero ? `(${portariaNumero})` : ''}`, dest: 'SEFIN — Minuta' },
+                    { key: 'CERTIDAO', label: 'Certidão de Regularidade', dest: 'SEFIN — Minuta' },
+                    { key: 'NE', label: 'Nota de Empenho', dest: 'SEFIN — PDF Original' },
+                    { key: 'DL', label: 'Doc. de Liquidação', dest: 'Dossiê — Auto-assinado' },
+                    { key: 'OB', label: 'Ordem Bancária', dest: 'Dossiê — Auto-assinado' },
                   ].map(doc => (
                     <div key={doc.key} className={`flex items-center justify-between p-3 rounded-xl ${
                       generatedDocs[doc.key] ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'

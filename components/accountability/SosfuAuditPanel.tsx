@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     BrainCircuit, Search, FileText, Eye, Check, X, Ban,
     Database, Lock, Loader2, AlertTriangle, CheckCircle2,
     Sparkles, ShieldAlert, CalendarCheck, Calculator, Building2,
     Scale, FileSearch, Split, Zap, ChevronRight, ImageIcon,
-    FileCheck, ExternalLink
+    FileCheck, ExternalLink, RotateCcw, CheckCheck, XCircle,
+    Save, Send, MessageSquare, ArrowLeftRight, ListChecks,
+    ClipboardCheck
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { GoogleGenAI } from "@google/genai";
@@ -19,6 +21,8 @@ interface SosfuAuditPanelProps {
     processId: string;
 }
 
+type GlosaReasonCode = 'DATE_INVALID' | 'ELEMENT_INVALID' | 'NO_DISCRIMINATION' | 'SUPPLIER_IRREGULAR' | 'DUPLICATE' | 'VALUE_MISMATCH' | 'OTHER';
+
 interface AuditItem {
     id: string;
     description: string;
@@ -32,6 +36,7 @@ interface AuditItem {
     ai_metadata?: any;
     auditStatus: 'APPROVED' | 'REJECTED' | 'PENDING';
     glosaReason: string;
+    glosaReasonCode: GlosaReasonCode | '';
     validationResult: ValidationResult;
 }
 
@@ -54,6 +59,16 @@ interface ChecklistItem {
 
 const ALLOWED_ELEMENTS = ['3.3.90.30', '3.3.90.33', '3.3.90.36', '3.3.90.39'];
 const LIMIT_CNJ = 15000;
+
+const GLOSA_REASONS: { code: GlosaReasonCode; label: string; description: string }[] = [
+    { code: 'DATE_INVALID', label: 'Data Irregular', description: 'Nota fiscal com data anterior à liberação do recurso (Art. 4º)' },
+    { code: 'ELEMENT_INVALID', label: 'Elemento Não Autorizado', description: 'Elemento de despesa fora dos autorizados (3.3.90.30/33/36/39)' },
+    { code: 'NO_DISCRIMINATION', label: 'Sem Discriminação', description: 'Nota fiscal não discrimina os itens adquiridos (Art. 4º, §2º)' },
+    { code: 'SUPPLIER_IRREGULAR', label: 'Fornecedor Irregular', description: 'Fornecedor com situação cadastral irregular perante a Receita Federal' },
+    { code: 'DUPLICATE', label: 'Nota Duplicada', description: 'Comprovante já utilizado em outra prestação de contas' },
+    { code: 'VALUE_MISMATCH', label: 'Valor Divergente', description: 'Valor informado difere do constatado no comprovante original' },
+    { code: 'OTHER', label: 'Outro Motivo', description: 'Motivo especificado manualmente pelo auditor' },
+];
 
 const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -157,6 +172,177 @@ function buildChecklist(
         }
     ];
 }
+
+// ==================== GLOSA MODAL ====================
+
+const GlosaModal = ({ item, onConfirm, onCancel }: {
+    item: AuditItem | null;
+    onConfirm: (itemId: string, reasonCode: GlosaReasonCode, reason: string) => void;
+    onCancel: () => void;
+}) => {
+    const [selectedCode, setSelectedCode] = useState<GlosaReasonCode>('OTHER');
+    const [customReason, setCustomReason] = useState('');
+
+    useEffect(() => {
+        if (item) {
+            // Pre-select based on validation failures
+            if (!item.validationResult.dateValid) setSelectedCode('DATE_INVALID');
+            else if (!item.validationResult.elementValid) setSelectedCode('ELEMENT_INVALID');
+            else setSelectedCode('OTHER');
+            setCustomReason(item.glosaReason || '');
+        }
+    }, [item]);
+
+    if (!item) return null;
+
+    const selectedGlosa = GLOSA_REASONS.find(r => r.code === selectedCode);
+    const finalReason = selectedCode === 'OTHER' ? customReason : (selectedGlosa?.description || customReason);
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onCancel}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                <div className="bg-red-900 px-6 py-4 flex items-center gap-3">
+                    <div className="p-2 bg-white/10 rounded-lg text-white border border-white/10">
+                        <Ban size={20} />
+                    </div>
+                    <div>
+                        <h3 className="text-white font-bold">Glosar Comprovante</h3>
+                        <p className="text-red-300 text-xs">{item.doc_number || 'S/N'} — {item.supplier}</p>
+                    </div>
+                </div>
+
+                <div className="p-6 space-y-5">
+                    {/* Item summary */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center">
+                        <div>
+                            <p className="text-sm font-bold text-slate-800">{item.description}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">{new Date(item.item_date).toLocaleDateString('pt-BR')}</p>
+                        </div>
+                        <span className="font-mono text-lg font-bold text-red-600">{formatCurrency(item.value)}</span>
+                    </div>
+
+                    {/* Reason code selector */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Motivo da Glosa</label>
+                        <div className="space-y-2">
+                            {GLOSA_REASONS.map(reason => (
+                                <button
+                                    key={reason.code}
+                                    onClick={() => setSelectedCode(reason.code)}
+                                    className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
+                                        selectedCode === reason.code
+                                            ? 'border-red-500 bg-red-50'
+                                            : 'border-slate-200 hover:border-slate-300 bg-white'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                                            selectedCode === reason.code ? 'border-red-500 bg-red-500' : 'border-slate-300'
+                                        }`}>
+                                            {selectedCode === reason.code && <Check size={10} className="text-white" />}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-800">{reason.label}</p>
+                                            <p className="text-[11px] text-slate-500">{reason.description}</p>
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Custom reason text */}
+                    {selectedCode === 'OTHER' && (
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Detalhamento</label>
+                            <textarea
+                                value={customReason}
+                                onChange={e => setCustomReason(e.target.value)}
+                                placeholder="Descreva o motivo da glosa..."
+                                className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none resize-none"
+                                rows={3}
+                                autoFocus
+                            />
+                        </div>
+                    )}
+                </div>
+
+                <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+                    <button onClick={onCancel} className="px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-white border border-transparent hover:border-slate-300 rounded-lg transition-colors">
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={() => onConfirm(item.id, selectedCode, finalReason)}
+                        disabled={selectedCode === 'OTHER' && !customReason.trim()}
+                        className="px-6 py-2.5 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
+                    >
+                        <Ban size={16} /> Confirmar Glosa
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ==================== DILIGENCIA MODAL ====================
+
+const DiligenciaModal = ({ isOpen, processNumber, onConfirm, onCancel }: {
+    isOpen: boolean;
+    processNumber: string;
+    onConfirm: (notes: string) => void;
+    onCancel: () => void;
+}) => {
+    const [notes, setNotes] = useState('');
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onCancel}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                <div className="bg-amber-800 px-6 py-4 flex items-center gap-3">
+                    <div className="p-2 bg-white/10 rounded-lg text-white border border-white/10">
+                        <ArrowLeftRight size={20} />
+                    </div>
+                    <div>
+                        <h3 className="text-white font-bold">Devolver para Correção</h3>
+                        <p className="text-amber-200 text-xs">Processo {processNumber}</p>
+                    </div>
+                </div>
+
+                <div className="p-6 space-y-5">
+                    <div className="bg-amber-50 p-3 rounded-xl text-xs text-amber-800 flex gap-2 items-start border border-amber-200">
+                        <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+                        <p>A Prestação de Contas será devolvida ao suprido para correção dos itens irregulares. O prazo de 30 dias <strong>não é reiniciado</strong>.</p>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Observações para o Suprido</label>
+                        <textarea
+                            value={notes}
+                            onChange={e => setNotes(e.target.value)}
+                            placeholder="Descreva quais itens precisam ser corrigidos e o que é esperado...&#10;&#10;Ex: Substituir a NF nº 1234 por comprovante com discriminação dos itens conforme Art. 4º, §2º."
+                            className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none resize-none"
+                            rows={5}
+                            autoFocus
+                        />
+                    </div>
+                </div>
+
+                <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+                    <button onClick={onCancel} className="px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-white border border-transparent hover:border-slate-300 rounded-lg transition-colors">
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={() => { onConfirm(notes); setNotes(''); }}
+                        disabled={!notes.trim()}
+                        className="px-6 py-2.5 bg-amber-600 text-white text-sm font-bold rounded-lg hover:bg-amber-700 shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
+                    >
+                        <Send size={16} /> Devolver para Correção
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 // ==================== SUB-COMPONENTS ====================
 
@@ -301,20 +487,35 @@ export const SosfuAuditPanel: React.FC<SosfuAuditPanelProps> = ({
     const [finalizing, setFinalizing] = useState(false);
 
     // AI Parecer
-    const [aiParecer, setAiParecer] = useState('');
+    const [aiParecer, setAiParecer] = useState(accountabilityData?.parecer_text || '');
     const [generatingParecer, setGeneratingParecer] = useState(false);
     const [parecerEdited, setParecerEdited] = useState(false);
 
-    // --- Initialize audit items with validation ---
+    // Sprint 8: Glosa Modal + Diligência + Persistence
+    const [glosaModalItem, setGlosaModalItem] = useState<AuditItem | null>(null);
+    const [diligenciaModalOpen, setDiligenciaModalOpen] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+    // --- Initialize audit items with validation + load saved decisions ---
     useEffect(() => {
         const validated = pcItems.map(item => ({
             ...item,
-            auditStatus: 'APPROVED' as const,
-            glosaReason: '',
+            // Respect saved audit decisions from DB
+            auditStatus: (item.status === 'REJECTED' ? 'REJECTED' : item.status === 'APPROVED' ? 'APPROVED' : 'PENDING') as AuditItem['auditStatus'],
+            glosaReason: item.audit_reason || '',
+            glosaReasonCode: (item.audit_reason_code || '') as GlosaReasonCode | '',
             validationResult: validateItem(item, accountabilityData?.created_at || new Date().toISOString())
         }));
         setAuditItems(validated);
+        setHasUnsavedChanges(false);
     }, [pcItems, accountabilityData]);
+
+    // Pre-load SIAFE data from accountability
+    useEffect(() => {
+        if (accountabilityData?.siafe_nl) setNlNumber(accountabilityData.siafe_nl);
+        if (accountabilityData?.parecer_text) setAiParecer(accountabilityData.parecer_text);
+    }, [accountabilityData]);
 
     // Scan animation
     useEffect(() => {
@@ -333,27 +534,147 @@ export const SosfuAuditPanel: React.FC<SosfuAuditPanelProps> = ({
     const valorHomologado = valorComprovadoOriginal - totalGlosado;
     const valorDevolver = Math.max(0, valorLiberado - valorHomologado);
 
-    // --- Handlers ---
-    const toggleItemStatus = (itemId: string, newStatus: 'APPROVED' | 'REJECTED') => {
+    // ─── SPRINT 8 HANDLERS ───
+
+    // 8.1: Glosa with structured reason
+    const handleGlosaConfirm = useCallback((itemId: string, reasonCode: GlosaReasonCode, reason: string) => {
         setAuditItems(prev => prev.map(i => {
             if (i.id !== itemId) return i;
-            return {
-                ...i,
-                auditStatus: newStatus,
-                glosaReason: newStatus === 'APPROVED' ? '' : i.glosaReason || 'Despesa rejeitada por desconformidade com a Portaria.'
-            };
+            return { ...i, auditStatus: 'REJECTED' as const, glosaReason: reason, glosaReasonCode: reasonCode };
         }));
-    };
+        setGlosaModalItem(null);
+        setHasUnsavedChanges(true);
+    }, []);
+
+    // Simple approve (no modal needed)
+    const handleApproveItem = useCallback((itemId: string) => {
+        setAuditItems(prev => prev.map(i => {
+            if (i.id !== itemId) return i;
+            return { ...i, auditStatus: 'APPROVED' as const, glosaReason: '', glosaReasonCode: '' as const };
+        }));
+        setHasUnsavedChanges(true);
+    }, []);
+
+    // 8.2: Batch Actions
+    const handleBatchApproveValid = useCallback(() => {
+        setAuditItems(prev => prev.map(i => {
+            if (i.validationResult.dateValid && i.validationResult.elementValid) {
+                return { ...i, auditStatus: 'APPROVED' as const, glosaReason: '', glosaReasonCode: '' as const };
+            }
+            return i;
+        }));
+        setHasUnsavedChanges(true);
+    }, []);
+
+    const handleBatchGlosaDivergent = useCallback(() => {
+        setAuditItems(prev => prev.map(i => {
+            const allValid = i.validationResult.dateValid && i.validationResult.elementValid;
+            if (!allValid) {
+                const code: GlosaReasonCode = !i.validationResult.dateValid ? 'DATE_INVALID' : 'ELEMENT_INVALID';
+                const reason = GLOSA_REASONS.find(r => r.code === code)?.description || 'Desconformidade detectada';
+                return { ...i, auditStatus: 'REJECTED' as const, glosaReason: reason, glosaReasonCode: code };
+            }
+            return i;
+        }));
+        setHasUnsavedChanges(true);
+    }, []);
+
+    const handleResetAll = useCallback(() => {
+        setAuditItems(prev => prev.map(i => ({
+            ...i, auditStatus: 'PENDING' as const, glosaReason: '', glosaReasonCode: '' as const
+        })));
+        setHasUnsavedChanges(true);
+    }, []);
+
+    // 8.3: Persist audit decisions to DB
+    const handleSaveAuditDecisions = useCallback(async () => {
+        setIsSaving(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const now = new Date().toISOString();
+
+            // Batch update each item
+            const promises = auditItems.map(item =>
+                supabase.from('accountability_items').update({
+                    status: item.auditStatus,
+                    audit_reason: item.glosaReason || null,
+                    audit_reason_code: item.glosaReasonCode || null,
+                    audited_by: user?.id || null,
+                    audited_at: now,
+                }).eq('id', item.id)
+            );
+
+            await Promise.all(promises);
+
+            // Also save parecer if it exists
+            if (aiParecer) {
+                await supabase.from('accountabilities').update({
+                    parecer_text: aiParecer,
+                    parecer_generated_at: now,
+                    analyst_id: user?.id || null,
+                }).eq('id', accountabilityData.id);
+            }
+
+            setHasUnsavedChanges(false);
+        } catch (err) {
+            console.error('Erro ao salvar decisões:', err);
+        } finally {
+            setIsSaving(false);
+        }
+    }, [auditItems, aiParecer, accountabilityData?.id]);
+
+    // 8.4: Diligência — return to requester
+    const handleDiligencia = useCallback(async (notes: string) => {
+        setFinalizing(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const now = new Date().toISOString();
+
+            // Save audit decisions first
+            await handleSaveAuditDecisions();
+
+            // Update accountability status
+            await supabase.from('accountabilities').update({
+                status: 'WAITING_CORRECTION',
+                diligencia_notes: notes,
+                diligencia_count: (accountabilityData?.diligencia_count || 0) + 1,
+            }).eq('id', accountabilityData.id);
+
+            // Log history
+            await supabase.from('historico_tramitacao').insert({
+                solicitation_id: processId,
+                status_from: 'WAITING_SOSFU',
+                status_to: 'WAITING_CORRECTION',
+                actor_name: user?.email,
+                description: `Prestação de contas devolvida para correção pela SOSFU. Motivo: ${notes.substring(0, 200)}`,
+                created_at: now,
+            });
+
+            setDiligenciaModalOpen(false);
+            await onRefresh();
+        } catch (err) {
+            console.error('Erro na diligência:', err);
+        } finally {
+            setFinalizing(false);
+        }
+    }, [accountabilityData, processId, handleSaveAuditDecisions, onRefresh]);
 
     const handleSiafeBaixa = async () => {
         setFinalizing(true);
         try {
+            // Sprint 8: Save audit decisions first
+            await handleSaveAuditDecisions();
+
             const { error } = await supabase
                 .from('accountabilities')
                 .update({
                     status: 'APPROVED',
                     balance: valorDevolver,
                     total_spent: valorHomologado,
+                    siafe_nl: nlNumber || null,
+                    siafe_date: baixaDate ? new Date(baixaDate).toISOString() : new Date().toISOString(),
+                    parecer_text: aiParecer || null,
+                    parecer_generated_at: aiParecer ? new Date().toISOString() : null,
                 })
                 .eq('id', accountabilityData.id);
 
@@ -470,8 +791,29 @@ Responda apenas com o texto do parecer em português formal, sem markdown. Comec
     // --- RENDER ---
     return (
         <div className="flex flex-col gap-6 animate-in fade-in duration-500">
-            {/* Receipt Viewer Modal */}
+            {/* Sprint 8: Modals */}
             <ReceiptViewerModal item={viewingReceipt} onClose={() => setViewingReceipt(null)} />
+            <GlosaModal item={glosaModalItem} onConfirm={handleGlosaConfirm} onCancel={() => setGlosaModalItem(null)} />
+            <DiligenciaModal isOpen={diligenciaModalOpen} processNumber={processData?.process_number} onConfirm={handleDiligencia} onCancel={() => setDiligenciaModalOpen(false)} />
+
+            {/* Sprint 8: Unsaved changes banner */}
+            {hasUnsavedChanges && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 flex items-center justify-between animate-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center gap-2 text-amber-800">
+                        <AlertTriangle size={16} />
+                        <span className="text-sm font-bold">Alterações não salvas</span>
+                        <span className="text-xs text-amber-600">As decisões de auditoria ainda não foram persistidas no banco de dados.</span>
+                    </div>
+                    <button
+                        onClick={handleSaveAuditDecisions}
+                        disabled={isSaving}
+                        className="px-4 py-2 bg-amber-600 text-white text-xs font-bold rounded-lg hover:bg-amber-700 transition-all flex items-center gap-2 disabled:opacity-50 shadow-sm"
+                    >
+                        {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                        Salvar Decisões
+                    </button>
+                </div>
+            )}
 
             {/* ===== HEADER: Score + Actions ===== */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -498,7 +840,21 @@ Responda apenas com o texto do parecer em português formal, sem markdown. Comec
                         </div>
                     </div>
 
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={handleSaveAuditDecisions}
+                            disabled={isSaving || !hasUnsavedChanges}
+                            className="px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-40"
+                        >
+                            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} className="text-blue-500" />}
+                            Salvar
+                        </button>
+                        <button
+                            onClick={() => setDiligenciaModalOpen(true)}
+                            className="px-4 py-2.5 bg-white border border-amber-300 text-amber-700 rounded-lg text-sm font-bold hover:bg-amber-50 transition-colors shadow-sm flex items-center gap-2"
+                        >
+                            <ArrowLeftRight size={16} /> Diligenciar
+                        </button>
                         <button
                             onClick={handleGenerateParecer}
                             disabled={generatingParecer}
@@ -523,8 +879,8 @@ Responda apenas com o texto do parecer em português formal, sem markdown. Comec
                 {/* LEFT COLUMN: Receipt Table */}
                 <div className="xl:col-span-8 flex flex-col gap-6">
 
-                    {/* Search Bar */}
-                    <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    {/* Search Bar + Batch Actions */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                         <div className="relative max-w-sm w-full">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                             <input
@@ -535,10 +891,35 @@ Responda apenas com o texto do parecer em português formal, sem markdown. Comec
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <div className="flex items-center gap-4 text-xs font-bold text-slate-500 uppercase">
-                            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-500"></span> Aprovados</span>
-                            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500"></span> Glosados</span>
-                            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-blue-500"></span> Comprovante</span>
+                        {/* Sprint 8: Batch Actions */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                                onClick={handleBatchApproveValid}
+                                className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-colors flex items-center gap-1.5"
+                                title="Aprovar automaticamente todos os itens com validação IA positiva"
+                            >
+                                <CheckCheck size={14} /> Aprovar Válidos
+                            </button>
+                            <button
+                                onClick={handleBatchGlosaDivergent}
+                                className="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors flex items-center gap-1.5"
+                                title="Glosar automaticamente todos os itens com divergência detectada"
+                            >
+                                <XCircle size={14} /> Glosar Divergentes
+                            </button>
+                            <button
+                                onClick={handleResetAll}
+                                className="px-3 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-lg text-xs font-bold hover:bg-slate-100 transition-colors flex items-center gap-1.5"
+                                title="Resetar todas as decisões para pendente"
+                            >
+                                <RotateCcw size={14} /> Resetar
+                            </button>
+                            <div className="h-5 w-px bg-slate-200 mx-1" />
+                            <div className="flex items-center gap-3 text-[10px] font-bold text-slate-500 uppercase">
+                                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> {auditItems.filter(i => i.auditStatus === 'APPROVED').length}</span>
+                                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /> {auditItems.filter(i => i.auditStatus === 'REJECTED').length}</span>
+                                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-slate-400" /> {auditItems.filter(i => i.auditStatus === 'PENDING').length}</span>
+                            </div>
                         </div>
                     </div>
 
@@ -584,9 +965,16 @@ Responda apenas com o texto do parecer em português formal, sem markdown. Comec
                                                         </div>
                                                     </div>
                                                     {item.auditStatus === 'REJECTED' && (
-                                                        <div className="mt-2 text-xs text-red-600 bg-red-100 p-2 rounded border border-red-200 flex items-center gap-2 w-fit">
-                                                            <Ban size={12} />
-                                                            <span>{item.glosaReason}</span>
+                                                        <div className="mt-2 text-xs text-red-600 bg-red-100 p-2 rounded-lg border border-red-200 flex items-start gap-2 max-w-sm">
+                                                            <Ban size={12} className="mt-0.5 flex-shrink-0" />
+                                                            <div>
+                                                                {item.glosaReasonCode && (
+                                                                    <span className="inline-block bg-red-200 text-red-800 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase mr-1 mb-0.5">
+                                                                        {GLOSA_REASONS.find(r => r.code === item.glosaReasonCode)?.label || item.glosaReasonCode}
+                                                                    </span>
+                                                                )}
+                                                                <span>{item.glosaReason}</span>
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </td>
@@ -615,14 +1003,14 @@ Responda apenas com o texto do parecer em português formal, sem markdown. Comec
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex justify-end gap-1">
                                                         <button
-                                                            onClick={() => toggleItemStatus(item.id, 'APPROVED')}
+                                                            onClick={() => handleApproveItem(item.id)}
                                                             className={`p-2 rounded-lg transition-colors ${item.auditStatus === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600'}`}
                                                             title="Aprovar Item"
                                                         >
                                                             <Check size={18} />
                                                         </button>
                                                         <button
-                                                            onClick={() => toggleItemStatus(item.id, 'REJECTED')}
+                                                            onClick={() => setGlosaModalItem(item)}
                                                             className={`p-2 rounded-lg transition-colors ${item.auditStatus === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-400 hover:bg-red-50 hover:text-red-600'}`}
                                                             title="Glosar (Rejeitar) Item"
                                                         >

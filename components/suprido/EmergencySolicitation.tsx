@@ -51,6 +51,12 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
         return sum + (isNaN(v) ? 0 : v);
     }, 0);
 
+    // Period validation: max 90 days (CNJ 169/2013)
+    const periodDays = (startDate && endDate)
+        ? Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86_400_000)
+        : 0;
+    const isPeriodExceeded = periodDays > 90;
+
     const addItem = () => {
         setItems(prev => [...prev, { id: crypto.randomUUID(), element: '', value: '' }]);
     };
@@ -517,6 +523,14 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                             </div>
                         </div>
 
+                        {/* Period validation warning */}
+                        {isPeriodExceeded && (
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 flex items-center gap-2">
+                                <AlertTriangle size={14} className="shrink-0" />
+                                <span><strong>Período excedido!</strong> O intervalo de {periodDays} dias ultrapassa o limite de 90 dias (Res. CNJ 169/2013).</span>
+                            </div>
+                        )}
+
                         {/* Justificativa */}
                         <div className="space-y-2">
                             <div className="flex justify-between items-end">
@@ -567,7 +581,7 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                     </button>
                     <button 
                         type="submit"
-                        disabled={isSubmitting || totalValue > 15000}
+                        disabled={isSubmitting || totalValue > 15000 || isPeriodExceeded}
                         className={`
                             px-8 py-3 bg-red-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-red-200 hover:bg-red-700 transition-all flex items-center gap-2
                             ${isSubmitting || totalValue > 15000 ? 'opacity-70 cursor-not-allowed' : ''}
