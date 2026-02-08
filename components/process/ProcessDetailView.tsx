@@ -32,9 +32,10 @@ interface ProcessDetailViewProps {
   processId: string;
   onBack: () => void;
   initialTab?: TabType; 
+  userProfile?: any;
 }
 
-export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId, onBack, initialTab = 'OVERVIEW' }) => {
+export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId, onBack, initialTab = 'OVERVIEW', userProfile }) => {
   const [activeTab, setActiveTab] = useState<TabType>(initialTab); 
   const [processData, setProcessData] = useState<any>(null);
   const [requesterProfile, setRequesterProfile] = useState<any>(null);
@@ -57,8 +58,13 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
   useEffect(() => {
     fetchProcessData();
-    fetchCurrentUserRole();
-  }, [processId]);
+    fetchProcessData();
+    if (userProfile?.dperfil?.slug) {
+        setCurrentUserRole(userProfile.dperfil.slug.toUpperCase());
+    } else {
+        fetchCurrentUserRole();
+    }
+  }, [processId, userProfile]);
 
   useEffect(() => {
       if (initialTab) {
@@ -1126,12 +1132,14 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                       <h3 className="font-bold text-gray-800 mb-4">Ações de Controle</h3>
                       
                       <div className="space-y-3">
-                          <button 
-                            onClick={() => handleStatusChange('WAITING_SOSFU_EXECUTION')}
-                            className="w-full py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-sm font-bold hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2"
-                          >
-                              <CheckCircle2 size={16}/> Aprovar para Execução
-                          </button>
+                          {currentUserRole === 'SOSFU_GESTOR' && (
+                              <button 
+                                onClick={() => handleStatusChange('WAITING_SOSFU_EXECUTION')}
+                                className="w-full py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-sm font-bold hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2"
+                              >
+                                  <CheckCircle2 size={16}/> Aprovar para Execução
+                              </button>
+                          )}
                           
                           <button 
                             onClick={() => handleStatusChange('WAITING_CORRECTION')}
@@ -1140,12 +1148,14 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                               <AlertTriangle size={16}/> Solicitar Correção
                           </button>
                           
-                          <button 
-                            onClick={() => handleStatusChange('REJECTED')}
-                            className="w-full py-2.5 bg-red-50 text-red-700 border border-red-100 rounded-lg text-sm font-bold hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
-                          >
-                              <Ban size={16}/> Indeferir Processo
-                          </button>
+                          {currentUserRole === 'SOSFU_GESTOR' && (
+                              <button 
+                                onClick={() => handleStatusChange('REJECTED')}
+                                className="w-full py-2.5 bg-red-50 text-red-700 border border-red-100 rounded-lg text-sm font-bold hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                              >
+                                  <Ban size={16}/> Indeferir Processo
+                              </button>
+                          )}
                       </div>
                   </div>
               </div>
@@ -1543,8 +1553,9 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                     <div className="animate-in fade-in bg-white rounded-xl shadow-sm border border-gray-200 min-h-[600px]">
                         
                         {/* CONDICIONAL APRIMORADA: SOSFU/ADMIN VÊ O PAINEL DE AUDITORIA SEMPRE */}
-                        {(currentUserRole === 'SOSFU' || currentUserRole === 'ADMIN') ? (
+                        {(currentUserRole.startsWith('SOSFU') || currentUserRole === 'ADMIN') ? (
                             <SosfuAuditPanel 
+                                isGestor={currentUserRole === 'SOSFU_GESTOR' || currentUserRole === 'SOSFU_ADM' || currentUserRole === 'ADMIN'}
                                 processData={processData}
                                 accountabilityData={accountabilityData}
                                 pcItems={pcItems}

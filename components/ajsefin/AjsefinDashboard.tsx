@@ -12,6 +12,7 @@ interface AjsefinDashboardProps {
     onNavigate: (page: string, processId?: string) => void;
     darkMode?: boolean;
     showTeamOnly?: boolean;
+    isGestor?: boolean;
 }
 
 // ==================== GESTÃO DE EQUIPE (AJSEFIN) ====================
@@ -604,7 +605,12 @@ const AjsefinTeamSection: React.FC<{
 };
 
 // ====================== DASHBOARD ======================
-export const AjsefinDashboard: React.FC<AjsefinDashboardProps> = ({ onNavigate, darkMode = false, showTeamOnly = false }) => {
+export const AjsefinDashboard: React.FC<AjsefinDashboardProps> = ({ 
+    onNavigate, 
+    darkMode = false, 
+    showTeamOnly = false,
+    isGestor = false 
+}) => {
     const [loading, setLoading] = useState(true);
     const [recentProcesses, setRecentProcesses] = useState<any[]>([]);
 
@@ -717,7 +723,7 @@ export const AjsefinDashboard: React.FC<AjsefinDashboardProps> = ({ onNavigate, 
             )}
 
             {/* ===== EQUIPE TÉCNICA (AJSEFIN) — Gestão Gestor-Style ===== */}
-            <AjsefinTeamSection onNavigate={onNavigate} darkMode={darkMode} isGestor={true} />
+            <AjsefinTeamSection onNavigate={onNavigate} darkMode={darkMode} isGestor={isGestor} />
 
             {/* ===== PROCESSOS RECENTES — abaixo da equipe ===== */}
             {!showTeamOnly && (

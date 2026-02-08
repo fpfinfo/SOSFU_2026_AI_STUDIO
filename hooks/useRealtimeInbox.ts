@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
-type ModuleType = 'GESTOR' | 'SOSFU' | 'SEFIN' | 'AJSEFIN' | 'SGP';
+type ModuleType = 'GESTOR' | 'SOSFU' | 'SEFIN' | 'AJSEFIN' | 'SGP' | 'SEAD' | 'PRESIDENCIA' | 'SODPA';
 
 interface UseRealtimeInboxOptions {
     /** The module to subscribe to */

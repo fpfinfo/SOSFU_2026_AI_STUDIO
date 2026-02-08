@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Crown, Gavel, Scale, FileBadge, User, Search, Filter, Edit3, Check, X, Loader2, DollarSign, Plus, RefreshCw, AlertCircle, ChevronDown, UserCircle2 } from 'lucide-react';
+import { Shield, Crown, Gavel, Scale, FileBadge, User, Search, Filter, Edit3, Check, X, Loader2, DollarSign, Plus, RefreshCw, AlertCircle, ChevronDown, UserCircle2, FileText, Briefcase } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 // Tipo para a nova tabela de perfil
@@ -24,11 +24,37 @@ interface Profile {
 
 const ROLE_STYLES: Record<string, { label: string; color: string; ring: string }> = {
   'ADMIN': { label: 'Admin', color: 'text-red-600', ring: 'ring-red-100' },
-  'SEFIN': { label: 'SEFIN', color: 'text-emerald-600', ring: 'ring-emerald-100' },
-  'AJSEFIN': { label: 'AJSEFIN', color: 'text-orange-600', ring: 'ring-orange-100' },
-  'SOSFU': { label: 'SOSFU', color: 'text-blue-600', ring: 'ring-blue-100' },
-  'SGP': { label: 'SGP', color: 'text-purple-600', ring: 'ring-purple-100' },
-  'GESTOR': { label: 'Gestor', color: 'text-indigo-600', ring: 'ring-indigo-100' },
+  
+  // SOSFU
+  'SOSFU_GESTOR': { label: 'Diretor SOSFU', color: 'text-blue-700', ring: 'ring-blue-200' },
+  'SOSFU_EQUIPE': { label: 'Analista SOSFU', color: 'text-blue-600', ring: 'ring-blue-100' },
+
+  // SEFIN
+  'SEFIN_GESTOR': { label: 'Sec. Finanças', color: 'text-emerald-700', ring: 'ring-emerald-200' },
+  'SEFIN_EQUIPE': { label: 'Analista Fin.', color: 'text-emerald-600', ring: 'ring-emerald-100' },
+
+  // AJSEFIN
+  'AJSEFIN_GESTOR': { label: 'Consultor Jur.', color: 'text-orange-700', ring: 'ring-orange-200' },
+  'AJSEFIN_EQUIPE': { label: 'Analista Jur.', color: 'text-orange-600', ring: 'ring-orange-100' },
+
+  // SGP
+  'SGP_GESTOR': { label: 'Diretor SGP', color: 'text-purple-700', ring: 'ring-purple-200' },
+  'SGP_EQUIPE': { label: 'Analista SGP', color: 'text-purple-600', ring: 'ring-purple-100' },
+
+  // SODPA
+  'SODPA_GESTOR': { label: 'Diretor SODPA', color: 'text-pink-700', ring: 'ring-pink-200' },
+  'SODPA_EQUIPE': { label: 'Analista SODPA', color: 'text-pink-600', ring: 'ring-pink-100' },
+
+  // SEAD
+  'SEAD_GESTOR': { label: 'Sec. Admin', color: 'text-cyan-700', ring: 'ring-cyan-200' },
+  'SEAD_EQUIPE': { label: 'Analista SEAD', color: 'text-cyan-600', ring: 'ring-cyan-100' },
+
+  // PRESIDENCIA
+  'PRESIDENCIA_GESTOR': { label: 'Chefe Gabinete', color: 'text-slate-800', ring: 'ring-slate-300' },
+  'PRESIDENCIA_EQUIPE': { label: 'Assessor Pres.', color: 'text-slate-600', ring: 'ring-slate-200' },
+
+  // STANDARD
+  'GESTOR': { label: 'Gestor Unidade', color: 'text-indigo-600', ring: 'ring-indigo-100' },
   'USER': { label: 'Usuário', color: 'text-gray-600', ring: 'ring-gray-100' },
   'SERVIDOR': { label: 'Servidor', color: 'text-gray-500', ring: 'ring-gray-100' },
 };
@@ -220,14 +246,51 @@ export const RolesSettings: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3 mb-6">
-                {['ADMIN', 'SEFIN', 'SOSFU', 'GESTOR', 'USER', 'AJSEFIN', 'SGP', 'SERVIDOR'].map((slug) => {
-                    const count = getRoleCount(slug);
-                    const style = ROLE_STYLES[slug] || ROLE_STYLES['SERVIDOR'];
+                {[
+                    { group: 'ADMIN', label: 'Admin', icon: Shield },
+                    { group: 'SOSFU', label: 'SOSFU', icon: FileBadge }, 
+                    { group: 'SEFIN', label: 'SEFIN', icon: DollarSign },
+                    { group: 'AJSEFIN', label: 'Jurídico', icon: Scale },
+                    { group: 'SGP', label: 'RH', icon: User },
+                    { group: 'SODPA', label: 'SODPA', icon: FileText },
+                    { group: 'SEAD', label: 'SEAD', icon: Briefcase },
+                    { group: 'PRESIDENCIA', label: 'Presid.', icon: Crown },
+                    { group: 'GESTOR', label: 'Gestor', icon: UserCircle2 },
+                    { group: 'USER', label: 'Usuário', icon: User }
+                ].map((item) => {
+                    // Count includes both GESTOR and EQUIPE for the group
+                    const count = profiles.filter(p => {
+                       const role = p.dperfil?.slug || 'SERVIDOR';
+                       return role.startsWith(item.group); 
+                    }).length;
+                    
+                    const isActive = selectedRoleFilter === item.group;
+
                     return (
-                        <div key={slug} className="bg-white border border-gray-100 rounded-xl p-3 text-center shadow-sm hover:shadow-md transition-shadow">
-                            <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${style.color}`}>{count}</p>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase">{style.label}</p>
-                        </div>
+                        <button 
+                            key={item.group} 
+                            onClick={() => setSelectedRoleFilter(isActive ? 'ALL' : item.group)}
+                            className={`
+                                flex flex-col items-center justify-center p-3 rounded-xl border transition-all
+                                ${isActive 
+                                    ? 'bg-blue-50 border-blue-200 shadow-sm' 
+                                    : 'bg-white border-gray-100 hover:border-blue-100 hover:shadow-sm'
+                                }
+                            `}
+                        >
+                            <div className={`
+                                w-8 h-8 rounded-full flex items-center justify-center mb-1.5 transition-colors
+                                ${isActive ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-500'}
+                            `}>
+                                <item.icon size={16} />
+                            </div>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? 'text-blue-700' : 'text-gray-500'}`}>
+                                {item.label}
+                            </span>
+                             <span className={`text-[10px] font-bold bg-gray-100 px-1.5 rounded-full mt-1 ${isActive ? 'bg-blue-100 text-blue-700' : 'text-gray-400'}`}>
+                                {count}
+                            </span>
+                        </button>
                     );
                 })}
             </div>

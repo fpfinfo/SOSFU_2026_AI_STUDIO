@@ -33,15 +33,15 @@ export const UsersSettings: React.FC = () => {
     const [saving, setSaving] = useState(false);
 
     // Cache de IDs de papéis para operações rápidas
-    const [roleIds, setRoleIds] = useState<{ SERVIDOR: string | null, SOSFU: string | null }>({ SERVIDOR: null, SOSFU: null });
+    const [roleIds, setRoleIds] = useState<{ SERVIDOR: string | null, SOSFU_EQUIPE: string | null }>({ SERVIDOR: null, SOSFU_EQUIPE: null });
 
     // 1. Carregar IDs dos Papéis Críticos
     const fetchRoleIds = async () => {
         const { data } = await supabase.from('dperfil').select('id, slug');
         if (data) {
             const servidor = data.find(r => r.slug === 'SERVIDOR')?.id || null;
-            const sosfu = data.find(r => r.slug === 'SOSFU')?.id || null;
-            setRoleIds({ SERVIDOR: servidor, SOSFU: sosfu });
+            const sosfuEquipe = data.find(r => r.slug === 'SOSFU_EQUIPE')?.id || null;
+            setRoleIds({ SERVIDOR: servidor, SOSFU_EQUIPE: sosfuEquipe });
         }
     };
 
@@ -56,7 +56,7 @@ export const UsersSettings: React.FC = () => {
                     *,
                     dperfil!inner (id, slug, name)
                 `)
-                .in('dperfil.slug', ['SOSFU', 'ADMIN']) 
+                .in('dperfil.slug', ['SOSFU_GESTOR', 'SOSFU_EQUIPE', 'ADMIN']) 
                 .order('full_name');
             
             if (error) throw error;
@@ -95,10 +95,10 @@ export const UsersSettings: React.FC = () => {
             if (error) throw error;
             
             // Filtra localmente: Remove quem já é SOSFU ou ADMIN da lista de resultados
-            // Permite adicionar SERVIDOR, USER, GESTOR, etc. à equipe técnica
-            const filtered = data?.filter(u => 
-                u.dperfil?.slug !== 'SOSFU' && u.dperfil?.slug !== 'ADMIN'
-            ) || [];
+            const filtered = data?.filter(u => {
+                const slug = u.dperfil?.slug || '';
+                return !['SOSFU_GESTOR', 'SOSFU_EQUIPE', 'ADMIN'].includes(slug);
+            }) || [];
             
             setSearchResults(filtered);
         } catch (error) {
@@ -108,10 +108,10 @@ export const UsersSettings: React.FC = () => {
         }
     };
 
-    // 4. Adicionar à Equipe (Transforma o usuário em SOSFU)
+    // 4. Adicionar à Equipe (Transforma o usuário em Analista SOSFU)
     const handleAddUserToTeam = async () => {
-        if (!selectedUser || !roleIds.SOSFU) {
-            setModalError('Erro de configuração: Papel SOSFU não encontrado.');
+        if (!selectedUser || !roleIds.SOSFU_EQUIPE) {
+            setModalError('Erro de configuração: Papel Analista SOSFU não encontrado.');
             return;
         }
         
@@ -121,7 +121,7 @@ export const UsersSettings: React.FC = () => {
         try {
             const { error } = await supabase
                 .from('profiles')
-                .update({ perfil_id: roleIds.SOSFU })
+                .update({ perfil_id: roleIds.SOSFU_EQUIPE })
                 .eq('id', selectedUser.id);
 
             if (error) throw error;
@@ -303,7 +303,7 @@ export const UsersSettings: React.FC = () => {
                                 <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
                                 <div>
                                     <p className="font-bold">Atenção!</p>
-                                    <p>O usuário selecionado terá seu perfil alterado para <strong>SOSFU</strong> e terá acesso administrativo a este módulo.</p>
+                                    <p>O usuário selecionado terá seu perfil alterado para <strong>Analista SOSFU</strong> e terá acesso operacional a este módulo.</p>
                                 </div>
                             </div>
 

@@ -13,9 +13,10 @@ const DARK_MODE_KEY = 'sefin_dark_mode';
 
 interface SefinCockpitProps {
     onNavigate: (page: string, processId?: string) => void;
+    userProfile: any;
 }
 
-export const SefinCockpit: React.FC<SefinCockpitProps> = ({ onNavigate }) => {
+export const SefinCockpit: React.FC<SefinCockpitProps> = ({ onNavigate, userProfile }) => {
     const [activeView, setActiveView] = useState<SefinViewType>('control');
     const [lastSeenCount, setLastSeenCount] = useState(0);
     const [darkMode, setDarkMode] = useState(false);
@@ -89,7 +90,8 @@ export const SefinCockpit: React.FC<SefinCockpitProps> = ({ onNavigate }) => {
     const renderActiveView = () => {
         switch (activeView) {
             case 'control':
-                return <SefinDashboard onNavigate={onNavigate} darkMode={darkMode} />;
+                const isGestor = userProfile?.dperfil?.slug === 'SEFIN_GESTOR';
+                return <SefinDashboard onNavigate={onNavigate} darkMode={darkMode} isGestor={isGestor} />;
             case 'explorer':
                 return <SefinExplorerView darkMode={darkMode} onNavigate={onNavigate} />;
             case 'intelligence':

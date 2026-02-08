@@ -61,16 +61,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
   const [gestorLocationTitle, setGestorLocationTitle] = useState<string | null>(null);
   
   const allTabs = [
-    { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard, roles: ['ADMIN', 'SOSFU', 'SEFIN', 'PRESIDENCIA', 'SGP'] },
+    { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SEFIN_GESTOR', 'SEFIN_EQUIPE', 'PRESIDENCIA_GESTOR', 'PRESIDENCIA_EQUIPE', 'SGP_GESTOR', 'SGP_EQUIPE'] },
     { id: 'suprido_dashboard', label: 'Portal do Usuário', icon: Briefcase, roles: ['USER', 'SERVIDOR'] }, 
     { id: 'gestor_dashboard', label: 'Gabinete do Gestor', icon: Gavel, roles: ['GESTOR', 'ADMIN'] },
     { id: 'sefin_dashboard', label: 'Gabinete SEFIN', icon: Scale, roles: ['SEFIN', 'ADMIN'] },
     { id: 'ajsefin_dashboard', label: 'Gabinete AJSEFIN', icon: Scale, roles: ['AJSEFIN', 'ADMIN'] },
-    { id: 'solicitations', label: 'Gestão de Solicitações', icon: FileText, roles: ['ADMIN', 'SOSFU'] },
-    { id: 'accountability', label: 'Gestão de Contas', icon: CheckSquare, roles: ['ADMIN', 'SOSFU'] },
-    { id: 'archive', label: 'Arquivo', icon: Archive, roles: ['ADMIN', 'SOSFU'] },
-    { id: 'reports', label: 'Relatórios', icon: PieChart, roles: ['ADMIN', 'SOSFU', 'PRESIDENCIA'] },
-    { id: 'settings', label: 'Configurações', icon: Settings, roles: ['ADMIN', 'SOSFU'] },
+    { id: 'solicitations', label: 'Gestão de Solicitações', icon: FileText, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE'] },
+    { id: 'accountability', label: 'Gestão de Contas', icon: CheckSquare, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE'] },
+    { id: 'archive', label: 'Arquivo', icon: Archive, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE'] },
+    { id: 'reports', label: 'Relatórios', icon: PieChart, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'PRESIDENCIA_GESTOR', 'PRESIDENCIA_EQUIPE'] },
+    { id: 'settings', label: 'Configurações', icon: Settings, roles: ['ADMIN', 'SOSFU_GESTOR'] },
   ];
 
   const userRole = userProfile?.dperfil?.slug || 'SERVIDOR';

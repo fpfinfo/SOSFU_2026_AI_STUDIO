@@ -19,6 +19,7 @@ interface SosfuAuditPanelProps {
     pcItems: any[];
     onRefresh: () => Promise<void>;
     processId: string;
+    isGestor?: boolean;
 }
 
 type GlosaReasonCode = 'DATE_INVALID' | 'ELEMENT_INVALID' | 'NO_DISCRIMINATION' | 'SUPPLIER_IRREGULAR' | 'DUPLICATE' | 'VALUE_MISMATCH' | 'OTHER';
@@ -274,7 +275,7 @@ const GlosaModal = ({ item, onConfirm, onCancel }: {
                     <button
                         onClick={() => onConfirm(item.id, selectedCode, finalReason)}
                         disabled={selectedCode === 'OTHER' && !customReason.trim()}
-                        className="px-6 py-2.5 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
+                        className="px-6 py-2.5 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Ban size={16} /> Confirmar Glosa
                     </button>
@@ -472,7 +473,8 @@ export const SosfuAuditPanel: React.FC<SosfuAuditPanelProps> = ({
     accountabilityData,
     pcItems,
     onRefresh,
-    processId
+    processId,
+    isGestor = false
 }) => {
     // --- State ---
     const [auditItems, setAuditItems] = useState<AuditItem[]>([]);
@@ -1141,6 +1143,25 @@ Responda apenas com o texto do parecer em português formal, sem markdown. Comec
                         </div>
                     </div>
                 </div>
+            {/* Only Gestor can finalize (Diligencia or Baixa) */}
+            {isGestor && (
+                <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-100">
+                    <button
+                        onClick={() => setDiligenciaModalOpen(true)}
+                        disabled={finalizing || hasUnsavedChanges}
+                        className="px-4 py-2 bg-amber-100 text-amber-700 font-bold rounded-lg hover:bg-amber-200 transition-colors disabled:opacity-50 flex items-center gap-2"
+                    >
+                        <RotateCcw size={16} /> Devolver para Correção
+                    </button>
+                    <button
+                        onClick={() => setSiafeModalOpen(true)}
+                        disabled={finalizing || hasUnsavedChanges || checklist.some(c => c.status === 'fail')}
+                        className="px-4 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                    >
+                        <CheckCheck size={16} /> Aprovar e Baixar (SIAFE)
+                    </button>
+                </div>
+            )}
             </div>
 
             {/* ===== SIAFE BAIXA MODAL ===== */}

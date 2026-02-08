@@ -13,6 +13,10 @@ import { SupridoDashboard } from './components/suprido/SupridoDashboard';
 import { GestorDashboard } from './components/gestor/GestorDashboard';
 import { SefinCockpit } from './components/sefin/SefinCockpit';
 import { AjsefinCockpit } from './components/ajsefin/AjsefinCockpit';
+import { SgpDashboard } from './components/sgp/SgpDashboard';
+import { SeadDashboard } from './components/sead/SeadDashboard';
+import { PresidenciaDashboard } from './components/presidencia/PresidenciaDashboard';
+import { SodpaDashboard } from './components/sodpa/SodpaDashboard';
 import { EmergencySolicitation } from './components/suprido/EmergencySolicitation';
 import { JurySolicitation } from './components/suprido/JurySolicitation';
 import { ProcessDetailView } from './components/process/ProcessDetailView';
@@ -143,16 +147,24 @@ const App: React.FC = () => {
       } else if (data) {
         setUserProfile(data);
         
-        const role = data.dperfil?.slug;
+        const role = data.dperfil?.slug || '';
         if (activeTab === 'dashboard') {
             if (role === 'USER' || role === 'SERVIDOR') {
                 setActiveTab('suprido_dashboard');
             } else if (role === 'GESTOR') {
                 setActiveTab('gestor_dashboard');
-            } else if (role === 'SEFIN') {
+            } else if (role.startsWith('SEFIN')) {
                 setActiveTab('sefin_dashboard');
-            } else if (role === 'AJSEFIN') {
+            } else if (role.startsWith('AJSEFIN')) {
                 setActiveTab('ajsefin_dashboard');
+            } else if (role.startsWith('SGP')) {
+                setActiveTab('sgp_dashboard');
+            } else if (role.startsWith('SEAD')) {
+                setActiveTab('sead_dashboard');
+            } else if (role.startsWith('PRESIDENCIA')) {
+                setActiveTab('presidencia_dashboard');
+            } else if (role.startsWith('SODPA')) {
+                setActiveTab('sodpa_dashboard');
             }
         }
       }
@@ -222,13 +234,21 @@ const App: React.FC = () => {
           </div>
         );
       case 'suprido_dashboard':
-        return <SupridoDashboard onNavigate={handleNavigation} />;
+        return <SupridoDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
       case 'gestor_dashboard':
-        return <GestorDashboard onNavigate={handleNavigation} />;
+        return <GestorDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
       case 'sefin_dashboard':
-        return <SefinCockpit onNavigate={handleNavigation} />;
+        return <SefinCockpit onNavigate={handleNavigation} userProfile={userProfile} />;
       case 'ajsefin_dashboard':
-        return <AjsefinCockpit onNavigate={handleNavigation} />;
+        return <AjsefinCockpit onNavigate={handleNavigation} userProfile={userProfile} />;
+      case 'sgp_dashboard':
+        return <SgpDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
+      case 'sead_dashboard':
+        return <SeadDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
+      case 'presidencia_dashboard':
+        return <PresidenciaDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
+      case 'sodpa_dashboard':
+        return <SodpaDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
       case 'solicitation_emergency':
         return <EmergencySolicitation onNavigate={handleNavigation} />;
       case 'solicitation_jury':
@@ -241,15 +261,20 @@ const App: React.FC = () => {
             <ProcessDetailView 
                 processId={selectedProcessId}
                 initialTab={processInitialTab}
+                userProfile={userProfile}
                 onBack={() => {
                     // Se veio do Arquivo, volta pro Arquivo
                     if (processInitialTab === 'ARCHIVE') return setActiveTab('archive');
-                    const role = userProfile?.dperfil?.slug;
-                    if (role === 'SEFIN') return setActiveTab('sefin_dashboard');
-                    if (role === 'AJSEFIN') return setActiveTab('ajsefin_dashboard');
+                    const role = userProfile?.dperfil?.slug || '';
+                    if (role.startsWith('SEFIN')) return setActiveTab('sefin_dashboard');
+                    if (role.startsWith('AJSEFIN')) return setActiveTab('ajsefin_dashboard');
+                    if (role.startsWith('SGP')) return setActiveTab('sgp_dashboard');
+                    if (role.startsWith('SEAD')) return setActiveTab('sead_dashboard');
+                    if (role.startsWith('PRESIDENCIA')) return setActiveTab('presidencia_dashboard');
+                    if (role.startsWith('SODPA')) return setActiveTab('sodpa_dashboard');
                     if (role === 'GESTOR') return setActiveTab('gestor_dashboard');
                     if (role === 'USER') return setActiveTab('suprido_dashboard');
-                    if (role === 'SOSFU' || role === 'ADMIN') return setActiveTab('accountability');
+                    if (role.startsWith('SOSFU') || role === 'ADMIN') return setActiveTab('accountability');
                     return setActiveTab('dashboard');
                 }} 
             />
@@ -257,9 +282,9 @@ const App: React.FC = () => {
             <div>Erro: Processo não selecionado</div>
         );
       case 'solicitations':
-        return <SolicitationsView onNavigate={handleNavigation} />;
+        return <SolicitationsView onNavigate={handleNavigation} userProfile={userProfile} />;
       case 'accountability':
-        return <AccountabilityView onNavigate={handleNavigation} />;
+        return <AccountabilityView onNavigate={handleNavigation} userProfile={userProfile} />;
       case 'archive':
         return <ArchiveView onNavigate={handleNavigation} />;
       case 'settings':

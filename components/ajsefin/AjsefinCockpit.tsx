@@ -10,9 +10,10 @@ const DARK_MODE_KEY = 'ajsefin_dark_mode';
 
 interface AjsefinCockpitProps {
     onNavigate: (page: string, processId?: string) => void;
+    userProfile: any;
 }
 
-export const AjsefinCockpit: React.FC<AjsefinCockpitProps> = ({ onNavigate }) => {
+export const AjsefinCockpit: React.FC<AjsefinCockpitProps> = ({ onNavigate, userProfile }) => {
     const [activeView, setActiveView] = useState<AjsefinViewType>('painel');
     const [lastSeenCount, setLastSeenCount] = useState(0);
     const [darkMode, setDarkMode] = useState(false);
@@ -85,16 +86,17 @@ export const AjsefinCockpit: React.FC<AjsefinCockpitProps> = ({ onNavigate }) =>
     }, [handleToggleDarkMode]);
 
     const renderActiveView = () => {
+        const isGestor = userProfile?.dperfil?.slug === 'AJSEFIN_GESTOR';
         switch (activeView) {
             case 'painel':
-                return <AjsefinDashboard onNavigate={onNavigate} darkMode={darkMode} />;
+                return <AjsefinDashboard onNavigate={onNavigate} darkMode={darkMode} isGestor={isGestor} />;
             case 'processos':
                 return <AjsefinProcessView onNavigate={onNavigate} darkMode={darkMode} />;
             case 'equipe':
                 // Equipe reutiliza o painel com foco na seção de equipe
-                return <AjsefinDashboard onNavigate={onNavigate} darkMode={darkMode} showTeamOnly />;
+                return <AjsefinDashboard onNavigate={onNavigate} darkMode={darkMode} showTeamOnly isGestor={isGestor} />;
             default:
-                return <AjsefinDashboard onNavigate={onNavigate} darkMode={darkMode} />;
+                return <AjsefinDashboard onNavigate={onNavigate} darkMode={darkMode} isGestor={isGestor} />;
         }
     };
 

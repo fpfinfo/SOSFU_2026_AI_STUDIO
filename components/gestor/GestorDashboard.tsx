@@ -26,7 +26,7 @@ const GESTOR_FUNCOES_FALLBACK = ['Magistrado', 'Assessor', 'Analista Judiciário
 const MEMBERS_PER_PAGE = 8;
 const GESTOR_MODULE = 'GESTOR';
 
-const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minutasCount: number; onNavigate: (page: string, processId?: string, accountabilityId?: string) => void }> = ({ userName, pendingCount, minutasCount, onNavigate }) => {
+const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minutasCount: number; onNavigate: (page: string, processId?: string, accountabilityId?: string) => void; userLocation: string | null }> = ({ userName, pendingCount, minutasCount, onNavigate, userLocation }) => {
     const [members, setMembers] = useState<GestorTeamMember[]>([]);
     const [showAddModal, setShowAddModal] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -58,13 +58,19 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                 const userIds = teamRows.map(r => r.user_id);
                 const { data: profiles } = await supabase
                     .from('profiles')
-                    .select('id, full_name, email, matricula, avatar_url')
+                    .select('id, full_name, email, matricula, avatar_url, lotacao')
                     .in('id', userIds);
 
                 const profileMap = new Map((profiles || []).map(p => [p.id, p]));
 
                 const mapped: GestorTeamMember[] = teamRows
-                    .filter(r => profileMap.has(r.user_id))
+                    .filter(r => {
+                        const p = profileMap.get(r.user_id);
+                        if (!p) return false;
+                        // Strict Location Filter: show only if location matches
+                        if (userLocation && p.lotacao !== userLocation) return false;
+                        return true;
+                    })
                     .map(r => {
                         const p = profileMap.get(r.user_id)!;
                         return {
@@ -79,7 +85,7 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                 setMembers(mapped);
             } catch (err) { console.error('Error loading GESTOR team:', err); }
         })();
-    }, []);
+    }, [userLocation]); // Re-run if userLocation changes
 
     // Fetch distinct cargos from profiles table
     useEffect(() => {
@@ -109,23 +115,37 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
             try {
                 const term = `%${searchQuery}%`;
                 const { data } = await supabase.from('profiles')
-                    .select('id, full_name, email, matricula, avatar_url, cpf, cargo')
+                    .select('id, full_name, email, matricula, avatar_url, cpf, cargo, lotacao')
                     .or(`full_name.ilike.${term},matricula.ilike.${term},email.ilike.${term},cpf.ilike.${term}`)
                     .limit(10);
                 const memberIds = new Set(members.map(m => m.id));
-                setSearchResults((data || []).filter(u => !memberIds.has(u.id)));
+                
+                // Filter search results by location if set
+                const filteredResults = (data || []).filter(u => {
+                    if (memberIds.has(u.id)) return false;
+                    if (userLocation && u.lotacao !== userLocation) return false; // Strict search filter
+                    return true;
+                });
+
+                setSearchResults(filteredResults);
             } catch (err) { console.error('Gestor search error:', err); }
             finally { setSearching(false); }
         }, 350);
 
         return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
-    }, [searchQuery, members]);
+    }, [searchQuery, members, userLocation]);
 
     const handleAddMember = async () => {
         if (!selectedUser) return;
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
+
+            // Double check location just in case
+            if (userLocation && selectedUser.lotacao !== userLocation) {
+                alert(`Este servidor pertence a outra lotação (${selectedUser.lotacao}). Você só pode adicionar membros de ${userLocation}.`);
+                return;
+            }
 
             const { error } = await supabase.from('team_members').upsert({
                 module: GESTOR_MODULE,
@@ -961,6 +981,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                 pendingCount={stats.pendingCount + stats.pendingPcCount}
                 minutasCount={stats.pendingMinutasCount}
                 onNavigate={onNavigate}
+                userLocation={gestorLocationName}
             />
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">

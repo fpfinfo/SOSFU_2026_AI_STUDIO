@@ -17,6 +17,7 @@ import { useRealtimeInbox } from '../../hooks/useRealtimeInbox';
 interface SefinDashboardProps {
     onNavigate: (page: string, processId?: string) => void;
     darkMode?: boolean;
+    isGestor?: boolean;
 }
 
 interface SigningTask {
@@ -770,7 +771,7 @@ interface TaskRowProps {
     task: SigningTask;
     isSelected: boolean;
     onToggleSelect: () => void;
-    onSign: () => void;
+    onSign?: () => void;
     onReject: () => void;
     onView: () => void;
 }
@@ -849,7 +850,11 @@ const TaskRow: React.FC<TaskRowProps> = ({ task, isSelected, onToggleSelect, onS
 };
 
 // ==================== MAIN COMPONENT ====================
-export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, darkMode = false }) => {
+export const SefinDashboard: React.FC<SefinDashboardProps> = ({ 
+    onNavigate, 
+    darkMode = false,
+    isGestor = false 
+}) => {
     const [loading, setLoading] = useState(true);
     const [pendingAuth, setPendingAuth] = useState<any[]>([]);
     const [approvedHistory, setApprovedHistory] = useState<any[]>([]);
@@ -1131,6 +1136,7 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, dark
                 userName={userName}
                 onNavigate={onNavigate}
                 darkMode={darkMode}
+                isGestor={isGestor}
             />
 
             {/* ===== SECTION C: DOCUMENT QUEUE ===== */}
@@ -1196,7 +1202,7 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, dark
                                 </>
                             )}
                         </div>
-                        {selectedTaskIds.size > 0 && (
+                        {isGestor && selectedTaskIds.size > 0 && (
                             <button onClick={() => setShowSignModal(true)} disabled={processing}
                                 className="flex items-center gap-2 px-5 py-2 bg-emerald-500 text-white text-sm font-bold rounded-xl hover:bg-emerald-600 shadow-sm transition-all disabled:opacity-50">
                                 <FileSignature size={16} />
@@ -1254,7 +1260,7 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({ onNavigate, dark
                                 <TaskRow key={task.id} task={task}
                                     isSelected={selectedTaskIds.has(task.id)}
                                     onToggleSelect={() => handleToggleSelect(task.id)}
-                                    onSign={() => handleSingleSign(task.id)}
+                                    onSign={isGestor ? () => handleSingleSign(task.id) : undefined}
                                     onReject={() => setRejectingId(task.id)}
                                     onView={() => onNavigate('process_detail', task.solicitation_id)}
                                 />
