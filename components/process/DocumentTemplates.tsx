@@ -269,147 +269,408 @@ export const AttestationTemplate: React.FC<DocumentProps> = ({ data, user, gesto
     );
 };
 
-// --- 4. PORTARIA (ATO DE CONCESSÃO) ---
-export const GrantActTemplate: React.FC<DocumentProps> = ({ data, user, document, comarcaData }) => {
-    // Número da Portaria
-    const portariaNum = document?.metadata?.doc_number || Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    const year = new Date().getFullYear();
-    const dateLocation = getFormattedDate('Belém'); 
-    
-    // Elemento de Despesa (Enriched Data)
-    const elementCode = data.elementCode || '3.3.90.30.99';
-    const elementDesc = data.elementDesc || 'Despesas Variáveis';
+// --- VALOR POR EXTENSO (From Reference App) ---
+const valorPorExtenso = (valor: number): string => {
+  const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+  const especiais = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+  const dezenas = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+  const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
 
-    // Resolve conta bancária (Júri→Comarca, Emergencial→Suprido)
-    const bankInfo = getBankInfo(data, user, comarcaData);
-
-    // Cálculo de Prazos (Regra: Emissão da Portaria -> Fim do Evento + 15 dias)
-    // 1. Data de Início = Data de Emissão da Portaria
-    const emissionDate = document?.created_at ? new Date(document.created_at) : new Date();
-    
-    // 2. Data Final = Data Fim do Evento (do formulário) + 15 dias
-    // Parsing manual para evitar problemas de timezone com strings 'YYYY-MM-DD'
-    let eventEnd = new Date();
-    if (data.event_end_date) {
-        const [y, m, d] = data.event_end_date.split('-').map(Number);
-        eventEnd = new Date(y, m - 1, d); // Mês é 0-indexed
+  const converteGrupo = (n: number): string => {
+    if (n === 0) return '';
+    if (n === 100) return 'cem';
+    let resultado = '';
+    const c = Math.floor(n / 100);
+    const resto = n % 100;
+    if (c > 0) {
+      resultado = centenas[c];
+      if (resto > 0) resultado += ' e ';
     }
-    
-    const deadlineDate = new Date(eventEnd);
-    deadlineDate.setDate(deadlineDate.getDate() + 15);
+    if (resto >= 10 && resto <= 19) {
+      resultado += especiais[resto - 10];
+    } else {
+      const d = Math.floor(resto / 10);
+      const u = resto % 10;
+      if (d > 0) { resultado += dezenas[d]; if (u > 0) resultado += ' e '; }
+      if (u > 0) { resultado += unidades[u]; }
+    }
+    return resultado;
+  };
 
-    const periodString = `${emissionDate.toLocaleDateString('pt-BR')} até ${deadlineDate.toLocaleDateString('pt-BR')}`;
+  if (valor === 0) return 'zero reais';
+  const inteiro = Math.floor(valor);
+  const centavos = Math.round((valor - inteiro) * 100);
+  let resultado = '';
+  const milhares = Math.floor(inteiro / 1000);
+  const resto = inteiro % 1000;
+  if (milhares > 0) {
+    resultado = milhares === 1 ? 'mil' : converteGrupo(milhares) + ' mil';
+    if (resto > 0 && resto < 100) resultado += ' e ';
+    else if (resto >= 100) resultado += ' ';
+  }
+  if (resto > 0) resultado += converteGrupo(resto);
+  if (inteiro === 1) resultado += ' real';
+  else if (inteiro > 0) resultado += ' reais';
+  if (centavos > 0) {
+    if (inteiro > 0) resultado += ' e ';
+    resultado += converteGrupo(centavos);
+    resultado += centavos === 1 ? ' centavo' : ' centavos';
+  }
+  return resultado.trim();
+};
+
+// Mapeamento de códigos de elemento para descrições
+const ELEMENT_LABELS: Record<string, string> = {
+  '3.3.90.30': 'Material de Consumo',
+  '3.3.90.30.01': 'Material de Consumo',
+  '3.3.90.30.02': 'Combustíveis e Lubrificantes',
+  '3.3.90.33': 'Passagens e Despesas com Locomoção',
+  '3.3.90.36': 'Outros Serviços de Terceiros – Pessoa Física',
+  '3.3.90.39': 'Outros Serviços de Terceiros – Pessoa Jurídica',
+};
+
+// Parse items from processData
+const parseItens = (itemData: any): any[] => {
+  if (!itemData) return [];
+  if (Array.isArray(itemData)) return itemData;
+  if (typeof itemData === 'string') {
+    try { const parsed = JSON.parse(itemData); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
+  }
+  return [];
+};
+
+// Numerais romanos para incisos
+const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+
+// --- ASSINATURA ELETRÔNICA CERTIFICADA (Standardized Block) ---
+const ElectronicSignatureBlock: React.FC<{ document: any; metadata: any; formatDateFn: (d?: string) => string }> = ({ document, metadata, formatDateFn }) => {
+    const isSignedStatus = document?.status === 'ASSINADO' || document?.status === 'Assinado' || document?.status === 'SIGNED';
+    if (!isSignedStatus && !metadata?.signed_at) return null;
 
     return (
-        <BaseDocumentLayout docId={`PORT-${portariaNum}-${year}`}>
-            <div className="mb-12">
-                <h2 className="text-2xl font-bold uppercase text-slate-900">PORTARIA SF Nº {portariaNum} /{year}-SEPLAN/TJE</h2>
+        <div className="mt-16 pt-8 border-t-2 border-slate-200 break-inside-avoid">
+            <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-xl space-y-4">
+                <h5 className="text-[10px] font-black text-emerald-700 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    ASSINATURA ELETRÔNICA CERTIFICADA
+                </h5>
+                <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center font-black text-sm shrink-0">
+                        OK
+                    </div>
+                    <div className="flex-1 space-y-2">
+                        <p className="text-base font-bold text-emerald-900 uppercase">
+                            {metadata?.signed_by_name || 'Ordenador de Despesa'}
+                        </p>
+                        <p className="text-xs text-emerald-700 mt-1">
+                            {metadata?.signer_role || 'Secretaria de Planejamento, Coordenação e Finanças'}
+                        </p>
+                        <div className="mt-3 text-[11px] font-medium text-emerald-800 space-y-1">
+                            <p>
+                                <strong>Data:</strong> {formatDateFn(metadata?.signed_at || document?.signed_at || document?.updated_at || document?.created_at)}
+                            </p>
+                            <p>
+                                <strong>Hash de Verificação:</strong> {document?.id?.substring(0, 16)?.toUpperCase() || 'N/A'}...
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <p className="text-[9px] text-emerald-600 mt-4 leading-relaxed border-t border-emerald-200 pt-3">
+                    A autenticidade deste documento pode ser conferida no sistema SISUP através do ID {document?.id || 'N/A'}. 
+                    Assinado eletronicamente conforme MP 2.200-2/2001.
+                </p>
+            </div>
+        </div>
+    );
+};
+
+// --- 4. PORTARIA (ATO DE CONCESSÃO) --- [Rewritten from Reference App]
+export const GrantActTemplate: React.FC<DocumentProps> = ({ data, user, document, comarcaData }) => {
+    // Metadata merge (signature + form data)
+    const rootMetadata = document?.metadata || {};
+    const formData = rootMetadata.form_data || {};
+    const metadata = { ...rootMetadata, ...formData };
+
+    // Parse expense items and sort by element code
+    const rawItens = parseItens(data.itens_despesa || data.items);
+    const itens = [...rawItens].sort((a: any, b: any) => {
+        const codeA = a.element || a.codigo || a.elemento || '';
+        const codeB = b.element || b.codigo || b.elemento || '';
+        return codeA.localeCompare(codeB);
+    });
+
+    // Get dotações from metadata
+    const dotacoes = metadata.dotacoes || {};
+    const dotacoesArray = Object.values(dotacoes).filter(Boolean) as string[];
+    const dotacaoSingle = metadata.dotacao_code || data.dotacao_code;
+    const allDotacoes = dotacoesArray.length > 0 ? dotacoesArray : (dotacaoSingle ? [dotacaoSingle] : ['---']);
+
+    // PTRES para lógica de dados bancários
+    const ptresCode = metadata.ptres_code || data.ptres_code || '';
+
+    // Lógica: Se PTRES 8193 ou 8163 → Dados da Comarca, senão → Dados do Suprido
+    const usarDadosComarca = ptresCode === '8193' || ptresCode === '8163';
+    const bankInfo = usarDadosComarca
+        ? { banco: comarcaData?.nome_banco || comarcaData?.cod_banco || '---', agencia: comarcaData?.agencia || '---', conta: comarcaData?.conta_corrente || '---', label: '(Comarca)' }
+        : { banco: user?.nome_banco || user?.banco || '---', agencia: user?.agencia || '---', conta: user?.conta_corrente || '---', label: '' };
+
+    const formatDate = (date?: string) => {
+        if (!date) return new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+        if (date.includes('T') && date.length > 10) {
+            return new Date(date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+        }
+        const cleanDate = date.split('T')[0];
+        if (cleanDate.includes('-')) {
+            const [year, month, day] = cleanDate.split('-');
+            const monthNames = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+            return `${parseInt(day)} de ${monthNames[parseInt(month) - 1]} de ${year}`;
+        }
+        return new Date(date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+    };
+
+    const formatDateShort = (date?: string) => {
+        if (!date) return new Date().toLocaleDateString('pt-BR');
+        return new Date(date).toLocaleDateString('pt-BR');
+    };
+
+    const formatCurrency = (value?: number) => {
+        if (!value && value !== 0) return 'R$ 0,00';
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value));
+    };
+
+    const numeroPortaria = metadata.numero_portaria || document?.metadata?.doc_number || '---';
+    const anoPortaria = new Date(document?.created_at || Date.now()).getFullYear();
+    const valorTotal = data.valor_total || data.value || 0;
+
+    // Cálculo dos prazos: Data da emissão até (data_fim do formulário + 15 dias)
+    const dataEmissao = new Date(document?.created_at || Date.now());
+    const dataFimEvento = data.end_date || data.event_end_date ? new Date(data.end_date || data.event_end_date) : dataEmissao;
+    const prazoAplicacaoPrestacao = new Date(dataFimEvento.getTime() + 15 * 24 * 60 * 60 * 1000);
+
+    return (
+        <BaseDocumentLayout docId={`PORT-${numeroPortaria}-${anoPortaria}`}>
+            {/* Title */}
+            <div className="text-left mb-8">
+                <p className="text-base">
+                    <span className="font-bold">PORTARIA SF Nº</span>{' '}
+                    <span className="font-black text-2xl mx-2">
+                        {(() => {
+                            const baseNum = (String(numeroPortaria).includes('/') ? String(numeroPortaria).split('/')[0] : String(numeroPortaria)).trim();
+                            return /^\d+$/.test(baseNum) ? baseNum.replace(/^0+/, '').padStart(3, '0') : baseNum;
+                        })()}
+                    </span>{' '}
+                    <span className="font-bold">/{anoPortaria}-SEPLAN/TJE</span>
+                </p>
             </div>
 
-            <div className="text-justify text-base leading-loose font-serif space-y-6">
+            {/* Opening paragraph */}
+            <div className="mb-8 text-justify leading-loose font-serif text-sm text-slate-900">
                 <p>
-                    Secretário de Planejamento, Coordenação e Finanças do Tribunal de Justiça do Estado do Pará, no exercício das suas atribuições, estabelecidas na Portaria nº XXXX/{year}-GP,
+                    Secretário de Planejamento, Coordenação e Finanças do Tribunal de Justiça do Estado do Pará, 
+                    no exercício das suas atribuições, estabelecidas na Portaria nº XXXX/{anoPortaria}-GP,
                 </p>
-
-                <h3 className="font-bold uppercase my-4 text-lg">RESOLVE:</h3>
-
-                <p>
-                    <strong>Art. 1º</strong> AUTORIZAR a concessão de Suprimento de Fundos ao servidor <strong>{user.full_name?.toUpperCase()}</strong>, portador do CPF <strong>{user.cpf || '000.000.000-00'}</strong>, lotado na <strong>{user.lotacao?.toUpperCase() || 'UNIDADE JUDICIÁRIA'}</strong>.
-                </p>
-
-                <p>
-                    <strong>Art. 2º</strong> O valor total do presente Suprimento de Fundos é de <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.value)}</strong>, e deverá atender às despesas miúdas de pronto pagamento e ser creditado na conta corrente, abaixo:
-                </p>
-
-                <div className="pl-8 py-3 text-sm border-l-4 border-slate-300 bg-slate-50 rounded-r">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">{bankInfo.label}</p>
-                    Dados bancários para crédito: Banco <strong>{bankInfo.banco}</strong>, Agência <strong>{bankInfo.agencia}</strong>, Conta Corrente <strong>{bankInfo.conta_corrente}</strong>.
-                </div>
-
-                <p>
-                    <strong>Art. 3º</strong> A despesa a que se refere o item anterior ocorrerá por conta de recursos próprios do Tribunal de Justiça do Estado - TJE/PA e terá a classificação PTRES <strong>8727</strong> e Dotação <strong>162</strong>, nos seguintes elementos:
-                </p>
-
-                <div className="border border-red-500 p-4 font-bold text-lg text-center my-4 uppercase bg-white">
-                    I – {elementCode} – {elementDesc}: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.value)}
-                </div>
-
-                <p>
-                    <strong>Art. 4º</strong> A aplicação e a prestação de contas do valor referido no Artigo 2º desta Portaria deverão ser realizadas no seguinte prazo:
-                </p>
-
-                <div className="border border-red-500 p-4 font-bold text-center my-4 bg-white text-lg">
-                    Parágrafo único – Prazo de Aplicação e Prestação de Contas:<br/>
-                    {periodString}.
-                </div>
-
-                <p>
-                    <strong>Registre-se e Cumpra-se.</strong>
-                </p>
-                
-                <p>{dateLocation}.</p>
             </div>
 
-            <div className="mt-24 text-center">
-                <div className="inline-block border-t border-black pt-4 px-12">
-                    <p className="font-bold text-gray-900 uppercase">Ordenador de Despesa</p>
-                    <p className="text-sm text-gray-600">Secretaria de Planejamento, Coordenação e Finanças</p>
+            {/* RESOLVE */}
+            <div className="text-left font-bold mb-6 text-base">RESOLVE:</div>
+
+            {/* Articles */}
+            <div className="space-y-6 text-justify font-serif text-sm text-slate-900">
+                {/* Art. 1º */}
+                <div className="leading-loose">
+                    <span className="font-bold">Art. 1º</span>{' '}
+                    AUTORIZAR a concessão de Suprimento de Fundos ao servidor{' '}
+                    <strong>{user?.full_name?.toUpperCase() || data.beneficiary?.toUpperCase() || 'N/A'}</strong>, portador do CPF{' '}
+                    <strong>{user?.cpf || '---'}</strong>, lotado na{' '}
+                    <strong>{user?.lotacao?.toUpperCase() || data.unit?.toUpperCase() || '---'}</strong>.
                 </div>
+
+                {/* Art. 2º */}
+                <div className="leading-loose">
+                    <span className="font-bold">Art. 2º</span>{' '}
+                    O valor total do presente Suprimento de Fundos é de{' '}
+                    <strong>{formatCurrency(valorTotal)}</strong>{' '}
+                    <strong>({valorPorExtenso(valorTotal)})</strong>, e deverá atender às despesas miúdas de pronto pagamento 
+                    e ser creditado na conta corrente, abaixo:
+                </div>
+
+                {/* Parágrafo único - Dados bancários */}
+                <div className="pl-8 leading-loose">
+                    Dados bancários para crédito{bankInfo.label ? ` ${bankInfo.label}` : ''}: 
+                    Banco <strong>{bankInfo.banco}</strong>, 
+                    Agência <strong>{bankInfo.agencia}</strong>, 
+                    Conta Corrente <strong>{bankInfo.conta}</strong>.
+                </div>
+
+                {/* Art. 3º - Classificação orçamentária */}
+                <div className="leading-loose">
+                    <span className="font-bold">Art. 3º</span>{' '}
+                    A despesa a que se refere o item anterior ocorrerá por conta de recursos próprios do Tribunal de Justiça do Estado - TJE/PA e terá a classificação PTRES <strong>{ptresCode || '---'}</strong> e {allDotacoes.length > 1 ? 'Dotações' : 'Dotação'} <strong>{allDotacoes.join(', ')}</strong>, nos seguintes elementos:
+                </div>
+
+                {/* Incisos com elementos de despesa - Ordenados por código */}
+                {itens.length > 0 && (
+                    <div className="pl-8 space-y-2">
+                        {itens.map((item: any, index: number) => {
+                            const codigo = item.element || item.codigo || item.elemento || '3.3.90.30';
+                            const descricao = ELEMENT_LABELS[codigo] || item.descricao || item.description || 'Despesa';
+                            const valor = item.total || (item.qty || item.quantity || 1) * (item.val || item.value || item.unitValue || 0);
+                            return (
+                                <div key={index} className="leading-relaxed">
+                                    <strong>{romanNumerals[index] || (index + 1)}</strong> – {codigo} – {descricao}: <strong>{formatCurrency(valor)}</strong>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* Fallback: Elemento único quando não há itens detalhados */}
+                {itens.length === 0 && (
+                    <div className="pl-8 leading-relaxed">
+                        <strong>I</strong> – {data.elementCode || '3.3.90.30'} – {data.elementDesc || ELEMENT_LABELS[data.elementCode || '3.3.90.30'] || 'Despesas Variáveis'}: <strong>{formatCurrency(valorTotal)}</strong>
+                    </div>
+                )}
+
+                {/* Art. 4º - Prazo */}
+                <div className="leading-loose">
+                    <span className="font-bold">Art. 4º</span>{' '}
+                    A aplicação e a prestação de contas do valor referido no Artigo 2º desta Portaria deverão ser realizadas no seguinte prazo:
+                </div>
+
+                <div className="pl-8 space-y-2">
+                    <div className="leading-relaxed">
+                        <strong>Parágrafo único</strong> – Prazo de Aplicação e Prestação de Contas:{' '}
+                        <strong>{formatDateShort(document?.created_at)}</strong> até{' '}
+                        <strong>{formatDateShort(prazoAplicacaoPrestacao.toISOString())}</strong>.
+                    </div>
+                    <div className="leading-relaxed">
+                        <strong>Registre-se e Cumpra-se.</strong>
+                    </div>
+                </div>
+
+                {/* Location and date */}
+                <div className="mt-12 text-left">
+                    Belém-PA, {formatDate(document?.created_at)}.
+                </div>
+
+                {/* Signature */}
+                <div className="mt-16 text-center space-y-4">
+                    <div className="pt-4 border-t border-slate-400 max-w-md mx-auto">
+                        <p className="text-sm font-semibold">Ordenador de Despesa</p>
+                        <p className="text-xs text-slate-600">Secretaria de Planejamento, Coordenação e Finanças</p>
+                    </div>
+                </div>
+
+                {/* Electronic Signature Block */}
+                <ElectronicSignatureBlock document={document} metadata={metadata} formatDateFn={formatDate} />
             </div>
         </BaseDocumentLayout>
     );
 };
 
-// --- 5. CERTIDÃO DE REGULARIDADE ---
+// --- 5. CERTIDÃO DE REGULARIDADE --- [Rewritten from Reference App]
 export const RegularityCertificateTemplate: React.FC<DocumentProps> = ({ data, user, document }) => {
-    const certNum = document?.metadata?.doc_number || Math.floor(Math.random() * 9000).toString();
-    const year = new Date().getFullYear();
-    const dateLocation = getFormattedDate('Belém');
+    // CRITICAL FIX: Merge root metadata (signature info) with form_data
+    const rootMetadata = document?.metadata || {};
+    const formData = rootMetadata.form_data || {};
+    const metadata = { ...formData, ...rootMetadata };
+
+    const formatDate = (date?: string) => {
+        if (!date) return new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+        const cleanDate = date.split('T')[0];
+        if (cleanDate.includes('-')) {
+            const [year, month, day] = cleanDate.split('-');
+            const monthNames = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+            return `${parseInt(day)} de ${monthNames[parseInt(month) - 1]} de ${year}`;
+        }
+        return new Date(date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+    };
+
+    const formatCurrency = (value?: number) => {
+        if (!value && value !== 0) return 'R$ 0,00';
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value));
+    };
+
+    const supridoNome = user?.full_name?.toUpperCase() || data.beneficiary?.toUpperCase() || 'Servidor Suprido';
+    const unidade = user?.lotacao?.toUpperCase() || data.unit?.toUpperCase() || 'Unidade Judiciária';
+    const nup = data.process_number || 'N/A';
+    const valor = data.valor_total || data.value || 0;
+    const numeroCertidao = metadata.numero_certidao || document?.metadata?.doc_number || Math.floor(Math.random() * 9000 + 1000);
+    const anoCertidao = new Date(document?.created_at || Date.now()).getFullYear();
 
     return (
-        <BaseDocumentLayout docId={`REG-${certNum}-${year}`}>
+        <BaseDocumentLayout docId={`REG-${numeroCertidao}-${anoCertidao}`}>
+            {/* Title */}
+            <div className="text-center mb-10">
+                <h2 className="text-2xl font-black uppercase tracking-widest mb-2">
+                    CERTIDÃO DE REGULARIDADE
+                </h2>
+                <p className="text-sm text-slate-500">CERTIDAO_REGULARIDADE</p>
+            </div>
+
+            <div className="w-full h-px bg-slate-900/20 mb-8"></div>
+
+            {/* Certidão Number */}
             <div className="text-center mb-8">
-                <h2 className="text-3xl font-serif text-slate-900 tracking-wide uppercase font-medium">CERTIDÃO DE REGULARIDADE</h2>
-                <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">CERTIDAO_REGULARIDADE</p>
-            </div>
-
-            <div className="text-center mb-12">
-                <h3 className="text-2xl font-bold font-serif">CERTIDÃO Nº <span className="text-3xl">{certNum}</span> /{year}-SOSFU/TJE</h3>
-            </div>
-
-            <div className="text-justify text-lg leading-loose font-serif space-y-8 px-4">
-                <p>
-                    CERTIFICO, para os devidos fins, que consultadas as bases de dados do Sistema de Suprimento de Fundos (SISUP) do Tribunal de Justiça do Estado do Pará, foi verificado que o(a) servidor(a) <strong>{user.full_name?.toUpperCase()}</strong>, lotado(a) na <strong>{user.lotacao?.toUpperCase() || 'UNIDADE JUDICIÁRIA'}</strong>, encontra-se <span className="font-bold text-green-700">REGULAR</span> perante este Tribunal, no tocante a prestações de contas de suprimentos de fundos anteriormente concedidos.
-                </p>
-
-                <p>
-                    Assim, não há impedimentos para a concessão de novo suprimento de fundos ao(à) referido(a) servidor(a), conforme solicitado no processo <strong>{data.process_number}</strong>, no valor de <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.value)}</strong>.
-                </p>
-
-                <p>
-                    A presente certidão é expedida com base nas informações constantes nos sistemas de controle interno, não se responsabilizando este órgão por eventuais omissões de informações não registradas nos referidos sistemas, nos termos da Resolução CNJ nº 169/2013.
+                <p className="text-base">
+                    <span className="font-bold">CERTIDÃO Nº</span>{' '}
+                    <span className="font-black text-xl mx-2">{numeroCertidao}</span>{' '}
+                    <span className="font-bold">/{anoCertidao}-SOSFU/TJE</span>
                 </p>
             </div>
 
-            <div className="mt-12 mx-4 border border-slate-200 bg-slate-50 p-6 rounded-lg">
-                <p className="text-xs font-bold uppercase text-slate-500 mb-1">VALIDADE DA CERTIDÃO</p>
-                <p className="text-sm text-slate-700">Esta certidão tem validade de <strong>30 (trinta) dias</strong> a contar da data de sua emissão.</p>
-            </div>
+            {/* Body */}
+            <div className="space-y-6 text-justify font-serif text-sm text-slate-900">
+                <p className="leading-loose">
+                    CERTIFICO, para os devidos fins, que consultadas as bases de dados do Sistema de Suprimento de Fundos 
+                    (SISUP) do Tribunal de Justiça do Estado do Pará, foi verificado que o(a) servidor(a){' '}
+                    <strong>{supridoNome}</strong>, lotado(a) na <strong>{unidade}</strong>, encontra-se{' '}
+                    <strong className="text-emerald-700">REGULAR</strong> perante este Tribunal, no tocante a prestações de 
+                    contas de suprimentos de fundos anteriormente concedidos.
+                </p>
 
-            <div className="mt-12 text-right px-4 font-serif text-slate-800">
-                {dateLocation}.
-            </div>
+                <p className="leading-loose">
+                    Assim, não há impedimentos para a concessão de novo suprimento de fundos ao(à) referido(a) servidor(a), 
+                    conforme solicitado no processo <strong>{nup}</strong>, no valor de <strong>{formatCurrency(valor)}</strong>.
+                </p>
 
-            <div className="mt-20 text-center">
-                <div className="inline-block border-t border-black pt-4 px-12">
-                    <p className="font-bold text-gray-900 uppercase">Ordenador de Despesa</p>
-                    <p className="text-sm text-gray-600">Secretaria de Planejamento, Coordenação e Finanças</p>
+                <p className="leading-loose">
+                    A presente certidão é expedida com base nas informações constantes nos sistemas de controle interno, 
+                    não se responsabilizando este órgão por eventuais omissões de informações não registradas nos 
+                    referidos sistemas, nos termos da Resolução CNJ nº 169/2013.
+                </p>
+
+                {/* Validity */}
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mt-8">
+                    <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Validade da Certidão</p>
+                    <p className="text-sm text-slate-600">
+                        Esta certidão tem validade de <strong>30 (trinta) dias</strong> a contar da data de sua emissão.
+                    </p>
                 </div>
-            </div>
-            
-            <div className="mt-16 text-center text-[10px] text-gray-400 italic">
-                Documento gerado eletronicamente pelo Sistema SISUP.<br/>
-                A autenticidade pode ser verificada através do ID: {data.id.split('-')[0]}-AUTH
+
+                {/* Location and date */}
+                <div className="mt-12 text-right">
+                    <p>Belém-PA, {formatDate(document?.created_at)}.</p>
+                </div>
+
+                {/* Signature */}
+                <div className="mt-16 text-center space-y-4">
+                    <div className="pt-4 border-t border-slate-400 max-w-md mx-auto">
+                        <p className="text-sm font-semibold">Ordenador de Despesa</p>
+                        <p className="text-xs text-slate-600">Secretaria de Planejamento, Coordenação e Finanças</p>
+                    </div>
+                </div>
+
+                {/* Electronic verification notice */}
+                <div className="mt-8 text-center text-xs text-slate-500 italic border-t border-slate-200 pt-4">
+                    <p>Documento gerado eletronicamente pelo Sistema SISUP.</p>
+                    <p>A autenticidade pode ser verificada através do ID: <strong>{document?.id?.substring(0, 16) || 'N/A'}</strong></p>
+                </div>
+
+                {/* Electronic Signature Block */}
+                <ElectronicSignatureBlock document={document} metadata={metadata} formatDateFn={formatDate} />
             </div>
         </BaseDocumentLayout>
     );
