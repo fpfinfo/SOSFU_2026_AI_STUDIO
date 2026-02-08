@@ -218,7 +218,7 @@ const App: React.FC = () => {
                   <StatCard key={stat.id} data={stat} />
                 ))}
              </div>
-             <TeamTable />
+             <TeamTable isGestor={true} />
           </div>
         );
       case 'suprido_dashboard':

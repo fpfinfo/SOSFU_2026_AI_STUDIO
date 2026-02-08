@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
     Users, Search, Loader2, UserPlus, Trash2,
     ChevronRight, ChevronLeft, ChevronUp, ChevronDown,
@@ -17,12 +17,12 @@ interface SosfuTeamMember {
 }
 
 // ==================== CONSTANTS ====================
-const SOSFU_TEAM_KEY = 'sosfu_team_members';
 const SOSFU_FUNCOES_FALLBACK = ['Analista SOSFU', 'Chefe SOSFU', 'Técnico de Contas', 'Estagiário'];
 const SOSFU_MEMBERS_PER_PAGE = 8;
+const TEAM_MODULE = 'SOSFU';
 
 // ==================== COMPONENT ====================
-export const TeamTable: React.FC = () => {
+export const TeamTable: React.FC<{ isGestor?: boolean }> = ({ isGestor = false }) => {
     const [members, setMembers] = useState<SosfuTeamMember[]>([]);
     const [showAddModal, setShowAddModal] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -39,33 +39,43 @@ export const TeamTable: React.FC = () => {
     const [loadingMemberData, setLoadingMemberData] = useState(false);
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Load persisted members from localStorage
+    // Load team members from Supabase (two-step: team_members → profiles)
     useEffect(() => {
-        const saved = localStorage.getItem(SOSFU_TEAM_KEY);
-        if (saved) { try { setMembers(JSON.parse(saved)); } catch { /* ignore */ } }
-    }, []);
-
-    // Fetch distinct cargos from profiles table
-    useEffect(() => {
-        if (!showAddModal) return;
         (async () => {
             try {
-                const { data } = await supabase.from('profiles')
-                    .select('cargo')
-                    .not('cargo', 'is', null)
-                    .not('cargo', 'eq', '')
-                    .order('cargo');
-                if (data) {
-                    const unique = [...new Set(data.map(d => d.cargo).filter(Boolean))] as string[];
-                    setCargosFromDB(unique.length > 0 ? unique : SOSFU_FUNCOES_FALLBACK);
-                }
-            } catch { setCargosFromDB(SOSFU_FUNCOES_FALLBACK); }
-        })();
-    }, [showAddModal]);
+                // 1) Get team membership rows
+                const { data: teamRows } = await supabase
+                    .from('team_members')
+                    .select('user_id, funcao')
+                    .eq('module', TEAM_MODULE);
 
-    const saveMembers = useCallback((newMembers: SosfuTeamMember[]) => {
-        setMembers(newMembers);
-        localStorage.setItem(SOSFU_TEAM_KEY, JSON.stringify(newMembers));
+                if (!teamRows || teamRows.length === 0) { setMembers([]); return; }
+
+                // 2) Fetch profiles for those user IDs
+                const userIds = teamRows.map(r => r.user_id);
+                const { data: profiles } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, email, matricula, avatar_url')
+                    .in('id', userIds);
+
+                const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+
+                const mapped: SosfuTeamMember[] = teamRows
+                    .filter(r => profileMap.has(r.user_id))
+                    .map(r => {
+                        const p = profileMap.get(r.user_id)!;
+                        return {
+                            id: p.id,
+                            full_name: p.full_name || '',
+                            email: p.email || '',
+                            matricula: p.matricula || '',
+                            avatar_url: p.avatar_url,
+                            funcao: r.funcao || '',
+                        };
+                    });
+                setMembers(mapped);
+            } catch (err) { console.error('Error loading SOSFU team:', err); }
+        })();
     }, []);
 
     // Debounced search from Supabase profiles
@@ -90,20 +100,62 @@ export const TeamTable: React.FC = () => {
         return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
     }, [searchQuery, members]);
 
-    const handleAddMember = () => {
+    // Fetch distinct cargos from profiles table
+    useEffect(() => {
+        if (!showAddModal) return;
+        (async () => {
+            try {
+                const { data } = await supabase.from('profiles')
+                    .select('cargo')
+                    .not('cargo', 'is', null)
+                    .not('cargo', 'eq', '')
+                    .order('cargo');
+                if (data) {
+                    const unique = [...new Set(data.map(d => d.cargo).filter(Boolean))] as string[];
+                    setCargosFromDB(unique.length > 0 ? unique : SOSFU_FUNCOES_FALLBACK);
+                }
+            } catch { setCargosFromDB(SOSFU_FUNCOES_FALLBACK); }
+        })();
+    }, [showAddModal]);
+
+    const handleAddMember = async () => {
         if (!selectedUser) return;
-        const newMember: SosfuTeamMember = {
-            id: selectedUser.id, full_name: selectedUser.full_name,
-            email: selectedUser.email || '', matricula: selectedUser.matricula || '',
-            avatar_url: selectedUser.avatar_url, funcao: selectedFuncao,
-        };
-        saveMembers([...members, newMember]);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { error } = await supabase.from('team_members').upsert({
+                module: TEAM_MODULE,
+                user_id: selectedUser.id,
+                added_by: user.id,
+                funcao: selectedFuncao,
+            }, { onConflict: 'module,user_id' });
+
+            if (error) {
+                console.error('Error saving SOSFU team member:', error);
+                alert(`Erro ao adicionar membro: ${error.message}`);
+                return;
+            }
+
+            const newMember: SosfuTeamMember = {
+                id: selectedUser.id, full_name: selectedUser.full_name,
+                email: selectedUser.email || '', matricula: selectedUser.matricula || '',
+                avatar_url: selectedUser.avatar_url, funcao: selectedFuncao,
+            };
+            setMembers(prev => [...prev, newMember]);
+        } catch (err) { console.error('Error adding team member:', err); }
         setShowAddModal(false); setSelectedUser(null); setSearchQuery(''); setSearchResults([]);
         setSelectedFuncao('');
     };
 
-    const handleRemoveMember = (id: string) => {
-        saveMembers(members.filter(m => m.id !== id));
+    const handleRemoveMember = async (id: string) => {
+        try {
+            await supabase.from('team_members')
+                .delete()
+                .eq('module', TEAM_MODULE)
+                .eq('user_id', id);
+            setMembers(prev => prev.filter(m => m.id !== id));
+        } catch (err) { console.error('Error removing team member:', err); }
         setRemovingId(null);
         if (expandedMemberId === id) setExpandedMemberId(null);
     };
@@ -163,10 +215,12 @@ export const TeamTable: React.FC = () => {
                             />
                         </div>
                     )}
-                    <button onClick={() => setShowAddModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm bg-blue-500 hover:bg-blue-600 text-white">
-                        <UserPlus size={14} /> Adicionar Membro
-                    </button>
+                    {isGestor && (
+                        <button onClick={() => setShowAddModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm bg-blue-500 hover:bg-blue-600 text-white">
+                            <UserPlus size={14} /> Adicionar Membro
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -245,7 +299,7 @@ export const TeamTable: React.FC = () => {
                                             {/* Col 3: Ações */}
                                             <td className="text-right px-5 py-3.5">
                                                 <div className="flex items-center justify-end gap-1">
-                                                    {removingId === member.id ? (
+                                                    {isGestor && removingId === member.id ? (
                                                         <div className="flex items-center gap-1.5 animate-in fade-in">
                                                             <button onClick={(e) => { e.stopPropagation(); handleRemoveMember(member.id); }}
                                                                 className="px-2.5 py-1 bg-red-500 text-white text-[10px] font-bold rounded-lg hover:bg-red-600">Sim</button>
@@ -254,11 +308,13 @@ export const TeamTable: React.FC = () => {
                                                         </div>
                                                     ) : (
                                                         <>
-                                                            <button onClick={(e) => { e.stopPropagation(); setRemovingId(member.id); }}
-                                                                className="p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 hover:bg-red-50"
-                                                                title="Remover membro">
-                                                                <Trash2 size={14} />
-                                                            </button>
+                                                            {isGestor && (
+                                                                <button onClick={(e) => { e.stopPropagation(); setRemovingId(member.id); }}
+                                                                    className="p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 hover:bg-red-50"
+                                                                    title="Remover membro">
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            )}
                                                             <div className={`p-1 rounded-lg transition-colors ${isExpanded ? 'text-blue-600' : 'text-slate-400'}`}>
                                                                 {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                                             </div>

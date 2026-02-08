@@ -273,9 +273,10 @@ interface GestaoEquipeSectionProps {
     userName: string;
     onNavigate: (page: string, processId?: string) => void;
     darkMode?: boolean;
+    isGestor?: boolean;
 }
 
-const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks, signedTasks, userName, onNavigate, darkMode = false }) => {
+const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks, signedTasks, userName, onNavigate, darkMode = false, isGestor = false }) => {
     const [members, setMembers] = useState<TeamMemberLocal[]>([]);
     const [showAddModal, setShowAddModal] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -419,14 +420,16 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
                             />
                         </div>
                     )}
-                    <button onClick={() => setShowAddModal(true)}
-                        className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm ${
-                            darkMode
-                                ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                                : 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                        }`}>
-                        <UserPlus size={14} /> Adicionar Membro
-                    </button>
+                    {isGestor && (
+                        <button onClick={() => setShowAddModal(true)}
+                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm ${
+                                darkMode
+                                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                    : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                            }`}>
+                            <UserPlus size={14} /> Adicionar Membro
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -516,7 +519,7 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
                                             {/* Col 3: Ações */}
                                             <td className="text-right px-5 py-3.5">
                                                 <div className="flex items-center justify-end gap-1">
-                                                    {removingId === member.id ? (
+                                                    {isGestor && removingId === member.id ? (
                                                         <div className="flex items-center gap-1.5 animate-in fade-in">
                                                             <button onClick={(e) => { e.stopPropagation(); handleRemoveMember(member.id); }}
                                                                 className="px-2.5 py-1 bg-red-500 text-white text-[10px] font-bold rounded-lg hover:bg-red-600">Sim</button>
@@ -527,13 +530,15 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
                                                         </div>
                                                     ) : (
                                                         <>
-                                                            <button onClick={(e) => { e.stopPropagation(); setRemovingId(member.id); }}
-                                                                className={`p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100 ${
-                                                                    darkMode ? 'text-slate-500 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'
-                                                                }`}
-                                                                title="Remover membro">
-                                                                <Trash2 size={14} />
-                                                            </button>
+                                                            {isGestor && (
+                                                                <button onClick={(e) => { e.stopPropagation(); setRemovingId(member.id); }}
+                                                                    className={`p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100 ${
+                                                                        darkMode ? 'text-slate-500 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'
+                                                                    }`}
+                                                                    title="Remover membro">
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            )}
                                                             <div className={`p-1 rounded-lg transition-colors ${isExpanded ? 'text-emerald-600' : (darkMode ? 'text-slate-500' : 'text-slate-400')}`}>
                                                                 {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                                             </div>

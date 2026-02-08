@@ -22,9 +22,9 @@ interface GestorTeamMember {
     funcao: string;
 }
 
-const GESTOR_TEAM_KEY = 'gestor_team_members';
 const GESTOR_FUNCOES_FALLBACK = ['Magistrado', 'Assessor', 'Analista Judiciário', 'Técnico Judiciário', 'Estagiário'];
 const MEMBERS_PER_PAGE = 8;
+const GESTOR_MODULE = 'GESTOR';
 
 const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minutasCount: number; onNavigate: (page: string, processId?: string, accountabilityId?: string) => void }> = ({ userName, pendingCount, minutasCount, onNavigate }) => {
     const [members, setMembers] = useState<GestorTeamMember[]>([]);
@@ -44,9 +44,41 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
     const [loadingMemberData, setLoadingMemberData] = useState(false);
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    // Load team members from Supabase (two-step: team_members → profiles)
     useEffect(() => {
-        const saved = localStorage.getItem(GESTOR_TEAM_KEY);
-        if (saved) { try { setMembers(JSON.parse(saved)); } catch { /* ignore */ } }
+        (async () => {
+            try {
+                const { data: teamRows } = await supabase
+                    .from('team_members')
+                    .select('user_id, funcao')
+                    .eq('module', GESTOR_MODULE);
+
+                if (!teamRows || teamRows.length === 0) { setMembers([]); return; }
+
+                const userIds = teamRows.map(r => r.user_id);
+                const { data: profiles } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, email, matricula, avatar_url')
+                    .in('id', userIds);
+
+                const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+
+                const mapped: GestorTeamMember[] = teamRows
+                    .filter(r => profileMap.has(r.user_id))
+                    .map(r => {
+                        const p = profileMap.get(r.user_id)!;
+                        return {
+                            id: p.id,
+                            full_name: p.full_name || '',
+                            email: p.email || '',
+                            matricula: p.matricula || '',
+                            avatar_url: p.avatar_url,
+                            funcao: r.funcao || '',
+                        };
+                    });
+                setMembers(mapped);
+            } catch (err) { console.error('Error loading GESTOR team:', err); }
+        })();
     }, []);
 
     // Fetch distinct cargos from profiles table
@@ -66,11 +98,6 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
             } catch { setCargosFromDB(GESTOR_FUNCOES_FALLBACK); }
         })();
     }, [showAddModal]);
-
-    const saveMembers = useCallback((newMembers: GestorTeamMember[]) => {
-        setMembers(newMembers);
-        localStorage.setItem(GESTOR_TEAM_KEY, JSON.stringify(newMembers));
-    }, []);
 
     // Debounced search from Supabase profiles
     useEffect(() => {
@@ -94,20 +121,44 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
         return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
     }, [searchQuery, members]);
 
-    const handleAddMember = () => {
+    const handleAddMember = async () => {
         if (!selectedUser) return;
-        const newMember: GestorTeamMember = {
-            id: selectedUser.id, full_name: selectedUser.full_name,
-            email: selectedUser.email || '', matricula: selectedUser.matricula || '',
-            avatar_url: selectedUser.avatar_url, funcao: selectedFuncao,
-        };
-        saveMembers([...members, newMember]);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { error } = await supabase.from('team_members').upsert({
+                module: GESTOR_MODULE,
+                user_id: selectedUser.id,
+                added_by: user.id,
+                funcao: selectedFuncao,
+            }, { onConflict: 'module,user_id' });
+
+            if (error) {
+                console.error('Error saving GESTOR team member:', error);
+                alert(`Erro ao adicionar membro: ${error.message}`);
+                return;
+            }
+
+            const newMember: GestorTeamMember = {
+                id: selectedUser.id, full_name: selectedUser.full_name,
+                email: selectedUser.email || '', matricula: selectedUser.matricula || '',
+                avatar_url: selectedUser.avatar_url, funcao: selectedFuncao,
+            };
+            setMembers(prev => [...prev, newMember]);
+        } catch (err) { console.error('Error adding GESTOR team member:', err); }
         setShowAddModal(false); setSelectedUser(null); setSearchQuery(''); setSearchResults([]);
         setSelectedFuncao('');
     };
 
-    const handleRemoveMember = (id: string) => {
-        saveMembers(members.filter(m => m.id !== id));
+    const handleRemoveMember = async (id: string) => {
+        try {
+            await supabase.from('team_members')
+                .delete()
+                .eq('module', GESTOR_MODULE)
+                .eq('user_id', id);
+            setMembers(prev => prev.filter(m => m.id !== id));
+        } catch (err) { console.error('Error removing GESTOR team member:', err); }
         setRemovingId(null);
         if (expandedMemberId === id) setExpandedMemberId(null);
     };
@@ -554,6 +605,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
         approvedValue: 0
     });
     const [userName, setUserName] = useState('');
+    const [gestorLocationName, setGestorLocationName] = useState<string | null>(null);
 
     const refetchGestor = useCallback(() => {
         fetchGestorData();
@@ -588,6 +640,36 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
             // Pega nome do usuário
             const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
             setUserName(profile?.full_name?.split(' ')[0] || 'Gestor');
+
+            // ===== Busca Comarca/Unidade do Gestor =====
+            const EXCLUDED_SIGLAS = ['SOSFU', 'AJSEFIN', 'SEFIN', 'SGP', 'SEAD', 'SODPA', 'GABPRES', 'GABVICE', 'GABCOR'];
+            let locationName: string | null = null;
+
+            // 1) Tenta dcomarcas.gestor_id
+            const { data: comarcaData } = await supabase
+                .from('dcomarcas')
+                .select('comarca')
+                .eq('gestor_id', user.id)
+                .limit(1)
+                .maybeSingle();
+
+            if (comarcaData?.comarca) {
+                locationName = `Comarca de ${comarcaData.comarca}`;
+            } else {
+                // 2) Tenta dUnidadesAdmin.responsavel_id
+                const { data: unidadeData } = await supabase
+                    .from('dUnidadesAdmin')
+                    .select('nome, sigla')
+                    .eq('responsavel_id', user.id)
+                    .limit(1)
+                    .maybeSingle();
+
+                if (unidadeData?.nome && !EXCLUDED_SIGLAS.includes(unidadeData.sigla || '')) {
+                    locationName = unidadeData.nome;
+                }
+            }
+
+            setGestorLocationName(locationName);
 
             // 1. Solicitações para APROVAR (WAITING_MANAGER) — Solicitações iniciais
             const { data: approvals, error: appError } = await supabase
@@ -740,9 +822,13 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
              {/* Header Section */}
              <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Gabinete Virtual</h1>
+                    <h1 className="text-2xl font-bold text-gray-800 tracking-tight">
+                        {gestorLocationName || 'Gabinete Virtual'}
+                    </h1>
                     <p className="text-gray-500 text-sm mt-1">
-                        Bem-vindo, <strong>{userName}</strong>. Aqui você gerencia sua equipe e seus próprios processos.
+                        Bem-vindo, <strong>{userName}</strong>. {gestorLocationName
+                            ? `Aqui você gerencia a ${gestorLocationName} e seus processos.`
+                            : 'Aqui você gerencia sua equipe e seus próprios processos.'}
                     </p>
                 </div>
                 <button 

@@ -24,9 +24,9 @@ interface AjsefinTeamMember {
     funcao: string;
 }
 
-const AJSEFIN_TEAM_KEY = 'ajsefin_team_members';
 const AJSEFIN_FUNCOES_FALLBACK = ['Assessor Jurídico', 'Analista Judiciário', 'Técnico Judiciário', 'Estagiário'];
 const MEMBERS_PER_PAGE = 8;
+const AJSEFIN_MODULE = 'AJSEFIN';
 
 // ====================== STAT CARD ======================
 const StatCard: React.FC<{
@@ -60,7 +60,8 @@ const StatCard: React.FC<{
 const AjsefinTeamSection: React.FC<{
     onNavigate: (page: string, processId?: string) => void;
     darkMode?: boolean;
-}> = ({ onNavigate, darkMode = false }) => {
+    isGestor?: boolean;
+}> = ({ onNavigate, darkMode = false, isGestor = false }) => {
     const [members, setMembers] = useState<AjsefinTeamMember[]>([]);
     const [showAddModal, setShowAddModal] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -77,10 +78,41 @@ const AjsefinTeamSection: React.FC<{
     const [loadingMemberData, setLoadingMemberData] = useState(false);
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Load saved members from localStorage
+    // Load team members from Supabase (two-step: team_members → profiles)
     useEffect(() => {
-        const saved = localStorage.getItem(AJSEFIN_TEAM_KEY);
-        if (saved) { try { setMembers(JSON.parse(saved)); } catch { /* ignore */ } }
+        (async () => {
+            try {
+                const { data: teamRows } = await supabase
+                    .from('team_members')
+                    .select('user_id, funcao')
+                    .eq('module', AJSEFIN_MODULE);
+
+                if (!teamRows || teamRows.length === 0) { setMembers([]); return; }
+
+                const userIds = teamRows.map(r => r.user_id);
+                const { data: profiles } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, email, matricula, avatar_url')
+                    .in('id', userIds);
+
+                const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+
+                const mapped: AjsefinTeamMember[] = teamRows
+                    .filter(r => profileMap.has(r.user_id))
+                    .map(r => {
+                        const p = profileMap.get(r.user_id)!;
+                        return {
+                            id: p.id,
+                            full_name: p.full_name || '',
+                            email: p.email || '',
+                            matricula: p.matricula || '',
+                            avatar_url: p.avatar_url,
+                            funcao: r.funcao || '',
+                        };
+                    });
+                setMembers(mapped);
+            } catch (err) { console.error('Error loading AJSEFIN team:', err); }
+        })();
     }, []);
 
     // Fetch distinct cargos from profiles table
@@ -100,11 +132,6 @@ const AjsefinTeamSection: React.FC<{
             } catch { setCargosFromDB(AJSEFIN_FUNCOES_FALLBACK); }
         })();
     }, [showAddModal]);
-
-    const saveMembers = useCallback((newMembers: AjsefinTeamMember[]) => {
-        setMembers(newMembers);
-        localStorage.setItem(AJSEFIN_TEAM_KEY, JSON.stringify(newMembers));
-    }, []);
 
     // Debounced search from Supabase profiles
     useEffect(() => {
@@ -128,20 +155,44 @@ const AjsefinTeamSection: React.FC<{
         return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
     }, [searchQuery, members]);
 
-    const handleAddMember = () => {
+    const handleAddMember = async () => {
         if (!selectedUser) return;
-        const newMember: AjsefinTeamMember = {
-            id: selectedUser.id, full_name: selectedUser.full_name,
-            email: selectedUser.email || '', matricula: selectedUser.matricula || '',
-            avatar_url: selectedUser.avatar_url, funcao: selectedFuncao,
-        };
-        saveMembers([...members, newMember]);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { error } = await supabase.from('team_members').upsert({
+                module: AJSEFIN_MODULE,
+                user_id: selectedUser.id,
+                added_by: user.id,
+                funcao: selectedFuncao,
+            }, { onConflict: 'module,user_id' });
+
+            if (error) {
+                console.error('Error saving AJSEFIN team member:', error);
+                alert(`Erro ao adicionar membro: ${error.message}`);
+                return;
+            }
+
+            const newMember: AjsefinTeamMember = {
+                id: selectedUser.id, full_name: selectedUser.full_name,
+                email: selectedUser.email || '', matricula: selectedUser.matricula || '',
+                avatar_url: selectedUser.avatar_url, funcao: selectedFuncao,
+            };
+            setMembers(prev => [...prev, newMember]);
+        } catch (err) { console.error('Error adding AJSEFIN team member:', err); }
         setShowAddModal(false); setSelectedUser(null); setSearchQuery(''); setSearchResults([]);
         setSelectedFuncao('');
     };
 
-    const handleRemoveMember = (id: string) => {
-        saveMembers(members.filter(m => m.id !== id));
+    const handleRemoveMember = async (id: string) => {
+        try {
+            await supabase.from('team_members')
+                .delete()
+                .eq('module', AJSEFIN_MODULE)
+                .eq('user_id', id);
+            setMembers(prev => prev.filter(m => m.id !== id));
+        } catch (err) { console.error('Error removing AJSEFIN team member:', err); }
         setRemovingId(null);
         if (expandedMemberId === id) setExpandedMemberId(null);
     };
@@ -203,14 +254,16 @@ const AjsefinTeamSection: React.FC<{
                             />
                         </div>
                     )}
-                    <button onClick={() => setShowAddModal(true)}
-                        className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm ${
-                            darkMode
-                                ? 'bg-teal-600 hover:bg-teal-500 text-white'
-                                : 'bg-teal-500 hover:bg-teal-600 text-white'
-                        }`}>
-                        <UserPlus size={14} /> Adicionar Membro
-                    </button>
+                    {isGestor && (
+                        <button onClick={() => setShowAddModal(true)}
+                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm ${
+                                darkMode
+                                    ? 'bg-teal-600 hover:bg-teal-500 text-white'
+                                    : 'bg-teal-500 hover:bg-teal-600 text-white'
+                            }`}>
+                            <UserPlus size={14} /> Adicionar Membro
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -295,7 +348,7 @@ const AjsefinTeamSection: React.FC<{
                                             {/* Col 3: Ações */}
                                             <td className="text-right px-5 py-3.5">
                                                 <div className="flex items-center justify-end gap-1">
-                                                    {removingId === member.id ? (
+                                                    {isGestor && removingId === member.id ? (
                                                         <div className="flex items-center gap-1.5 animate-in fade-in">
                                                             <button onClick={(e) => { e.stopPropagation(); handleRemoveMember(member.id); }}
                                                                 className="px-2.5 py-1 bg-red-500 text-white text-[10px] font-bold rounded-lg hover:bg-red-600">Sim</button>
@@ -306,13 +359,15 @@ const AjsefinTeamSection: React.FC<{
                                                         </div>
                                                     ) : (
                                                         <>
-                                                            <button onClick={(e) => { e.stopPropagation(); setRemovingId(member.id); }}
-                                                                className={`p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100 ${
-                                                                    darkMode ? 'text-slate-500 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'
-                                                                }`}
-                                                                title="Remover membro">
-                                                                <Trash2 size={14} />
-                                                            </button>
+                                                            {isGestor && (
+                                                                <button onClick={(e) => { e.stopPropagation(); setRemovingId(member.id); }}
+                                                                    className={`p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100 ${
+                                                                        darkMode ? 'text-slate-500 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'
+                                                                    }`}
+                                                                    title="Remover membro">
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            )}
                                                             <div className={`p-1 rounded-lg transition-colors ${isExpanded ? 'text-teal-600' : (darkMode ? 'text-slate-500' : 'text-slate-400')}`}>
                                                                 {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                                             </div>
@@ -662,7 +717,7 @@ export const AjsefinDashboard: React.FC<AjsefinDashboardProps> = ({ onNavigate, 
             )}
 
             {/* ===== EQUIPE TÉCNICA (AJSEFIN) — Gestão Gestor-Style ===== */}
-            <AjsefinTeamSection onNavigate={onNavigate} darkMode={darkMode} />
+            <AjsefinTeamSection onNavigate={onNavigate} darkMode={darkMode} isGestor={true} />
 
             {/* ===== PROCESSOS RECENTES — abaixo da equipe ===== */}
             {!showTeamOnly && (

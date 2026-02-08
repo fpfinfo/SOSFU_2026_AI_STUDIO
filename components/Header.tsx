@@ -58,6 +58,7 @@ const INDEPENDENT_MODULES = ['sefin_dashboard', 'gestor_dashboard', 'suprido_das
 export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNavigate, userProfile }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [gestorLocationTitle, setGestorLocationTitle] = useState<string | null>(null);
   
   const allTabs = [
     { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard, roles: ['ADMIN', 'SOSFU', 'SEFIN', 'PRESIDENCIA', 'SGP'] },
@@ -91,6 +92,47 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Fetch gestor's comarca/unidade for dynamic header title
+  useEffect(() => {
+    if (activeTab !== 'gestor_dashboard') { setGestorLocationTitle(null); return; }
+
+    const EXCLUDED_SIGLAS = ['SOSFU', 'AJSEFIN', 'SEFIN', 'SGP', 'SEAD', 'SODPA', 'GABPRES', 'GABVICE', 'GABCOR'];
+
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // 1) dcomarcas.gestor_id
+        const { data: comarca } = await supabase
+          .from('dcomarcas')
+          .select('comarca')
+          .eq('gestor_id', user.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (comarca?.comarca) {
+          setGestorLocationTitle(`Comarca de ${comarca.comarca}`);
+          return;
+        }
+
+        // 2) dUnidadesAdmin.responsavel_id
+        const { data: unidade } = await supabase
+          .from('dUnidadesAdmin')
+          .select('nome, sigla')
+          .eq('responsavel_id', user.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (unidade?.nome && !EXCLUDED_SIGLAS.includes(unidade.sigla || '')) {
+          setGestorLocationTitle(unidade.nome);
+        }
+      } catch (err) {
+        console.error('Header: erro ao buscar localidade do gestor:', err);
+      }
+    })();
+  }, [activeTab]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     localStorage.clear(); sessionStorage.clear(); window.location.href = '/';
@@ -99,7 +141,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
   const getInitials = (name: string) => (name || 'U').substring(0, 2).toUpperCase();
 
   // Dynamic branding based on active module
-  const headerTitle = moduleConfig?.title || 'SOSFU TJPA';
+  const headerTitle = (activeTab === 'gestor_dashboard' && gestorLocationTitle)
+    ? gestorLocationTitle
+    : (moduleConfig?.title || 'SOSFU TJPA');
   const headerSubtitle = moduleConfig?.subtitle || '• Suprimento de Fundos';
   const titleColor = moduleConfig?.textColor || 'text-blue-600';
   const subtitleColor = moduleConfig ? moduleConfig.accentText.replace('600', '400') : 'text-blue-400';
