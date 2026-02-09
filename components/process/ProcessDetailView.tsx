@@ -59,7 +59,6 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
   useEffect(() => {
     fetchProcessData();
-    fetchProcessData();
     if (userProfile?.dperfil?.slug) {
         setCurrentUserRole(userProfile.dperfil.slug.toUpperCase());
     } else {

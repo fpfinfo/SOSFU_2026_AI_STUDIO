@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Environment variables (NUNCA commitar credenciais)
+.env
+.env.local
+.env.*.local
+
 # Reference repos (obsolete)
 __ref_repo/
 sosfu2026_ref/

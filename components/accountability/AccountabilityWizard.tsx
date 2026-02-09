@@ -4,7 +4,7 @@ import {
     FileCheck, CheckCircle2, Wallet, Loader2, ScanLine, X, Sparkles, FileText, CloudLightning, PenTool, Ticket, ScrollText, AlertCircle
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { GoogleGenAI } from "@google/genai";
+import { generateFromImage } from '../../lib/gemini';
 import { SmartReceiptCapture } from './SmartReceiptCapture';
 import { OfflineStatusBanner } from './OfflineStatusBanner';
 import { JuriExceptionInlineAlert } from '../ui/JuriExceptionInlineAlert';
@@ -157,14 +157,6 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
             const base64Data = await convertFileToBase64(file);
             const base64Content = base64Data.split(',')[1]; 
 
-            const apiKey = process.env.API_KEY;
-            if (!apiKey) {
-                showToast('error', 'Chave da API Gemini não configurada. Adicione GEMINI_API_KEY ao .env.');
-                return;
-            }
-
-            const ai = new GoogleGenAI({ apiKey });
-            
             const systemPrompt = `
                 Analise o comprovante. Retorne JSON estrito:
                 {
@@ -177,19 +169,14 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                 }
             `;
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.0-flash', 
-                contents: {
-                    parts: [
-                        { inlineData: { mimeType: file.type, data: base64Content } },
-                        { text: systemPrompt }
-                    ]
-                },
-                config: { responseMimeType: 'application/json' }
+            const responseText = await generateFromImage({
+                prompt: systemPrompt,
+                imageBase64: base64Content,
+                mimeType: file.type,
             });
 
-            if (response.text) {
-                const data = JSON.parse(response.text);
+            if (responseText) {
+                const data = JSON.parse(responseText);
                 setNewItem({
                     ...newItem,
                     doc_type: data.doc_type || 'OUTROS',

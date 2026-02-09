@@ -1,6 +1,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { supabase } from './lib/supabase';
+import type { Session } from '@supabase/supabase-js';
 import { Header } from './components/Header';
 import { StatCard } from './components/StatCard';
 import { TeamTable } from './components/TeamTable';
@@ -9,24 +10,23 @@ import { AccountabilityView } from './components/AccountabilityView';
 import { ArchiveView } from './components/ArchiveView';
 import { SettingsView } from './components/SettingsView';
 import { ProfileView } from './components/ProfileView';
-import { SupridoDashboard } from './components/suprido/SupridoDashboard';
-import { GestorDashboard } from './components/gestor/GestorDashboard';
-import { SefinCockpit } from './components/sefin/SefinCockpit';
-import { AjsefinCockpit } from './components/ajsefin/AjsefinCockpit';
-import { SgpDashboard } from './components/sgp/SgpDashboard';
-import { SeadDashboard } from './components/sead/SeadDashboard';
-import { PresidenciaDashboard } from './components/presidencia/PresidenciaDashboard';
-import { SodpaDashboard } from './components/sodpa/SodpaDashboard';
-import { EmergencySolicitation } from './components/suprido/EmergencySolicitation';
-import { JurySolicitation } from './components/suprido/JurySolicitation';
-import { ProcessDetailView } from './components/process/ProcessDetailView';
-import { AccountabilityWizard } from './components/accountability/AccountabilityWizard';
 import { LoginView } from './components/LoginView';
 import { DASHBOARD_STATS } from './constants';
 import { Loader2, Map as MapIcon } from 'lucide-react';
 
-// Lazy-load: Leaflet (~300KB) é carregado apenas quando o usuário abre a aba Relatórios
+// Lazy-load: componentes pesados carregados sob demanda
 const LazyReportsView = React.lazy(() => import('./components/ReportsView').then(m => ({ default: m.ReportsView })));
+const LazyProcessDetailView = React.lazy(() => import('./components/process/ProcessDetailView').then(m => ({ default: m.ProcessDetailView })));
+const LazySefinCockpit = React.lazy(() => import('./components/sefin/SefinCockpit').then(m => ({ default: m.SefinCockpit })));
+const LazyAjsefinCockpit = React.lazy(() => import('./components/ajsefin/AjsefinCockpit').then(m => ({ default: m.AjsefinCockpit })));
+const LazySupridoDashboard = React.lazy(() => import('./components/suprido/SupridoDashboard').then(m => ({ default: m.SupridoDashboard })));
+const LazyGestorDashboard = React.lazy(() => import('./components/gestor/GestorDashboard').then(m => ({ default: m.GestorDashboard })));
+const LazySgpDashboard = React.lazy(() => import('./components/sgp/SgpDashboard').then(m => ({ default: m.SgpDashboard })));
+const LazySeadDashboard = React.lazy(() => import('./components/sead/SeadDashboard').then(m => ({ default: m.SeadDashboard })));
+const LazyPresidenciaDashboard = React.lazy(() => import('./components/presidencia/PresidenciaDashboard').then(m => ({ default: m.PresidenciaDashboard })));
+const LazySodpaDashboard = React.lazy(() => import('./components/sodpa/SodpaDashboard').then(m => ({ default: m.SodpaDashboard })));
+const LazyEmergencySolicitation = React.lazy(() => import('./components/suprido/EmergencySolicitation').then(m => ({ default: m.EmergencySolicitation })));
+const LazyJurySolicitation = React.lazy(() => import('./components/suprido/JurySolicitation').then(m => ({ default: m.JurySolicitation })));
 
 // Interface para o perfil do usuário
 interface UserProfile {
@@ -46,7 +46,7 @@ interface UserProfile {
 type ProcessTabType = 'OVERVIEW' | 'DOSSIER' | 'EXECUTION' | 'ANALYSIS' | 'ACCOUNTABILITY' | 'ARCHIVE';
 
 const App: React.FC = () => {
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
@@ -224,6 +224,12 @@ const App: React.FC = () => {
     return <LoginView />;
   }
 
+  const lazyFallback = (
+    <div className="flex items-center justify-center h-[300px]">
+      <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+    </div>
+  );
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -238,36 +244,34 @@ const App: React.FC = () => {
           </div>
         );
       case 'suprido_dashboard':
-        return <SupridoDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <Suspense fallback={lazyFallback}><LazySupridoDashboard onNavigate={handleNavigation} userProfile={userProfile} /></Suspense>;
       case 'gestor_dashboard':
-        return <GestorDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <Suspense fallback={lazyFallback}><LazyGestorDashboard onNavigate={handleNavigation} userProfile={userProfile} /></Suspense>;
       case 'sefin_dashboard':
-        return <SefinCockpit onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <Suspense fallback={lazyFallback}><LazySefinCockpit onNavigate={handleNavigation} userProfile={userProfile} /></Suspense>;
       case 'ajsefin_dashboard':
-        return <AjsefinCockpit onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <Suspense fallback={lazyFallback}><LazyAjsefinCockpit onNavigate={handleNavigation} userProfile={userProfile} /></Suspense>;
       case 'sgp_dashboard':
-        return <SgpDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <Suspense fallback={lazyFallback}><LazySgpDashboard onNavigate={handleNavigation} userProfile={userProfile} /></Suspense>;
       case 'sead_dashboard':
-        return <SeadDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <Suspense fallback={lazyFallback}><LazySeadDashboard onNavigate={handleNavigation} userProfile={userProfile} /></Suspense>;
       case 'presidencia_dashboard':
-        return <PresidenciaDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <Suspense fallback={lazyFallback}><LazyPresidenciaDashboard onNavigate={handleNavigation} userProfile={userProfile} /></Suspense>;
       case 'sodpa_dashboard':
-        return <SodpaDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <Suspense fallback={lazyFallback}><LazySodpaDashboard onNavigate={handleNavigation} userProfile={userProfile} /></Suspense>;
       case 'solicitation_emergency':
-        return <EmergencySolicitation onNavigate={handleNavigation} />;
+        return <Suspense fallback={lazyFallback}><LazyEmergencySolicitation onNavigate={handleNavigation} /></Suspense>;
       case 'solicitation_jury':
-        return <JurySolicitation onNavigate={handleNavigation} />;
-      
-      // DEPRECATED: accountability_wizard agora é embutido no process_detail
-      
+        return <Suspense fallback={lazyFallback}><LazyJurySolicitation onNavigate={handleNavigation} /></Suspense>;
+
       case 'process_detail':
         return selectedProcessId ? (
-            <ProcessDetailView 
+            <Suspense fallback={lazyFallback}>
+            <LazyProcessDetailView
                 processId={selectedProcessId}
                 initialTab={processInitialTab}
                 userProfile={userProfile}
                 onBack={() => {
-                    // Se veio do Arquivo, volta pro Arquivo
                     if (processInitialTab === 'ARCHIVE') return setActiveTab('archive');
                     const role = userProfile?.dperfil?.slug || '';
                     if (role.startsWith('SEFIN')) return setActiveTab('sefin_dashboard');
@@ -280,8 +284,9 @@ const App: React.FC = () => {
                     if (role === 'USER') return setActiveTab('suprido_dashboard');
                     if (role.startsWith('SOSFU') || role === 'ADMIN') return setActiveTab('accountability');
                     return setActiveTab('dashboard');
-                }} 
+                }}
             />
+            </Suspense>
         ) : (
             <div>Erro: Processo não selecionado</div>
         );

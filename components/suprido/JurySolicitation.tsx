@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Users, Calendar, DollarSign, FileText, CheckCircle2, ChevronRight, ChevronLeft, Minus, Plus, AlertCircle, AlertTriangle, ShieldAlert, Save, Sparkles, Loader2, UserCheck, Scale, Utensils, Coffee, Droplets } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { GoogleGenAI } from "@google/genai";
+import { generateText } from '../../lib/gemini';
 
 interface JurySolicitationProps {
     onNavigate: (page: string, processId?: string) => void;
@@ -278,8 +278,6 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
     const handleGenerateAI = async () => {
         setIsGeneratingAI(true);
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            
             let itemsSummary = '';
             itensBaseEstrutura.forEach(item => {
                 const data = itemsData[item.id];
@@ -291,31 +289,27 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
             });
 
             const prompt = `
-                Atue como um servidor do Tribunal de Justiça do Estado do Pará. 
+                Atue como um servidor do Tribunal de Justiça do Estado do Pará.
                 Escreva uma justificativa formal, técnica e sucinta para solicitação de Suprimento de Fundos - Modalidade Extra-Júri.
-                
+
                 Contexto:
                 - Processo Judicial nº ${processNumber}
                 - Comarca: ${comarca}
                 - Período: ${startDate ? startDate.split('-').reverse().join('/') : 'A definir'} a ${endDate ? endDate.split('-').reverse().join('/') : 'A definir'}
                 - Público Alvo: ${totalPeople} participantes (Jurados, Réus, Servidores, etc.)
                 - Valor Total Global: R$ ${totalGeneral.toFixed(2)}
-                
+
                 Detalhamento dos Itens Solicitados:
                 ${itemsSummary}
-                
+
                 Instruções:
                 1. A justificativa deve mencionar a necessidade de custeio de despesas com alimentação e apoio logístico para realização de sessão do Tribunal do Júri.
                 2. Mencione que os valores atendem às necessidades do serviço e observam a razoabilidade.
                 3. Texto corrido, sem saudações (apenas o corpo).
             `;
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: prompt,
-            });
-
-            if (response.text) setJustification(response.text.trim());
+            const text = await generateText({ prompt, model: 'gemini-2.0-flash' });
+            if (text) setJustification(text);
         } catch (error) {
             console.error(error);
             alert('Erro ao gerar justificativa com IA.');

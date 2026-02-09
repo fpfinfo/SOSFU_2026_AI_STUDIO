@@ -9,7 +9,7 @@ import {
     ClipboardCheck
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { GoogleGenAI } from "@google/genai";
+import { generateText } from '../../lib/gemini';
 
 // ==================== TYPES ====================
 
@@ -759,19 +759,10 @@ DADOS:
 Responda apenas com o texto do parecer em português formal, sem markdown. Comece com "Foram analisados...".
             `;
 
-            const apiKey = process.env.API_KEY;
-            if (!apiKey) {
-                throw new Error('GEMINI_API_KEY não configurada');
-            }
+            const text = await generateText({ prompt });
 
-            const ai = new GoogleGenAI({ apiKey });
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.0-flash',
-                contents: prompt,
-            });
-
-            if (response.text) {
-                setAiParecer(response.text.trim());
+            if (text) {
+                setAiParecer(text);
                 setParecerEdited(false);
             }
         } catch (error) {
