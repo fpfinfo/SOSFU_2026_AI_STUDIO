@@ -65,6 +65,9 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
   const [neFile, setNeFile] = useState<File | null>(null);
   const [dlFile, setDlFile] = useState<File | null>(null);
   const [obFile, setObFile] = useState<File | null>(null);
+  const [neFilePath, setNeFilePath] = useState<string | null>(null);
+  const [dlFilePath, setDlFilePath] = useState<string | null>(null);
+  const [obFilePath, setObFilePath] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   // Document generation tracking
@@ -151,7 +154,7 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
     } finally { setIsProcessing(false); }
   };
 
-  const handleUploadFile = async (file: File | undefined, tipo: string, setFile: (f: File | null) => void) => {
+  const handleUploadFile = async (file: File | undefined, tipo: string, setFile: (f: File | null) => void, setFilePath: (p: string | null) => void) => {
     if (!file) return;
     if (file.type !== 'application/pdf') { alert('Selecione um PDF.'); return; }
     setIsUploading(true);
@@ -160,22 +163,31 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
       const { error } = await supabase.storage.from('documentos').upload(filePath, file);
       if (error) throw error;
       setFile(file);
+      setFilePath(filePath);
       alert(`${file.name} carregado com sucesso!`);
     } catch (err: any) {
       console.error(err);
       // Storage might not exist, just save the file reference locally
       setFile(file);
+      setFilePath(null);
     } finally { setIsUploading(false); }
   };
 
   const handleSaveDocument = async (
     tipo: string, titulo: string, valor: number, file: File,
-    dbField: string, autoSign: boolean
+    dbField: string, autoSign: boolean, storagePath: string | null
   ) => {
     if (valor <= 0) { alert('Informe o valor do documento.'); return; }
     setIsProcessing(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+
+      // Get public URL for the uploaded file
+      let fileUrl: string | null = null;
+      if (storagePath) {
+        const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(storagePath);
+        fileUrl = urlData?.publicUrl || null;
+      }
 
       // Update solicitation
       await supabase.from('solicitations').update({
@@ -196,6 +208,8 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
           value: valor,
           original_filename: file.name,
           source: 'EXTERNAL_ERP',
+          file_url: fileUrl,
+          storage_path: storagePath,
           ...(autoSign ? { signer: user?.email, signed_at: new Date().toISOString() } : {})
         }
       });
@@ -441,9 +455,9 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
                   <p className="text-[10px] text-slate-400 mt-1">Triple Check: NE ≥ DL ≥ OB</p>
                 </div>
                 {renderUploadArea(neFile, setNeFile, 'ne-upload', 'amber',
-                  f => handleUploadFile(f, 'NE', setNeFile))}
+                  f => handleUploadFile(f, 'NE', setNeFile, setNeFilePath))}
               </div>
-              <button onClick={() => neFile && handleSaveDocument('NOTA_EMPENHO', 'Nota de Empenho', neValor, neFile, 'ne', false)}
+              <button onClick={() => neFile && handleSaveDocument('NOTA_EMPENHO', 'Nota de Empenho', neValor, neFile, 'ne', false, neFilePath)}
                 disabled={!neFile || isProcessing}
                 className="w-full py-4 bg-amber-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2">
                 {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <DollarSign size={16} />}
@@ -474,9 +488,9 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
                   )}
                 </div>
                 {renderUploadArea(dlFile, setDlFile, 'dl-upload', 'purple',
-                  f => handleUploadFile(f, 'DL', setDlFile))}
+                  f => handleUploadFile(f, 'DL', setDlFile, setDlFilePath))}
               </div>
-              <button onClick={() => dlFile && handleSaveDocument('LIQUIDACAO', 'Doc. de Liquidação', dlValor, dlFile, 'dl', true)}
+              <button onClick={() => dlFile && handleSaveDocument('LIQUIDACAO', 'Doc. de Liquidação', dlValor, dlFile, 'dl', true, dlFilePath)}
                 disabled={!dlFile || isProcessing}
                 className="w-full py-4 bg-purple-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2">
                 {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <FileCheck size={16} />}
@@ -507,9 +521,9 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
                   )}
                 </div>
                 {renderUploadArea(obFile, setObFile, 'ob-upload', 'indigo',
-                  f => handleUploadFile(f, 'OB', setObFile))}
+                  f => handleUploadFile(f, 'OB', setObFile, setObFilePath))}
               </div>
-              <button onClick={() => obFile && handleSaveDocument('ORDEM_BANCARIA', 'Ordem Bancária', obValor, obFile, 'ob', true)}
+              <button onClick={() => obFile && handleSaveDocument('ORDEM_BANCARIA', 'Ordem Bancária', obValor, obFile, 'ob', true, obFilePath)}
                 disabled={!obFile || isProcessing}
                 className="w-full py-4 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2">
                 {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <CreditCard size={16} />}
