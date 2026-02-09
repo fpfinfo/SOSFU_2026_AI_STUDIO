@@ -264,7 +264,7 @@ interface TeamMemberLocal {
     funcao: string;
 }
 
-const SEFIN_TEAM_KEY = 'sefin_team_members';
+const SEFIN_MODULE = 'SEFIN';
 const SEFIN_FUNCOES_FALLBACK = ['Ordenador de Despesa', 'Analista', 'Assessor', 'Coordenador'];
 const SEFIN_MEMBERS_PER_PAGE = 8;
 
@@ -294,9 +294,41 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
     const [loadingMemberData, setLoadingMemberData] = useState(false);
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    // Load team members from Supabase
     useEffect(() => {
-        const saved = localStorage.getItem(SEFIN_TEAM_KEY);
-        if (saved) { try { setMembers(JSON.parse(saved)); } catch { /* ignore */ } }
+        (async () => {
+            try {
+                const { data: teamRows } = await supabase
+                    .from('team_members')
+                    .select('user_id, funcao')
+                    .eq('module', SEFIN_MODULE);
+
+                if (!teamRows || teamRows.length === 0) { setMembers([]); return; }
+
+                const userIds = teamRows.map(r => r.user_id);
+                const { data: profiles } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, email, matricula, avatar_url')
+                    .in('id', userIds);
+
+                const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+
+                const mapped: TeamMemberLocal[] = teamRows
+                    .filter(r => profileMap.has(r.user_id))
+                    .map(r => {
+                        const p = profileMap.get(r.user_id)!;
+                        return {
+                            id: p.id,
+                            full_name: p.full_name || '',
+                            email: p.email || '',
+                            matricula: p.matricula || '',
+                            avatar_url: p.avatar_url,
+                            funcao: r.funcao || '',
+                        };
+                    });
+                setMembers(mapped);
+            } catch (err) { console.error('Error loading SEFIN team:', err); }
+        })();
     }, []);
 
     // Fetch distinct cargos from profiles table
@@ -317,10 +349,7 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
         })();
     }, [showAddModal]);
 
-    const saveMembers = useCallback((newMembers: TeamMemberLocal[]) => {
-        setMembers(newMembers);
-        localStorage.setItem(SEFIN_TEAM_KEY, JSON.stringify(newMembers));
-    }, []);
+    // Removing saveMembers as we now use Supabase directly
 
     // Debounced search from Supabase profiles
     useEffect(() => {
@@ -344,20 +373,44 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
         return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
     }, [searchQuery, members]);
 
-    const handleAddMember = () => {
+    const handleAddMember = async () => {
         if (!selectedUser) return;
-        const newMember: TeamMemberLocal = {
-            id: selectedUser.id, full_name: selectedUser.full_name,
-            email: selectedUser.email || '', matricula: selectedUser.matricula || '',
-            avatar_url: selectedUser.avatar_url, funcao: selectedFuncao,
-        };
-        saveMembers([...members, newMember]);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { error } = await supabase.from('team_members').upsert({
+                module: SEFIN_MODULE,
+                user_id: selectedUser.id,
+                added_by: user.id,
+                funcao: selectedFuncao,
+            }, { onConflict: 'module,user_id' });
+
+            if (error) {
+                console.error('Error saving SEFIN team member:', error);
+                alert(`Erro ao adicionar membro: ${error.message}`);
+                return;
+            }
+
+            const newMember: TeamMemberLocal = {
+                id: selectedUser.id, full_name: selectedUser.full_name,
+                email: selectedUser.email || '', matricula: selectedUser.matricula || '',
+                avatar_url: selectedUser.avatar_url, funcao: selectedFuncao,
+            };
+            setMembers(prev => [...prev, newMember]);
+        } catch (err) { console.error('Error adding SEFIN team member:', err); }
         setShowAddModal(false); setSelectedUser(null); setSearchQuery(''); setSearchResults([]);
         setSelectedFuncao('');
     };
 
-    const handleRemoveMember = (id: string) => {
-        saveMembers(members.filter(m => m.id !== id));
+    const handleRemoveMember = async (id: string) => {
+        try {
+            await supabase.from('team_members')
+                .delete()
+                .eq('module', SEFIN_MODULE)
+                .eq('user_id', id);
+            setMembers(prev => prev.filter(m => m.id !== id));
+        } catch (err) { console.error('Error removing SEFIN team member:', err); }
         setRemovingId(null);
         if (expandedMemberId === id) setExpandedMemberId(null);
     };

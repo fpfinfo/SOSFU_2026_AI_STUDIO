@@ -497,7 +497,10 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                                 <div>
                                                     <p className="font-bold text-gray-800 text-sm">{item.description}</p>
                                                     <p className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-wide">
-                                                        {item.supplier} • {new Date(item.item_date).toLocaleDateString()}
+                                                        {item.supplier} • {(() => {
+                                                            const [y, m, d] = item.item_date.split('-').map(Number);
+                                                            return new Date(y, m - 1, d).toLocaleDateString();
+                                                        })()}
                                                     </p>
                                                 </div>
                                             </div>

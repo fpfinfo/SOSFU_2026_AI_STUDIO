@@ -297,7 +297,7 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
                 Contexto:
                 - Processo Judicial nº ${processNumber}
                 - Comarca: ${comarca}
-                - Período: ${startDate ? new Date(startDate).toLocaleDateString('pt-BR') : 'A definir'} a ${endDate ? new Date(endDate).toLocaleDateString('pt-BR') : 'A definir'}
+                - Período: ${startDate ? startDate.split('-').reverse().join('/') : 'A definir'} a ${endDate ? endDate.split('-').reverse().join('/') : 'A definir'}
                 - Público Alvo: ${totalPeople} participantes (Jurados, Réus, Servidores, etc.)
                 - Valor Total Global: R$ ${totalGeneral.toFixed(2)}
                 

@@ -321,10 +321,14 @@ export const JuriReviewPanel: React.FC<JuriReviewPanelProps> = ({
                         <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
                             <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1">Período do Evento</p>
                             <p className="text-sm font-bold text-blue-800">
-                                {solicitacao.event_start_date
-                                    ? `${new Date(solicitacao.event_start_date).toLocaleDateString('pt-BR')} — ${new Date(solicitacao.event_end_date).toLocaleDateString('pt-BR')}`
-                                    : 'N/A'
-                                }
+                                {(() => {
+                                    const formatDate = (dateStr: string) => {
+                                        if (!dateStr) return 'N/A';
+                                        const [y, m, d] = dateStr.split('-').map(Number);
+                                        return new Date(y, m - 1, d).toLocaleDateString('pt-BR');
+                                    };
+                                    return `${formatDate(solicitacao.event_start_date)} — ${formatDate(solicitacao.event_end_date)}`;
+                                })()}
                             </p>
                         </div>
                         <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">

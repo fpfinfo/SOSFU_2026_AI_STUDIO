@@ -80,8 +80,8 @@ const App: React.FC = () => {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
+          // Apenas busca o perfil se necessário
           fetchUserProfile(session.user.id);
-          if (activeTab === 'dashboard') fetchDashboardStats(session.user.id);
       } else {
         setUserProfile(null);
         setLoading(false);
@@ -94,7 +94,8 @@ const App: React.FC = () => {
   const fetchDashboardStats = async (userId: string) => {
       try {
           // 1. Caixa de Entrada (Solicitações aguardando SOSFU + PC aguardando SOSFU)
-          const { count: inboxSol } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).eq('status', 'WAITING_SOSFU_ANALYSIS');
+          // Inclui: WAITING_SOSFU_ANALYSIS (Novas) + WAITING_SOSFU_EXECUTION (Execução)
+          const { count: inboxSol } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).in('status', ['WAITING_SOSFU_ANALYSIS', 'WAITING_SOSFU_EXECUTION']);
           const { count: inboxPC } = await supabase.from('accountabilities').select('*', { count: 'exact', head: true }).eq('status', 'WAITING_SOSFU');
           
           // 2. Minha Mesa (Solicitações atribuídas a mim)
@@ -146,27 +147,6 @@ const App: React.FC = () => {
         });
       } else if (data) {
         setUserProfile(data);
-        
-        const role = data.dperfil?.slug || '';
-        if (activeTab === 'dashboard') {
-            if (role === 'USER' || role === 'SERVIDOR') {
-                setActiveTab('suprido_dashboard');
-            } else if (role === 'GESTOR') {
-                setActiveTab('gestor_dashboard');
-            } else if (role.startsWith('SEFIN')) {
-                setActiveTab('sefin_dashboard');
-            } else if (role.startsWith('AJSEFIN')) {
-                setActiveTab('ajsefin_dashboard');
-            } else if (role.startsWith('SGP')) {
-                setActiveTab('sgp_dashboard');
-            } else if (role.startsWith('SEAD')) {
-                setActiveTab('sead_dashboard');
-            } else if (role.startsWith('PRESIDENCIA')) {
-                setActiveTab('presidencia_dashboard');
-            } else if (role.startsWith('SODPA')) {
-                setActiveTab('sodpa_dashboard');
-            }
-        }
       }
     } catch (error) {
       console.error('Error:', error);
@@ -174,6 +154,30 @@ const App: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Redirecionamento reativo: Move da tab genérica 'dashboard' para o dashboard específico do perfil
+  useEffect(() => {
+    if (userProfile && activeTab === 'dashboard') {
+      const role = userProfile.dperfil?.slug || '';
+      if (role === 'USER' || role === 'SERVIDOR') {
+        setActiveTab('suprido_dashboard');
+      } else if (role === 'GESTOR') {
+        setActiveTab('gestor_dashboard');
+      } else if (role.startsWith('SEFIN')) {
+        setActiveTab('sefin_dashboard');
+      } else if (role.startsWith('AJSEFIN')) {
+        setActiveTab('ajsefin_dashboard');
+      } else if (role.startsWith('SGP')) {
+        setActiveTab('sgp_dashboard');
+      } else if (role.startsWith('SEAD')) {
+        setActiveTab('sead_dashboard');
+      } else if (role.startsWith('PRESIDENCIA')) {
+        setActiveTab('presidencia_dashboard');
+      } else if (role.startsWith('SODPA')) {
+        setActiveTab('sodpa_dashboard');
+      }
+    }
+  }, [userProfile, activeTab]);
 
   // Função de navegação aprimorada
   const handleNavigation = (page: string, processId?: string, accountabilityId?: string) => {

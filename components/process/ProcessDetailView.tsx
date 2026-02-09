@@ -55,6 +55,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
   const [newDocModalOpen, setNewDocModalOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<any>(null);
   const [tramitarLoading, setTramitarLoading] = useState(false);
+  const [gestorProfile, setGestorProfile] = useState<any>(null);
 
   useEffect(() => {
     fetchProcessData();
@@ -115,6 +116,16 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                 .ilike('comarca', solicitation.user.lotacao.split(' -')[0].trim())
                 .maybeSingle();
             if (comarca) setComarcaData(comarca);
+        }
+
+        // Fetch gestor profile data
+        if (solicitation.manager_email) {
+            const { data: gProfile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('email', solicitation.manager_email)
+                .maybeSingle();
+            if (gProfile) setGestorProfile(gProfile);
         }
 
         const { data: docs } = await supabase
@@ -284,6 +295,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
       const props = {
           data: processData,
           user: requesterProfile,
+          gestor: gestorProfile,
           document: doc,
           comarcaData: comarcaData, // Dados bancários da comarca (para Extra-Júri)
       };
@@ -311,7 +323,11 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                   --- LEITURA INTELIGENTE (OCR) ---
                   FORNECEDOR: ${item.supplier}
                   CNPJ: 00.000.000/0001-99 (Validado na Receita Federal)
-                  DATA EMISSÃO: ${new Date(item.item_date).toLocaleDateString()}
+                  DATA EMISSÃO: ${(() => {
+                      if (!item.item_date) return 'N/A';
+                      const [y, m, d] = item.item_date.split('-').map(Number);
+                      return new Date(y, m - 1, d).toLocaleDateString();
+                  })()}
                   VALOR TOTAL: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(item.value))}
                   
                   ITENS IDENTIFICADOS:
@@ -373,15 +389,72 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
     // Optimistic: update UI immediately
     const prevStatus = processData?.status;
-    const newStatus = destino === 'SOSFU' ? 'WAITING_SOSFU' : 'WAITING_MANAGER';
+    const newStatus = destino === 'SOSFU' ? 'WAITING_SOSFU_ANALYSIS' : 'WAITING_MANAGER';
     setProcessData((prev: any) => prev ? { ...prev, status: newStatus } : prev);
     setTramitarLoading(true);
+
     try {
-      const { error } = await supabase.from('solicitations')
-        .update({ status: newStatus })
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // 1. Update status
+      const { error: updateError } = await supabase.from('solicitations')
+        .update({ 
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', processId);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // 2. Record history
+      await supabase.from('historico_tramitacao').insert({
+        solicitation_id: processId,
+        status_from: prevStatus,
+        status_to: newStatus,
+        actor_id: user?.id,
+        actor_name: userProfile?.full_name || user?.email,
+        description: `Processo tramitado para ${destinoLabel} pelo solicitante.`
+      });
+
+      // 3. Send Notifications
+      if (destino === 'GESTOR' && processData.manager_email) {
+        // Find gestor by email
+        const { data: gestorProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', processData.manager_email)
+          .maybeSingle();
+
+        if (gestorProfile) {
+          await supabase.from('system_notifications').insert({
+              user_id: gestorProfile.id,
+              title: 'Atesto Pendente',
+              message: `O processo ${processData.process_number} foi encaminhado para seu atesto.`,
+              type: 'ACTION_REQUIRED',
+              process_number: processData.process_number,
+              link: 'gestor_dashboard'
+          });
+        }
+      } else if (destino === 'SOSFU') {
+        // Find SOSFU team members
+        const { data: teamMembers } = await supabase
+          .from('team_members')
+          .select('user_id')
+          .eq('module', 'SOSFU');
+
+        if (teamMembers && teamMembers.length > 0) {
+          const notifications = teamMembers.map(m => ({
+            user_id: m.user_id,
+            title: 'Nova Solicitação SOSFU',
+            message: `O processo ${processData.process_number} aguarda análise inicial.`,
+            type: 'INFO',
+            process_number: processData.process_number,
+            link: 'solicitations'
+          }));
+          await supabase.from('system_notifications').insert(notifications);
+        }
+      }
+
       await fetchProcessData();
     } catch (err) {
       // Revert on error
@@ -480,7 +553,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                         <div>
                             <h3 className="text-lg font-bold text-amber-900">Aguardando Atesto Gerencial</h3>
                             <p className="text-amber-700 text-sm mt-1 max-w-xl">
-                                Sua prestação de contas foi enviada com sucesso e agora está sob análise de <strong>{managerName}</strong>.
+                                {currentUserRole === 'GESTOR' ? 'A' : 'Sua'} {accountabilityData?.status === 'WAITING_MANAGER' ? 'prestação de contas' : 'solicitação'} foi {currentUserRole === 'GESTOR' ? 'encaminhada para sua' : 'enviada com sucesso e agora está sob'} análise de <strong>{managerName}</strong>.
                                 <br/>Assim que o atesto for realizado, o processo será encaminhado automaticamente para a SOSFU.
                             </p>
                         </div>
@@ -586,17 +659,25 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                     <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                         <Calendar size={16} /> Período do Evento
                     </h4>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4 mt-2">
                         <div>
                             <p className="text-[10px] text-gray-500 uppercase font-bold">Início</p>
                             <p className="text-sm font-semibold text-gray-800">
-                                {processData.event_start_date ? new Date(processData.event_start_date).toLocaleDateString() : '-'}
+                                {(() => {
+                                    if (!processData.event_start_date) return '-';
+                                    const [y, m, d] = processData.event_start_date.split('-').map(Number);
+                                    return new Date(y, m - 1, d).toLocaleDateString();
+                                })()}
                             </p>
                         </div>
                         <div>
                             <p className="text-[10px] text-gray-500 uppercase font-bold">Fim</p>
                             <p className="text-sm font-semibold text-gray-800">
-                                {processData.event_end_date ? new Date(processData.event_end_date).toLocaleDateString() : '-'}
+                                {(() => {
+                                    if (!processData.event_end_date) return '-';
+                                    const [y, m, d] = processData.event_end_date.split('-').map(Number);
+                                    return new Date(y, m - 1, d).toLocaleDateString();
+                                })()}
                             </p>
                         </div>
                     </div>
@@ -1215,20 +1296,21 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
               // Recarrega dados
               await fetchProcessData();
               
-              // Verifica se era a última minuta → auto-devolver ao Suprido
+              // Verifica se era a última minuta → encaminhar para análise da SOSFU
               const remaining = processDraftDocs.filter((d: any) => d.id !== doc.id);
               if (remaining.length === 0) {
+                  // CORREÇÃO: Após atesto do Gestor, processo vai para a SOSFU (não volta ao suprido)
                   await supabase.from('solicitations')
-                      .update({ status: 'PENDING' })
+                      .update({ status: 'WAITING_SOSFU_ANALYSIS' })
                       .eq('id', processId);
                   
                   // Registrar no histórico de tramitação
                   await supabase.from('historico_tramitacao').insert({
                       solicitation_id: processId,
                       status_from: 'WAITING_MANAGER',
-                      status_to: 'PENDING',
+                      status_to: 'WAITING_SOSFU_ANALYSIS',
                       actor_name: profile?.full_name || user?.email,
-                      description: 'Minutas assinadas pelo Gestor. Processo devolvido ao suprido.'
+                      description: 'Minutas assinadas pelo Gestor. Processo encaminhado para análise da SOSFU.'
                   });
                   
                   await fetchProcessData();
@@ -1248,12 +1330,46 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
         setAccountabilityData((prev: any) => prev ? { ...prev, status: 'WAITING_SOSFU' } : prev);
         setLoading(true);
         try {
-            const { error } = await supabase.from('accountabilities')
-                .update({ status: 'WAITING_SOSFU' })
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user?.id || '').single();
+
+            const { error: updateError } = await supabase.from('accountabilities')
+                .update({ 
+                  status: 'WAITING_SOSFU',
+                  updated_at: new Date().toISOString()
+                })
                 .eq('id', accountabilityData.id);
             
-            if (error) throw error;
+            if (updateError) throw updateError;
             
+            // Record history
+            await supabase.from('historico_tramitacao').insert({
+                solicitation_id: processId,
+                status_from: 'WAITING_MANAGER',
+                status_to: 'WAITING_SOSFU',
+                actor_id: user?.id,
+                actor_name: profile?.full_name || user?.email,
+                description: 'Prestação de contas aprovada (atestada) pelo Gestor Responsável e encaminhada para a SOSFU.'
+            });
+
+            // Notify SOSFU Team
+            const { data: teamMembers } = await supabase
+                .from('team_members')
+                .select('user_id')
+                .eq('module', 'SOSFU');
+
+            if (teamMembers && teamMembers.length > 0) {
+                const notifications = teamMembers.map(m => ({
+                    user_id: m.user_id,
+                    title: 'Nova Prestação de Contas',
+                    message: `O processo ${processData.process_number} aguarda análise de contas pela SOSFU.`,
+                    type: 'INFO',
+                    process_number: processData.process_number,
+                    link: 'solicitations'
+                }));
+                await supabase.from('system_notifications').insert(notifications);
+            }
+
             const existingAttestation = documents.find((d: any) => d.document_type === 'ATTESTATION');
             if (existingAttestation) {
                 await supabase.from('process_documents')
@@ -1281,18 +1397,53 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
           if (!confirm('Devolver para correção?')) return;
           setLoading(true);
           try {
+              const { data: { user } } = await supabase.auth.getUser();
+              const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user?.id || '').single();
+              const prevStatus = isPcMode ? accountabilityData?.status : processData?.status;
+              const newStatus = isPcMode ? 'CORRECTION' : 'WAITING_CORRECTION';
+
               if (isPcMode) {
                   const { error } = await supabase.from('accountabilities')
-                      .update({ status: 'CORRECTION' })
+                      .update({ 
+                        status: 'CORRECTION',
+                        updated_at: new Date().toISOString()
+                      })
                       .eq('id', accountabilityData.id);
                   if (error) throw error;
               } else {
                   // Devolver solicitação
                   const { error } = await supabase.from('solicitations')
-                      .update({ status: 'WAITING_CORRECTION' })
+                      .update({ 
+                        status: 'WAITING_CORRECTION',
+                        updated_at: new Date().toISOString()
+                      })
                       .eq('id', processId);
                   if (error) throw error;
               }
+
+              // Record history
+              await supabase.from('historico_tramitacao').insert({
+                  solicitation_id: processId,
+                  status_from: prevStatus,
+                  status_to: newStatus,
+                  actor_id: user?.id,
+                  actor_name: profile?.full_name || user?.email,
+                  description: `O Gestor solicitou correções no processo: ${isPcMode ? 'na Prestação de Contas' : 'na Solicitação'}.`
+              });
+
+              // Notify Requester
+              const requesterId = isPcMode ? accountabilityData.requester_id : processData.user_id;
+              if (requesterId) {
+                  await supabase.from('system_notifications').insert({
+                      user_id: requesterId,
+                      title: 'Correção Necessária',
+                      message: `Seu processo ${processData.process_number} foi devolvido para correção pelo Gestor.`,
+                      type: 'ACTION_REQUIRED',
+                      process_number: processData.process_number,
+                      link: 'process_detail'
+                  });
+              }
+
               await fetchProcessData();
           } catch(err) {
               console.error(err);
@@ -1665,6 +1816,19 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                                                     <td className="py-3 text-sm font-bold text-gray-500">Valor Concedido</td>
                                                     <td className="py-3 text-sm text-gray-800 font-mono font-bold">
                                                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(processData.value)}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="py-3 text-sm font-bold text-gray-500">Período do Evento</td>
+                                                    <td className="py-3 text-sm text-gray-800">
+                                                        {(() => {
+                                                            const formatDate = (dateStr: string) => {
+                                                                if (!dateStr) return 'N/I';
+                                                                const [year, month, day] = dateStr.split('-').map(Number);
+                                                                return new Date(year, month - 1, day).toLocaleDateString('pt-BR');
+                                                            };
+                                                            return `${formatDate(processData.event_start_date)} — ${formatDate(processData.event_end_date)}`;
+                                                        })()}
                                                     </td>
                                                 </tr>
                                                 <tr>

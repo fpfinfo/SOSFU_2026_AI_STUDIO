@@ -93,7 +93,10 @@ function validateItem(item: any, accountabilityCreatedAt: string): ValidationRes
         elementValid,
         dateMessage: dateValid
             ? 'Data dentro do período permitido'
-            : `Data ${new Date(item.item_date).toLocaleDateString()} anterior à liberação do recurso`,
+            : `Data ${(() => {
+                const [y, m, d] = item.item_date.split('-').map(Number);
+                return new Date(y, m - 1, d).toLocaleDateString();
+            })()} anterior à liberação do recurso`,
         elementMessage: elementValid
             ? `Elemento ${normalizedElement} autorizado`
             : `Elemento ${normalizedElement || 'não informado'} fora da lista permitida`
@@ -217,7 +220,12 @@ const GlosaModal = ({ item, onConfirm, onCancel }: {
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center">
                         <div>
                             <p className="text-sm font-bold text-slate-800">{item.description}</p>
-                            <p className="text-xs text-slate-500 mt-0.5">{new Date(item.item_date).toLocaleDateString('pt-BR')}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                {(() => {
+                                    const [y, m, d] = item.item_date.split('-').map(Number);
+                                    return new Date(y, m - 1, d).toLocaleDateString('pt-BR');
+                                })()}
+                            </p>
                         </div>
                         <span className="font-mono text-lg font-bold text-red-600">{formatCurrency(item.value)}</span>
                     </div>
@@ -693,6 +701,29 @@ export const SosfuAuditPanel: React.FC<SosfuAuditPanelProps> = ({
 
             if (solError) throw solError;
 
+            // 3. Record History
+            const { data: { user } } = await supabase.auth.getUser();
+            await supabase.from('historico_tramitacao').insert({
+                solicitation_id: processId,
+                status_from: 'WAITING_SOSFU',
+                status_to: 'ARCHIVED',
+                actor_id: user?.id,
+                actor_name: user?.email,
+                description: `Processo arquivado e responsabilidade baixada via NL ${nlNumber}.`
+            });
+
+            // 4. Notify Requester
+            if (processData?.user_id) {
+                await supabase.from('system_notifications').insert({
+                    user_id: processData.user_id,
+                    title: 'Processo Concluído',
+                    message: `Seu processo ${processData.process_number} foi arquivado com sucesso.`,
+                    type: 'SUCCESS',
+                    process_number: processData.process_number,
+                    link: 'process_detail'
+                });
+            }
+
             setSiafeModalOpen(false);
             await onRefresh();
         } catch (err: any) {
@@ -963,7 +994,11 @@ Responda apenas com o texto do parecer em português formal, sem markdown. Comec
                                                         <p className={`font-bold text-slate-800 ${item.auditStatus === 'REJECTED' ? 'line-through opacity-50' : ''}`}>{item.description}</p>
                                                         <div className="flex items-center gap-2 mt-1">
                                                             <span className="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{item.supplier}</span>
-                                                            <span className="text-[10px] text-slate-400 font-mono">{new Date(item.item_date).toLocaleDateString()}</span>
+                                                            <span className="text-[10px] text-slate-400 font-mono">{(() => {
+                                                                if (!item.item_date) return 'N/A';
+                                                                const [y, m, d] = item.item_date.split('-').map(Number);
+                                                                return new Date(y, m - 1, d).toLocaleDateString();
+                                                            })()}</span>
                                                         </div>
                                                     </div>
                                                     {item.auditStatus === 'REJECTED' && (

@@ -40,7 +40,42 @@ const EMPTY_COMARCA: Omit<Comarca, 'idcomarca' | 'gestor_profile' | 'suprido_pro
   suprido_titular_id: null,
 };
 
-const ENTRANCIA_OPTIONS = ['1ª Entrância', '2ª Entrância', '3ª Entrância', 'Entrância Especial'];
+const ENTRANCIA_OPTIONS = ['1ª Entrância', '2ª Entrância', '3ª Entrância'];
+const POLO_OPTIONS = [
+  'Pólo Central',
+  '1° Pólo Metropolitana de Belém',
+  '2° Pólo Tomé Açú',
+  '3° Pólo Abaetetuba',
+  '4° Pólo Castanhal',
+  '5° Pólo Capanema',
+  '6° Pólo Paragominas',
+  '7° Pólo Marajó',
+  '8° Pólo Cametá',
+  '9° Pólo Marabá',
+  '10° Pólo Redenção',
+  '11° Pólo Altamira',
+  '12° Pólo Santarém'
+];
+
+const REGIAO_OPTIONS = [
+  'Região Central',
+  '1° Região Ananindeua',
+  '2° Região Tomé Açú',
+  '3° Região Abaetetuba',
+  '4° Região Castanhal',
+  '5° Região Capanema',
+  '6° Região Paragominas',
+  '7° Região Soure',
+  '8° Região Breves',
+  '9° Região Cametá',
+  '10° Região Tucuruí',
+  '11° Região Marabá',
+  '12° Região Xinguará',
+  '13° Região Redenção',
+  '14° Região Altamira',
+  '15° Região Santarém',
+  '16° Região Itaituba'
+];
 
 export const ComarcasSettings: React.FC = () => {
   const [comarcas, setComarcas] = useState<Comarca[]>([]);
@@ -366,7 +401,7 @@ export const ComarcasSettings: React.FC = () => {
                           <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
                             c.entrancia === '3ª Entrância' ? 'bg-indigo-100 text-indigo-700' :
                             c.entrancia === '2ª Entrância' ? 'bg-blue-100 text-blue-700' :
-                            c.entrancia === 'Entrância Especial' ? 'bg-purple-100 text-purple-700' :
+                            c.entrancia === '1ª Entrância' ? 'bg-emerald-100 text-emerald-700' :
                             'bg-gray-100 text-gray-600'
                           }`}>
                             {c.entrancia}
@@ -491,37 +526,58 @@ export const ComarcasSettings: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5 block">Entrância</label>
-                    <select
-                      value={formData.entrancia}
-                      onChange={(e) => setFormData({ ...formData, entrancia: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 appearance-none cursor-pointer"
-                    >
-                      {ENTRANCIA_OPTIONS.map(opt => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={formData.entrancia}
+                        onChange={(e) => setFormData({ ...formData, entrancia: e.target.value })}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                      >
+                        {ENTRANCIA_OPTIONS.map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
+                        <ChevronDown size={16} />
+                      </div>
+                    </div>
                   </div>
                   <div>
                     <label className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5 block">Polo</label>
-                    <input
-                      type="text"
-                      value={formData.polo}
-                      onChange={(e) => setFormData({ ...formData, polo: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                      placeholder="Ex: Pólo Belém"
-                    />
+                    <div className="relative">
+                      <select
+                        value={formData.polo}
+                        onChange={(e) => setFormData({ ...formData, polo: e.target.value })}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                      >
+                        <option value="">Selecione o Pólo</option>
+                        {POLO_OPTIONS.map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
+                        <ChevronDown size={16} />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 <div>
                   <label className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5 block">Região Judiciária</label>
-                  <input
-                    type="text"
-                    value={formData.regiao}
-                    onChange={(e) => setFormData({ ...formData, regiao: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    placeholder="Ex: 1ª Região Judiciária"
-                  />
+                  <div className="relative">
+                    <select
+                      value={formData.regiao}
+                      onChange={(e) => setFormData({ ...formData, regiao: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                    >
+                      <option value="">Selecione a Região</option>
+                      {REGIAO_OPTIONS.map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
+                      <ChevronDown size={16} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

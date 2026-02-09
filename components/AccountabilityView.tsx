@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Plus, Filter, Search, MoreHorizontal, CheckSquare, AlertCircle, Loader2, Inbox, List, UserPlus, Eye, ArrowRight } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Plus, Filter, Search, MoreHorizontal, CheckSquare, AlertCircle, Loader2, Inbox, List, UserPlus, Eye, ArrowRight, Bell, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AssignModal } from './AssignModal';
 
@@ -23,6 +23,49 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
   // Stats
   const [counts, setCounts] = useState({ all: 0, new: 0, analysis: 0, done: 0 });
 
+  // 🆕 Realtime & Notification State
+  const [hasNewItems, setHasNewItems] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
+  const [newPCNumber, setNewPCNumber] = useState<string | null>(null);
+  const lastSeenCountRef = useRef<number>(0);
+
+  // 🔔 Realtime subscription for PC updates
+  const refetchAccountabilities = useCallback(() => {
+    fetchAccountabilities();
+  }, []);
+
+  useEffect(() => {
+    // Subscribe to accountabilities changes
+    const channel = supabase
+      .channel('realtime-accountability')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'accountabilities',
+        },
+        (payload) => {
+          console.log('[PC] 🆕 Alteração detectada:', payload);
+          
+          if (payload.eventType === 'INSERT' || 
+              (payload.eventType === 'UPDATE' && payload.new?.status === 'WAITING_SOSFU')) {
+            setNewPCNumber(payload.new?.process_number || 'Nova PC');
+            setShowNotification(true);
+            setHasNewItems(true);
+            setTimeout(() => setShowNotification(false), 5000);
+          }
+          
+          refetchAccountabilities();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetchAccountabilities]);
+
   useEffect(() => {
     fetchAccountabilities();
   }, []);
@@ -44,12 +87,19 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
       const items = data || [];
       setAccountabilities(items);
 
+      const newCount = items.filter(i => i.status === 'WAITING_SOSFU').length;
       setCounts({
           all: items.length,
-          new: items.filter(i => i.status === 'WAITING_SOSFU').length, 
+          new: newCount, 
           analysis: items.filter(i => ['CORRECTION', 'LATE'].includes(i.status)).length,
           done: items.filter(i => i.status === 'APPROVED').length
       });
+
+      // Check if new items arrived since last check
+      if (newCount > lastSeenCountRef.current && lastSeenCountRef.current > 0) {
+        setHasNewItems(true);
+      }
+      lastSeenCountRef.current = newCount;
 
     } catch (error) {
       console.error('Error fetching PC:', error);
@@ -127,9 +177,17 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
 
   const filteredItems = getFilteredItems();
 
-  const TabButton = ({ id, label, count }: { id: TabType, label: string, count: number }) => (
+  // Handle tab click - clear "new" indicator when viewing NEW tab
+  const handleTabClick = (id: TabType) => {
+    setActiveTab(id);
+    if (id === 'NEW') {
+      setHasNewItems(false);
+    }
+  };
+
+  const TabButton = ({ id, label, count, isPulsing }: { id: TabType, label: string, count: number, isPulsing?: boolean }) => (
       <button 
-        onClick={() => setActiveTab(id)}
+        onClick={() => handleTabClick(id)}
         className={`relative pb-3 px-4 text-sm font-bold transition-all ${
             activeTab === id 
             ? 'text-purple-600 border-b-2 border-purple-600' 
@@ -137,16 +195,41 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
         }`}
       >
           {label}
-          <span className={`ml-2 text-xs py-0.5 px-2 rounded-full ${
+          <span className={`ml-2 text-xs py-0.5 px-2 rounded-full relative ${
               activeTab === id ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'
-          }`}>
+          } ${isPulsing ? 'animate-pulse bg-red-100 text-red-600' : ''}`}>
               {count}
+              {isPulsing && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+              )}
           </span>
       </button>
   );
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      {/* 🔔 Notification Toast */}
+      {showNotification && (
+        <div 
+          className="fixed top-20 right-6 z-50 animate-in slide-in-from-right-5 duration-300"
+          onClick={() => setShowNotification(false)}
+        >
+          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 cursor-pointer hover:shadow-xl transition-shadow">
+            <div className="p-2 bg-white/20 rounded-lg">
+              <Bell size={18} className="animate-bounce" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-purple-100">NOVA PRESTAÇÃO DE CONTAS</p>
+              <p className="text-sm font-bold">{newPCNumber}</p>
+            </div>
+            <Sparkles size={16} className="text-yellow-300 animate-pulse" />
+          </div>
+        </div>
+      )}
       
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -166,7 +249,7 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
         {/* Tabs */}
         <div className="flex items-center gap-2 px-4 pt-4 border-b border-gray-200 overflow-x-auto">
             <TabButton id="ALL" label="Todas" count={counts.all} />
-            <TabButton id="NEW" label="Novas" count={counts.new} />
+            <TabButton id="NEW" label="Novas" count={counts.new} isPulsing={hasNewItems && activeTab !== 'NEW'} />
             <TabButton id="ANALYSIS" label="Em Acompanhamento" count={counts.analysis} />
             <TabButton id="DONE" label="Concluídas" count={counts.done} />
         </div>

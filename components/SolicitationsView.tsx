@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { Plus, Filter, Search, MoreHorizontal, FileText, Loader2, UserPlus, Inbox, List, User, Eye, FolderOpen, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Plus, Filter, Search, MoreHorizontal, FileText, Loader2, UserPlus, Inbox, List, User, Eye, FolderOpen, CheckCircle2, Clock, AlertCircle, Bell, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { StatusBadge } from './StatusBadge';
 import { AssignModal } from './AssignModal';
+import { useRealtimeInbox } from '../hooks/useRealtimeInbox';
 
 interface SolicitationsViewProps {
     onNavigate?: (page: string, processId?: string) => void;
@@ -23,6 +24,39 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
 
   // Counts
   const [counts, setCounts] = useState({ all: 0, new: 0, analysis: 0, done: 0 });
+
+  // 🆕 Realtime & Notification State
+  const [hasNewItems, setHasNewItems] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
+  const [newProcessNumber, setNewProcessNumber] = useState<string | null>(null);
+  const lastSeenCountRef = useRef<number>(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // 🔔 Realtime subscription for SOSFU inbox
+  const refetchSolicitations = useCallback(() => {
+    fetchSolicitations();
+  }, []);
+
+  useRealtimeInbox({
+    module: 'SOSFU',
+    onNewProcess: (payload) => {
+      console.log('[SOSFU] 🆕 Novo processo:', payload.new?.process_number);
+      setNewProcessNumber(payload.new?.process_number || 'Novo processo');
+      setShowNotification(true);
+      setHasNewItems(true);
+      
+      // Auto-hide notification after 5 seconds
+      setTimeout(() => setShowNotification(false), 5000);
+      
+      // Play notification sound
+      if (audioRef.current) {
+        audioRef.current.play().catch(() => {});
+      }
+      
+      refetchSolicitations();
+    },
+    onAnyChange: refetchSolicitations,
+  });
 
   useEffect(() => {
     fetchSolicitations();
@@ -45,13 +79,26 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
       const allItems = data || [];
       setSolicitations(allItems);
       
-      // Calcular contagens
+      // Calcular contagens - PENDING também conta como "Nova" para SOSFU
+      // (PENDING = chegou na plataforma, WAITING_SOSFU_ANALYSIS = triada pela SOSFU)
+      const newCount = allItems.filter(s => 
+        s.status === 'WAITING_SOSFU_ANALYSIS' || 
+        s.status === 'PENDING' || 
+        s.status === 'WAITING_SOSFU'
+      ).length;
+      
       setCounts({
           all: allItems.length,
-          new: allItems.filter(s => s.status === 'WAITING_SOSFU_ANALYSIS').length,
-          analysis: allItems.filter(s => ['WAITING_SEFIN_SIGNATURE', 'WAITING_SOSFU_PAYMENT', 'WAITING_SUPRIDO_CONFIRMATION', 'WAITING_CORRECTION'].includes(s.status)).length,
+          new: newCount,
+          analysis: allItems.filter(s => ['WAITING_SEFIN_SIGNATURE', 'WAITING_SOSFU_PAYMENT', 'WAITING_SUPRIDO_CONFIRMATION', 'WAITING_CORRECTION', 'WAITING_SOSFU_EXECUTION', 'WAITING_SEFIN'].includes(s.status)).length,
           done: allItems.filter(s => ['PAID', 'APPROVED', 'REJECTED', 'ARCHIVED'].includes(s.status)).length
       });
+
+      // Check if new items arrived since last check
+      if (newCount > lastSeenCountRef.current && lastSeenCountRef.current > 0) {
+        setHasNewItems(true);
+      }
+      lastSeenCountRef.current = newCount;
 
     } catch (error) {
       console.error('Error fetching solicitations:', error);
@@ -99,13 +146,17 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
       
       switch (activeTab) {
           case 'NEW':
-              // Novas = Aguardando Análise Inicial da SOSFU
-              list = list.filter(s => s.status === 'WAITING_SOSFU_ANALYSIS');
+              // Novas = Aguardando Análise Inicial da SOSFU (inclui PENDING e WAITING_SOSFU)
+              list = list.filter(s => 
+                s.status === 'WAITING_SOSFU_ANALYSIS' || 
+                s.status === 'PENDING' || 
+                s.status === 'WAITING_SOSFU'
+              );
               break;
           case 'ANALYSIS':
               // Em Análise = Processos que já passaram da triagem mas não terminaram
-              // Inclui: Sefin, Pagamento, Aguardando Suprido, Correção
-              list = list.filter(s => ['WAITING_SEFIN_SIGNATURE', 'WAITING_SOSFU_PAYMENT', 'WAITING_SUPRIDO_CONFIRMATION', 'WAITING_CORRECTION'].includes(s.status));
+              // Inclui: Sefin, Pagamento, Aguardando Suprido, Correção, Execução
+              list = list.filter(s => ['WAITING_SEFIN_SIGNATURE', 'WAITING_SOSFU_PAYMENT', 'WAITING_SUPRIDO_CONFIRMATION', 'WAITING_CORRECTION', 'WAITING_SOSFU_EXECUTION', 'WAITING_SEFIN'].includes(s.status));
               break;
           case 'DONE':
               // Concluídas = Pagos, Rejeitados ou Arquivados
@@ -125,9 +176,17 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
 
   const filteredSolicitations = getFilteredList();
 
-  const TabButton = ({ id, label, count }: { id: TabType, label: string, count: number }) => (
+  // Handle tab click - clear "new" indicator when viewing NEW tab
+  const handleTabClick = (id: TabType) => {
+    setActiveTab(id);
+    if (id === 'NEW') {
+      setHasNewItems(false);
+    }
+  };
+
+  const TabButton = ({ id, label, count, isPulsing }: { id: TabType, label: string, count: number, isPulsing?: boolean }) => (
       <button 
-        onClick={() => setActiveTab(id)}
+        onClick={() => handleTabClick(id)}
         className={`relative pb-3 px-4 text-sm font-bold transition-all ${
             activeTab === id 
             ? 'text-blue-600 border-b-2 border-blue-600' 
@@ -135,16 +194,46 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
         }`}
       >
           {label}
-          <span className={`ml-2 text-xs py-0.5 px-2 rounded-full ${
+          <span className={`ml-2 text-xs py-0.5 px-2 rounded-full relative ${
               activeTab === id ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
-          }`}>
+          } ${isPulsing ? 'animate-pulse bg-red-100 text-red-600' : ''}`}>
               {count}
+              {isPulsing && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+              )}
           </span>
       </button>
   );
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      {/* 🔔 Notification Toast */}
+      {showNotification && (
+        <div 
+          className="fixed top-20 right-6 z-50 animate-in slide-in-from-right-5 duration-300"
+          onClick={() => setShowNotification(false)}
+        >
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 cursor-pointer hover:shadow-xl transition-shadow">
+            <div className="p-2 bg-white/20 rounded-lg">
+              <Bell size={18} className="animate-bounce" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-blue-100">NOVO PROCESSO</p>
+              <p className="text-sm font-bold">{newProcessNumber}</p>
+            </div>
+            <Sparkles size={16} className="text-yellow-300 animate-pulse" />
+          </div>
+        </div>
+      )}
+
+      {/* Hidden audio element for notification sound */}
+      <audio ref={audioRef} preload="auto">
+        <source src="/notification.mp3" type="audio/mpeg" />
+      </audio>
       
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -163,7 +252,7 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
         {/* New Tabs System */}
         <div className="flex items-center gap-2 px-4 pt-4 border-b border-gray-200 overflow-x-auto">
             <TabButton id="ALL" label="Todas" count={counts.all} />
-            <TabButton id="NEW" label="Novas" count={counts.new} />
+            <TabButton id="NEW" label="Novas" count={counts.new} isPulsing={hasNewItems && activeTab !== 'NEW'} />
             <TabButton id="ANALYSIS" label="Em Análise" count={counts.analysis} />
             <TabButton id="DONE" label="Concluídas" count={counts.done} />
         </div>

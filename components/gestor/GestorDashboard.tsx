@@ -614,6 +614,8 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
     const [teamAccountability, setTeamAccountability] = useState<any[]>([]); // ALL team PCs
     const [pendingMinutas, setPendingMinutas] = useState<any[]>([]); // Minutas para assinar
     const [myRequests, setMyRequests] = useState<any[]>([]);
+    const [history, setHistory] = useState<any[]>([]);
+    const [historySearch, setHistorySearch] = useState('');
     const [stats, setStats] = useState({ 
         pendingCount: 0, 
         pendingPcCount: 0,
@@ -626,6 +628,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
     });
     const [userName, setUserName] = useState('');
     const [gestorLocationName, setGestorLocationName] = useState<string | null>(null);
+    const [gestorLocationSigla, setGestorLocationSigla] = useState<string | null>(null);
 
     const refetchGestor = useCallback(() => {
         fetchGestorData();
@@ -675,6 +678,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
 
             if (comarcaData?.comarca) {
                 locationName = `Comarca de ${comarcaData.comarca}`;
+                setGestorLocationSigla(`Comarca de ${comarcaData.comarca}`);
             } else {
                 // 2) Tenta dUnidadesAdmin.responsavel_id
                 const { data: unidadeData } = await supabase
@@ -686,6 +690,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
 
                 if (unidadeData?.nome && !EXCLUDED_SIGLAS.includes(unidadeData.sigla || '')) {
                     locationName = unidadeData.nome;
+                    setGestorLocationSigla(unidadeData.sigla || null);
                 }
             }
 
@@ -795,6 +800,17 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
 
             if (reqError) throw reqError;
 
+            // 5. Histórico de Autorizações (Processos da equipe já despachados/autorizados)
+            const { data: authHistory, error: authError } = await supabase
+                .from('solicitations')
+                .select('*')
+                .ilike('manager_email', user.email || '')
+                .neq('status', 'WAITING_MANAGER')
+                .order('updated_at', { ascending: false })
+                .limit(20);
+
+            if (authError) console.error("Erro ao buscar histórico de autorizações:", authError);
+
             // Stats
             const pcList = pcApprovals || [];
             const myList = requests || [];
@@ -809,6 +825,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
             setTeamAccountability(allTeamPCs || []);
             setPendingMinutas(minutasData);
             setMyRequests(myList);
+            setHistory(authHistory || []);
             setStats({
                 pendingCount: pendingList.length,
                 pendingPcCount: pcList.length,
@@ -981,7 +998,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                 pendingCount={stats.pendingCount + stats.pendingPcCount}
                 minutasCount={stats.pendingMinutasCount}
                 onNavigate={onNavigate}
-                userLocation={gestorLocationName}
+                userLocation={gestorLocationSigla}
             />
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
@@ -1210,6 +1227,77 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                     </div>
                 </div>
 
+            </div>
+
+            {/* ===== HISTÓRICO DE AUTORIZAÇÕES (CONFORME MODELO) ===== */}
+            <div className="mt-12 bg-white rounded-3xl border border-slate-100 p-8 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2">
+                        <Clock size={18} className="text-slate-400" />
+                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                            Histórico de Autorizações
+                        </h3>
+                    </div>
+                </div>
+
+                {/* Search Bar Histórico */}
+                <div className="relative mb-8">
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input 
+                        type="text" 
+                        placeholder="Buscar no histórico..."
+                        value={historySearch}
+                        onChange={(e) => setHistorySearch(e.target.value)}
+                        className="w-full pl-12 pr-4 py-4 bg-slate-50/50 border border-slate-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400 font-medium"
+                    />
+                </div>
+
+                {/* Lista de Histórico */}
+                <div className="space-y-3">
+                    {history
+                        .filter(h => 
+                            h.process_number.toLowerCase().includes(historySearch.toLowerCase()) || 
+                            h.beneficiary?.toLowerCase().includes(historySearch.toLowerCase())
+                        )
+                        .map((item) => (
+                        <div 
+                            key={item.id}
+                            onClick={() => onNavigate('process_detail', item.id)}
+                            className="flex items-center justify-between p-5 bg-white border border-slate-50 rounded-2xl hover:border-indigo-100 hover:bg-indigo-50/20 transition-all cursor-pointer group shadow-sm hover:shadow-md"
+                        >
+                            <div className="flex items-center gap-5">
+                                <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform">
+                                    <FileText size={20} />
+                                </div>
+                                <div>
+                                    <p className="text-base font-black text-slate-800 group-hover:text-indigo-700 transition-colors uppercase">
+                                        {item.process_number}
+                                    </p>
+                                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                                        {item.beneficiary} {item.unit ? `• ${item.unit}` : ''}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter ${
+                                    item.status === 'REJECTED' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                                }`}>
+                                    {item.status === 'REJECTED' ? 'Indeferido' : 'Autorizado'}
+                                </span>
+                                <p className="text-sm font-bold text-slate-700 mt-2 font-mono">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                    
+                    {history.length === 0 && (
+                        <div className="py-16 text-center border-2 border-dashed border-slate-100 rounded-3xl">
+                            <Clock size={40} className="mx-auto text-slate-200 mb-4" />
+                            <p className="text-sm text-slate-400 font-medium px-10">Você ainda não possui autorizações registradas no histórico recente.</p>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -102,9 +102,11 @@ export const ProcessTimeline: React.FC<ProcessTimelineProps> = ({ status, solici
         return 0;
     };
 
-    // O step "Atesto do Gestor" já foi concluído se o histórico mostra a transição
+    // O step "Atesto do Gestor" já foi concluído se o histórico mostra a transição para SOSFU
+    // (ou para PENDING no fluxo legado)
     const isAtestoCompleted = history.some(h => 
-        h.status_from === 'WAITING_MANAGER' && h.status_to === 'PENDING'
+        h.status_from === 'WAITING_MANAGER' && 
+        (h.status_to === 'WAITING_SOSFU_ANALYSIS' || h.status_to === 'WAITING_SOSFU' || h.status_to === 'PENDING')
     );
 
     const activeIndex = getCurrentStepIndex();

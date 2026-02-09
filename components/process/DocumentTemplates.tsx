@@ -271,8 +271,14 @@ export const AttestationTemplate: React.FC<DocumentProps> = ({ data, user, gesto
                     documentId={`CERT-${data.process_number?.replace(/\D/g,'')}`}
                     signatures={[{
                         name: managerName,
-                        role: 'Gestor / Magistrado Responsável',
-                        organization: user?.lotacao || data.unit || 'Unidade Judiciária',
+                        role: (() => {
+                            const cargo = gestor?.cargo?.toUpperCase() || '';
+                            if (cargo.includes('JUIZ') || cargo.includes('MAGISTRADO') || cargo.includes('DESEMBARGADOR')) {
+                                return 'Magistrado Responsável';
+                            }
+                            return 'Gestor Responsável';
+                        })(),
+                        organization: gestor?.lotacao || user?.lotacao || data.unit || 'Unidade Judiciária',
                         signedAt: document?.metadata?.signed_at,
                         isSigned: !isDraft,
                     }]}
