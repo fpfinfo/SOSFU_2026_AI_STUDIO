@@ -289,9 +289,66 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
       }
   };
 
+  const renderUploadedPdfViewer = (doc: any) => {
+      const fileUrl = doc?.metadata?.file_url;
+      const storagePath = doc?.metadata?.storage_path;
+
+      // Try to get URL from metadata, or reconstruct from storage_path
+      let pdfUrl = fileUrl;
+      if (!pdfUrl && storagePath) {
+          const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(storagePath);
+          pdfUrl = urlData?.publicUrl;
+      }
+
+      if (pdfUrl) {
+          return (
+              <div className="w-full h-full min-h-[297mm] flex flex-col">
+                  <div className="bg-slate-50 border-b border-slate-200 p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                          <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                              <FileText size={18} />
+                          </div>
+                          <div>
+                              <p className="font-bold text-sm text-slate-800">{doc.title}</p>
+                              <p className="text-[10px] text-slate-400">
+                                  PDF Original do SIAFE • {doc.metadata?.original_filename || 'documento.pdf'}
+                              </p>
+                          </div>
+                      </div>
+                      <a href={pdfUrl} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-all">
+                          <ExternalLink size={14} /> Abrir em nova aba
+                      </a>
+                  </div>
+                  <iframe
+                      src={pdfUrl}
+                      className="flex-1 w-full min-h-[280mm] border-0"
+                      title={doc.title}
+                  />
+              </div>
+          );
+      }
+
+      // Fallback: no URL available, show info message
+      return (
+          <div className="w-full min-h-[297mm] flex items-center justify-center bg-slate-50">
+              <div className="text-center space-y-4 p-8">
+                  <div className="w-20 h-20 mx-auto bg-amber-100 rounded-2xl flex items-center justify-center">
+                      <FileText size={40} className="text-amber-600" />
+                  </div>
+                  <h3 className="font-bold text-slate-800 text-lg">{doc.title}</h3>
+                  <p className="text-sm text-slate-500 max-w-md">
+                      PDF original do SIAFE ({doc.metadata?.original_filename || 'documento.pdf'}).
+                      O arquivo foi registrado no sistema mas a visualização direta não está disponível.
+                  </p>
+              </div>
+          </div>
+      );
+  };
+
   const renderDocumentContent = (doc: any) => {
       if (!doc) return null;
-      
+
       const props = {
           data: processData,
           user: requesterProfile,
@@ -305,10 +362,15 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
           case 'REQUEST': return <RequestTemplate {...props} />;
           case 'ATTESTATION': return <AttestationTemplate {...props} />;
           case 'GRANT_ACT': return <GrantActTemplate {...props} />;
+          case 'PORTARIA_SF': return <GrantActTemplate {...props} />;
           case 'REGULARITY': return <RegularityCertificateTemplate {...props} />;
+          case 'CERTIDAO_REGULARIDADE': return <RegularityCertificateTemplate {...props} />;
           case 'NE': return <CommitmentNoteTemplate {...props} />;
           case 'NL': return <LiquidationNoteTemplate {...props} />;
           case 'OB': return <BankOrderTemplate {...props} />;
+          case 'NOTA_EMPENHO': return renderUploadedPdfViewer(doc);
+          case 'LIQUIDACAO': return renderUploadedPdfViewer(doc);
+          case 'ORDEM_BANCARIA': return renderUploadedPdfViewer(doc);
           default: return <GenericDocumentTemplate {...props} />;
       }
   };
@@ -1004,7 +1066,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
           <div className="space-y-6 animate-in fade-in">
 
               {/* ═══ SOSFU Payment Confirmation Card ═══ */}
-              {processData?.status === 'WAITING_SOSFU_PAYMENT' && ['SOSFU', 'ADMIN'].includes(currentUserRole) && (
+              {processData?.status === 'WAITING_SOSFU_PAYMENT' && (currentUserRole.startsWith('SOSFU') || currentUserRole === 'ADMIN') && (
                   <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl p-6 text-white shadow-lg border border-emerald-500/30">
                       <div className="flex items-center justify-between flex-wrap gap-4">
                           <div className="flex items-center gap-4">
@@ -1031,7 +1093,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
               )}
 
               {/* ═══ Status: Waiting Suprido Confirmation ═══ */}
-              {processData?.status === 'WAITING_SUPRIDO_CONFIRMATION' && ['SOSFU', 'ADMIN'].includes(currentUserRole) && (
+              {processData?.status === 'WAITING_SUPRIDO_CONFIRMATION' && (currentUserRole.startsWith('SOSFU') || currentUserRole === 'ADMIN') && (
                   <div className="bg-teal-50 border border-teal-200 rounded-2xl p-5 flex items-center gap-4">
                       <div className="p-2.5 bg-teal-100 rounded-full text-teal-600">
                           <Clock size={20} />
@@ -1055,7 +1117,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                               <p className="text-blue-100 text-sm mt-0.5">Gere as minutas, anexe PDFs do SIAFE e tramite para o Ordenador.</p>
                           </div>
                       </div>
-                      {['SOSFU', 'ADMIN'].includes(currentUserRole) && (
+                      {(currentUserRole.startsWith('SOSFU') || currentUserRole === 'ADMIN') && (
                           <button onClick={() => setExecutionWizardOpen(true)}
                               className="px-6 py-3 bg-white text-blue-700 rounded-xl text-sm font-black shadow-lg hover:bg-blue-50 transition-all flex items-center gap-2">
                               <FileText size={16} /> Iniciar Execução
