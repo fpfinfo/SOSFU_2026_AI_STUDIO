@@ -289,57 +289,85 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
       }
   };
 
-  const renderUploadedPdfViewer = (doc: any) => {
-      const fileUrl = doc?.metadata?.file_url;
-      const storagePath = doc?.metadata?.storage_path;
-
-      // Try to get URL from metadata, or reconstruct from storage_path
-      let pdfUrl = fileUrl;
-      if (!pdfUrl && storagePath) {
-          const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(storagePath);
-          pdfUrl = urlData?.publicUrl;
+  /** Resolve the best available PDF source: base64 data URL > storage URL > storage_path */
+  const resolvePdfSource = (doc: any): string | null => {
+      // PRIMARY: base64 data URL embedded in metadata (always works)
+      if (doc?.metadata?.file_data) return doc.metadata.file_data;
+      // SECONDARY: Supabase Storage public URL
+      if (doc?.metadata?.file_url) return doc.metadata.file_url;
+      // TERTIARY: reconstruct from storage_path
+      if (doc?.metadata?.storage_path) {
+          const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(doc.metadata.storage_path);
+          return urlData?.publicUrl || null;
       }
+      return null;
+  };
 
-      if (pdfUrl) {
+  const renderUploadedPdfViewer = (doc: any) => {
+      const pdfSrc = resolvePdfSource(doc);
+      const filename = doc?.metadata?.original_filename || 'documento.pdf';
+      const fileSize = doc?.metadata?.file_size;
+      const isSigned = doc?.status === 'SIGNED';
+
+      if (pdfSrc) {
           return (
-              <div className="w-full h-full min-h-[297mm] flex flex-col">
-                  <div className="bg-slate-50 border-b border-slate-200 p-4 flex items-center justify-between">
+              <div className="w-full h-full min-h-[297mm] flex flex-col bg-white">
+                  {/* Header bar */}
+                  <div className="bg-gradient-to-r from-slate-50 to-white border-b border-slate-200 px-5 py-3 flex items-center justify-between shrink-0">
                       <div className="flex items-center gap-3">
                           <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-                              <FileText size={18} />
+                              <FileText size={16} />
                           </div>
                           <div>
                               <p className="font-bold text-sm text-slate-800">{doc.title}</p>
-                              <p className="text-[10px] text-slate-400">
-                                  PDF Original do SIAFE • {doc.metadata?.original_filename || 'documento.pdf'}
+                              <p className="text-[10px] text-slate-400 flex items-center gap-2">
+                                  <span>PDF Original — SIAFE</span>
+                                  {fileSize && <span>• {(fileSize / 1024).toFixed(0)} KB</span>}
+                                  {isSigned && (
+                                      <span className="inline-flex items-center gap-1 text-emerald-600 font-bold">
+                                          <CheckCircle2 size={10} /> Assinado
+                                      </span>
+                                  )}
                               </p>
                           </div>
                       </div>
-                      <a href={pdfUrl} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-all">
-                          <ExternalLink size={14} /> Abrir em nova aba
-                      </a>
+                      <div className="flex items-center gap-2">
+                          {pdfSrc.startsWith('http') && (
+                              <a href={pdfSrc} target="_blank" rel="noopener noreferrer"
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-lg hover:bg-blue-700 transition-all">
+                                  <ExternalLink size={12} /> Nova aba
+                              </a>
+                          )}
+                          {pdfSrc.startsWith('data:') && (
+                              <a href={pdfSrc} download={filename}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-lg hover:bg-blue-700 transition-all">
+                                  <Download size={12} /> Download
+                              </a>
+                          )}
+                      </div>
                   </div>
+                  {/* PDF iframe */}
                   <iframe
-                      src={pdfUrl}
+                      src={pdfSrc}
                       className="flex-1 w-full min-h-[280mm] border-0"
                       title={doc.title}
+                      style={{ background: '#fff' }}
                   />
               </div>
           );
       }
 
-      // Fallback: no URL available, show info message
+      // Fallback: no source available
       return (
-          <div className="w-full min-h-[297mm] flex items-center justify-center bg-slate-50">
+          <div className="w-full min-h-[297mm] flex items-center justify-center bg-gradient-to-b from-slate-50 to-white">
               <div className="text-center space-y-4 p-8">
                   <div className="w-20 h-20 mx-auto bg-amber-100 rounded-2xl flex items-center justify-center">
-                      <FileText size={40} className="text-amber-600" />
+                      <FileText size={40} className="text-amber-500" />
                   </div>
                   <h3 className="font-bold text-slate-800 text-lg">{doc.title}</h3>
                   <p className="text-sm text-slate-500 max-w-md">
-                      PDF original do SIAFE ({doc.metadata?.original_filename || 'documento.pdf'}).
-                      O arquivo foi registrado no sistema mas a visualização direta não está disponível.
+                      O PDF original ({filename}) não possui dados incorporados.
+                      Faça um novo upload através do Wizard de Execução.
                   </p>
               </div>
           </div>
@@ -2004,22 +2032,26 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
             </div>
 
             {/* MODAL GLOBAL DE VISUALIZAÇÃO DE DOCUMENTO (Disponível em todas as abas) */}
-            {selectedDoc && (
-                <div 
+            {selectedDoc && (() => {
+                const isUploadedPdf = ['NOTA_EMPENHO', 'LIQUIDACAO', 'ORDEM_BANCARIA'].includes(selectedDoc.document_type);
+                return (
+                <div
                     className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
-                    onClick={() => setSelectedDoc(null)} // Fecha ao clicar fora
+                    onClick={() => setSelectedDoc(null)}
                 >
-                    <div 
-                        className="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 relative"
-                        onClick={(e) => e.stopPropagation()} // Impede fechar ao clicar dentro
+                    <div
+                        className={`bg-white rounded-xl shadow-2xl w-full h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 relative ${
+                            isUploadedPdf ? 'max-w-5xl' : 'max-w-4xl'
+                        }`}
+                        onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header do Modal */}
-                        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/80 backdrop-blur sticky top-0 z-10">
+                        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/80 backdrop-blur sticky top-0 z-10 shrink-0">
                             <h3 className="font-bold text-gray-800 flex items-center gap-2">
                                 <FileText size={18} className="text-blue-600"/>
                                 {selectedDoc.title}
                             </h3>
-                            <button 
+                            <button
                                 onClick={() => setSelectedDoc(null)}
                                 className="p-2 bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 rounded-full transition-all"
                                 title="Fechar (ESC)"
@@ -2027,16 +2059,23 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                                 <X size={20} />
                             </button>
                         </div>
-                        
-                        {/* Conteúdo do Modal */}
-                        <div className="flex-1 overflow-y-auto p-8 bg-slate-100/50 flex justify-center custom-scrollbar">
-                            <div className="w-full max-w-[210mm] bg-white shadow-lg min-h-[297mm] origin-top">
+
+                        {/* Conteúdo do Modal - adaptativo para PDF vs template */}
+                        {isUploadedPdf ? (
+                            <div className="flex-1 flex flex-col overflow-hidden">
                                 {renderDocumentContent(selectedDoc)}
                             </div>
-                        </div>
+                        ) : (
+                            <div className="flex-1 overflow-y-auto p-8 bg-slate-100/50 flex justify-center custom-scrollbar">
+                                <div className="w-full max-w-[210mm] bg-white shadow-lg min-h-[297mm] origin-top">
+                                    {renderDocumentContent(selectedDoc)}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
-            )}
+                );
+            })()}
 
             {/* MODAL NOVO DOCUMENTO */}
             {newDocModalOpen && (

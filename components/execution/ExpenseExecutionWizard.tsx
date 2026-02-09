@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   X, CheckCircle2, FileText, Award, DollarSign, FileCheck, CreditCard,
-  ChevronRight, ChevronLeft, Loader2, Send, AlertTriangle, Upload, File as FileIcon
+  ChevronRight, ChevronLeft, Loader2, Send, AlertTriangle, Upload, File as FileIcon,
+  Eye, Trash2, ShieldCheck
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Tooltip } from '../ui/Tooltip';
@@ -32,19 +33,38 @@ interface ExpenseExecutionWizardProps {
   onSuccess?: () => void;
 }
 
+interface UploadedFile {
+  file: File;
+  base64: string; // data:application/pdf;base64,...
+  name: string;
+  size: number;
+}
+
 type ExecutionStep = 'PORTARIA' | 'CERTIDAO' | 'NE' | 'DL' | 'OB' | 'TRAMITAR';
 
 const STEPS: { key: ExecutionStep; label: string; icon: React.ReactNode; description: string }[] = [
   { key: 'PORTARIA', label: 'Portaria SF', icon: <FileText size={18} />, description: 'Gerar a Portaria de Suprimento de Fundos com dados orçamentários' },
   { key: 'CERTIDAO', label: 'Certidão', icon: <Award size={18} />, description: 'Gerar a Certidão de Regularidade do suprido' },
-  { key: 'NE', label: 'Nota de Empenho', icon: <DollarSign size={18} />, description: 'Registrar a Nota de Empenho (compromisso orçamentário)' },
-  { key: 'DL', label: 'Doc. Liquidação', icon: <FileCheck size={18} />, description: 'Gerar o Documento de Liquidação (verificação da despesa)' },
-  { key: 'OB', label: 'Ordem Bancária', icon: <CreditCard size={18} />, description: 'Emitir a Ordem Bancária para pagamento ao suprido' },
-  { key: 'TRAMITAR', label: 'Tramitar', icon: <Send size={18} />, description: 'Enviar Portaria (minuta), Certidão (minuta) e NE (PDF original) para assinatura do Ordenador' },
+  { key: 'NE', label: 'Nota de Empenho', icon: <DollarSign size={18} />, description: 'Anexar o PDF da Nota de Empenho (SIAFE)' },
+  { key: 'DL', label: 'Doc. Liquidação', icon: <FileCheck size={18} />, description: 'Anexar o PDF do Documento de Liquidação (SIAFE)' },
+  { key: 'OB', label: 'Ordem Bancária', icon: <CreditCard size={18} />, description: 'Anexar o PDF da Ordem Bancária (SIAFE)' },
+  { key: 'TRAMITAR', label: 'Tramitar', icon: <Send size={18} />, description: 'Enviar Portaria, Certidão e NE para assinatura do Ordenador' },
 ];
 
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+
+// ==================== HELPERS ====================
+
+/** Convert File to base64 data URL */
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
 
 // ==================== MAIN COMPONENT ====================
 export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
@@ -58,17 +78,17 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
   const [selectedDotacao, setSelectedDotacao] = useState(process.dotacao_code || '');
   const [portariaNumero, setPortariaNumero] = useState(process.portaria_sf_numero || '');
 
-  // NE/DL/OB
+  // NE/DL/OB - valor + arquivo com base64
   const [neValor, setNeValor] = useState(process.value || 0);
   const [dlValor, setDlValor] = useState(process.value || 0);
   const [obValor, setObValor] = useState(process.value || 0);
-  const [neFile, setNeFile] = useState<File | null>(null);
-  const [dlFile, setDlFile] = useState<File | null>(null);
-  const [obFile, setObFile] = useState<File | null>(null);
-  const [neFilePath, setNeFilePath] = useState<string | null>(null);
-  const [dlFilePath, setDlFilePath] = useState<string | null>(null);
-  const [obFilePath, setObFilePath] = useState<string | null>(null);
+  const [neUpload, setNeUpload] = useState<UploadedFile | null>(null);
+  const [dlUpload, setDlUpload] = useState<UploadedFile | null>(null);
+  const [obUpload, setObUpload] = useState<UploadedFile | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  // PDF preview
+  const [previewData, setPreviewData] = useState<string | null>(null);
 
   // Document generation tracking
   const [generatedDocs, setGeneratedDocs] = useState<Record<string, boolean>>({
@@ -95,7 +115,6 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
     try {
       const year = new Date().getFullYear();
       const portariaNum = `${Math.floor(Math.random() * 900) + 100}/${year}-SF`;
-      const { data: { user } } = await supabase.auth.getUser();
 
       await supabase.from('solicitations').update({
         ptres_code: selectedPtres,
@@ -133,8 +152,6 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
   const handleGenerateCertidao = async () => {
     setIsProcessing(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
       await supabase.from('process_documents').insert({
         solicitation_id: process.id,
         title: 'Certidão de Regularidade',
@@ -154,62 +171,75 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
     } finally { setIsProcessing(false); }
   };
 
-  const handleUploadFile = async (file: File | undefined, tipo: string, setFile: (f: File | null) => void, setFilePath: (p: string | null) => void) => {
+  /** Read PDF file and convert to base64 for persistent storage */
+  const handleSelectFile = useCallback(async (
+    file: File | undefined,
+    setUpload: (u: UploadedFile | null) => void
+  ) => {
     if (!file) return;
-    if (file.type !== 'application/pdf') { alert('Selecione um PDF.'); return; }
+    if (file.type !== 'application/pdf') {
+      alert('Selecione um arquivo PDF.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('O arquivo excede 5 MB. Selecione um PDF menor.');
+      return;
+    }
     setIsUploading(true);
     try {
-      const filePath = `execution/${process.id}/${tipo.toLowerCase()}_${Date.now()}.pdf`;
-      const { error } = await supabase.storage.from('documentos').upload(filePath, file);
-      if (error) throw error;
-      setFile(file);
-      setFilePath(filePath);
-      alert(`${file.name} carregado com sucesso!`);
-    } catch (err: any) {
-      console.error(err);
-      // Storage might not exist, just save the file reference locally
-      setFile(file);
-      setFilePath(null);
-    } finally { setIsUploading(false); }
-  };
+      const base64 = await fileToBase64(file);
+      setUpload({ file, base64, name: file.name, size: file.size });
+    } catch (err) {
+      console.error('Erro ao ler PDF:', err);
+      alert('Erro ao processar o arquivo PDF.');
+    } finally {
+      setIsUploading(false);
+    }
+  }, []);
 
+  /** Save document with embedded base64 PDF content */
   const handleSaveDocument = async (
-    tipo: string, titulo: string, valor: number, file: File,
-    dbField: string, autoSign: boolean, storagePath: string | null
+    tipo: string, titulo: string, valor: number, upload: UploadedFile,
+    dbField: string, autoSign: boolean
   ) => {
     if (valor <= 0) { alert('Informe o valor do documento.'); return; }
     setIsProcessing(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Get public URL for the uploaded file
-      let fileUrl: string | null = null;
-      if (storagePath) {
-        const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(storagePath);
-        fileUrl = urlData?.publicUrl || null;
-      }
+      // Also try Supabase Storage as secondary (best-effort, non-blocking)
+      let storageUrl: string | null = null;
+      try {
+        const storagePath = `execution/${process.id}/${tipo.toLowerCase()}_${Date.now()}.pdf`;
+        const { error } = await supabase.storage.from('documentos').upload(storagePath, upload.file);
+        if (!error) {
+          const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(storagePath);
+          storageUrl = urlData?.publicUrl || null;
+        }
+      } catch { /* Storage is optional - base64 is the primary */ }
 
       // Update solicitation
       await supabase.from('solicitations').update({
-        [dbField + '_numero']: file.name.replace('.pdf', ''),
+        [dbField + '_numero']: upload.name.replace('.pdf', ''),
         [dbField + '_valor']: valor,
         updated_at: new Date().toISOString()
       } as any).eq('id', process.id);
 
-      // Create document
+      // Create document with embedded base64 PDF
       await supabase.from('process_documents').insert({
         solicitation_id: process.id,
-        title: `${titulo} - ${file.name}`,
+        title: `${titulo} - ${upload.name}`,
         description: `${titulo} (SIAFE)`,
         document_type: tipo,
         status: autoSign ? 'SIGNED' : 'MINUTA',
         created_at: new Date().toISOString(),
         metadata: {
           value: valor,
-          original_filename: file.name,
-          source: 'EXTERNAL_ERP',
-          file_url: fileUrl,
-          storage_path: storagePath,
+          original_filename: upload.name,
+          file_size: upload.size,
+          source: 'SIAFE_PDF',
+          file_data: upload.base64,       // PRIMARY: base64 data URL
+          file_url: storageUrl,           // SECONDARY: Supabase Storage URL
           ...(autoSign ? { signer: user?.email, signed_at: new Date().toISOString() } : {})
         }
       });
@@ -249,7 +279,6 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
         created_at: new Date().toISOString()
       });
 
-      // Create SEFIN signing tasks for the 3 documents
       const docsToSign = [
         { type: 'PORTARIA_SF', title: `Portaria SF ${portariaNumero} - ${process.beneficiary}` },
         { type: 'CERTIDAO_REGULARIDADE', title: `Certidão de Regularidade - ${process.beneficiary}` },
@@ -293,318 +322,370 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
 
   if (!isOpen) return null;
 
-  // ==================== RENDER ====================
+  // ==================== RENDER HELPERS ====================
 
   const renderUploadArea = (
-    file: File | null, setFile: (f: File | null) => void,
-    inputId: string, color: string, onUpload: (f: File | undefined) => void
+    upload: UploadedFile | null,
+    setUpload: (u: UploadedFile | null) => void,
+    inputId: string, color: string
   ) => (
     <div className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${
-      file ? 'border-emerald-300 bg-emerald-50' : `border-${color}-300 bg-white hover:border-${color}-400`
+      upload ? 'border-emerald-300 bg-emerald-50/50' : `border-gray-200 bg-white hover:border-${color}-300 hover:bg-${color}-50/30`
     }`}>
-      {file ? (
-        <div className="space-y-3">
+      {upload ? (
+        <div className="space-y-4">
           <div className="w-16 h-16 mx-auto bg-emerald-100 rounded-2xl flex items-center justify-center">
             <CheckCircle2 size={32} className="text-emerald-600" />
           </div>
-          <p className="font-bold text-emerald-800">{file.name}</p>
-          <p className="text-xs text-emerald-600">{(file.size / 1024).toFixed(1)} KB • PDF pronto</p>
-          <button onClick={() => setFile(null)} className="text-xs text-red-600 hover:underline">Remover</button>
+          <div>
+            <p className="font-bold text-emerald-800 text-sm">{upload.name}</p>
+            <p className="text-xs text-emerald-600 mt-1">{(upload.size / 1024).toFixed(1)} KB • PDF carregado com sucesso</p>
+          </div>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              onClick={() => setPreviewData(upload.base64)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-all"
+            >
+              <Eye size={14} /> Visualizar PDF
+            </button>
+            <button
+              onClick={() => setUpload(null)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-50 text-red-600 text-xs font-bold rounded-lg hover:bg-red-100 transition-all border border-red-200"
+            >
+              <Trash2 size={14} /> Remover
+            </button>
+          </div>
         </div>
       ) : (
         <>
-          <div className={`w-16 h-16 mx-auto bg-${color}-100 rounded-2xl flex items-center justify-center mb-4`}>
-            <Upload size={32} className={`text-${color}-600`} />
+          <div className={`w-16 h-16 mx-auto bg-gray-100 rounded-2xl flex items-center justify-center mb-4`}>
+            <Upload size={32} className="text-gray-400" />
           </div>
-          <p className="text-sm text-slate-600 mb-4">Arraste o PDF ou clique para selecionar</p>
-          <input type="file" accept="application/pdf" onChange={e => onUpload(e.target.files?.[0])}
-            className="hidden" id={inputId} disabled={isUploading} />
-          <label htmlFor={inputId}
-            className={`cursor-pointer inline-flex items-center gap-2 px-6 py-3 bg-${color}-600 text-white rounded-xl font-bold hover:bg-${color}-700 transition-all`}>
+          <p className="text-sm text-slate-600 mb-1">Arraste o PDF aqui ou clique para selecionar</p>
+          <p className="text-[10px] text-slate-400 mb-4">Máximo 5 MB • Apenas arquivos PDF</p>
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={e => handleSelectFile(e.target.files?.[0], setUpload)}
+            className="hidden"
+            id={inputId}
+            disabled={isUploading}
+          />
+          <label
+            htmlFor={inputId}
+            className={`cursor-pointer inline-flex items-center gap-2 px-6 py-3 bg-${color}-600 text-white rounded-xl font-bold hover:bg-${color}-700 transition-all shadow-sm`}
+          >
             {isUploading ? <Loader2 className="animate-spin" size={16} /> : <FileIcon size={16} />}
-            Selecionar PDF
+            Selecionar PDF do SIAFE
           </label>
         </>
       )}
     </div>
   );
 
+  // ==================== MAIN RENDER ====================
+
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" onClick={onClose}></div>
+    <>
+      <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" onClick={onClose}></div>
 
-      <div className="relative bg-white rounded-[32px] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-in zoom-in-95 flex flex-col">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-black uppercase tracking-tight">Execução da Despesa</h2>
-              <p className="text-blue-200 text-sm font-medium mt-1">
-                {process.process_number} • {process.beneficiary}
-              </p>
+        <div className="relative bg-white rounded-[32px] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-in zoom-in-95 flex flex-col">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-black uppercase tracking-tight">Execução da Despesa</h2>
+                <p className="text-blue-200 text-sm font-medium mt-1">
+                  {process.process_number} • {process.beneficiary}
+                </p>
+              </div>
+              <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-xl transition-all">
+                <X size={24} />
+              </button>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-xl transition-all">
-              <X size={24} />
-            </button>
+
+            {/* Step indicator */}
+            <div className="flex items-center gap-2 mt-8 overflow-x-auto pb-2">
+              {STEPS.map((step, idx) => (
+                <Tooltip key={step.key} content={step.description} position="bottom" delay={300}>
+                <button
+                  onClick={() => setCurrentStep(step.key)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest whitespace-nowrap transition-all ${
+                    currentStep === step.key
+                      ? 'bg-white text-blue-600 shadow-lg'
+                      : generatedDocs[step.key]
+                        ? 'bg-emerald-500/20 text-emerald-200'
+                        : 'bg-white/10 text-white/60 hover:bg-white/20'
+                  }`}
+                >
+                  {generatedDocs[step.key] ? <CheckCircle2 size={14} /> : <span className="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center text-[9px]">{idx + 1}</span>}
+                  {step.label}
+                </button>
+                </Tooltip>
+              ))}
+            </div>
           </div>
 
-          {/* Step indicator */}
-          <div className="flex items-center gap-2 mt-8 overflow-x-auto pb-2">
-            {STEPS.map((step) => (
-              <Tooltip key={step.key} content={step.description} position="bottom" delay={300}>
-              <button
-                onClick={() => setCurrentStep(step.key)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest whitespace-nowrap transition-all ${
-                  currentStep === step.key
-                    ? 'bg-white text-blue-600'
-                    : generatedDocs[step.key]
-                      ? 'bg-emerald-500/20 text-emerald-200'
-                      : 'bg-white/10 text-white/60 hover:bg-white/20'
-                }`}
-              >
-                {generatedDocs[step.key] ? <CheckCircle2 size={14} /> : step.icon}
-                {step.label}
-              </button>
-              </Tooltip>
-            ))}
-          </div>
-        </div>
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto p-8">
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-8">
-
-          {/* Step: PORTARIA */}
-          {currentStep === 'PORTARIA' && (
-            <div className="space-y-6">
-              <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
-                <h3 className="text-lg font-black text-slate-800 mb-2">1. Portaria de Suprimento de Fundos</h3>
-                <p className="text-sm text-slate-600 mb-6">
-                  Informe o PTRES e a Dotação Orçamentária. Estes dados serão referenciados no Art. 1º da Portaria.
-                </p>
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">PTRES *</label>
-                    <input type="text" value={selectedPtres} onChange={e => setSelectedPtres(e.target.value)}
-                      placeholder="Ex: 096543" className="w-full p-4 bg-white border border-slate-200 rounded-xl text-sm font-medium" />
+            {/* Step: PORTARIA */}
+            {currentStep === 'PORTARIA' && (
+              <div className="space-y-6">
+                <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
+                  <h3 className="text-lg font-black text-slate-800 mb-2">1. Portaria de Suprimento de Fundos</h3>
+                  <p className="text-sm text-slate-600 mb-6">
+                    Informe o PTRES e a Dotação Orçamentária. Estes dados serão referenciados no Art. 1º da Portaria.
+                  </p>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">PTRES *</label>
+                      <input type="text" value={selectedPtres} onChange={e => setSelectedPtres(e.target.value)}
+                        placeholder="Ex: 096543" className="w-full p-4 bg-white border border-slate-200 rounded-xl text-sm font-medium" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Dotação Orçamentária *</label>
+                      <input type="text" value={selectedDotacao} onChange={e => setSelectedDotacao(e.target.value)}
+                        placeholder="Ex: 02.061.1469.8631" className="w-full p-4 bg-white border border-slate-200 rounded-xl text-sm font-medium" />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Dotação Orçamentária *</label>
-                    <input type="text" value={selectedDotacao} onChange={e => setSelectedDotacao(e.target.value)}
-                      placeholder="Ex: 02.061.1469.8631" className="w-full p-4 bg-white border border-slate-200 rounded-xl text-sm font-medium" />
-                  </div>
-                </div>
-                {selectedPtres && selectedDotacao && (
-                  <div className="mt-6 p-4 bg-white rounded-xl border border-slate-200">
-                    <p className="text-[10px] font-black text-slate-400 uppercase mb-2">Prévia do Art. 1º</p>
-                    <p className="text-sm text-slate-700">
-                      <strong>Art. 1º</strong> AUTORIZAR a concessão de Suprimento de Fundos ao servidor {process.beneficiary},
-                      a ser executado através do <strong className="text-blue-600">PTRES {selectedPtres}</strong> e
-                      <strong className="text-blue-600"> Dotação Orçamentária {selectedDotacao}</strong>.
-                    </p>
-                  </div>
-                )}
-              </div>
-              <button onClick={handleGeneratePortaria}
-                disabled={!selectedPtres || !selectedDotacao || isProcessing || generatedDocs.PORTARIA}
-                className="w-full py-4 bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <FileText size={16} />}
-                {generatedDocs.PORTARIA ? 'Portaria Gerada ✓' : 'Minutar Portaria SF'}
-              </button>
-            </div>
-          )}
-
-          {/* Step: CERTIDAO */}
-          {currentStep === 'CERTIDAO' && (
-            <div className="space-y-6">
-              <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
-                <h3 className="text-lg font-black text-slate-800 mb-2">2. Certidão de Regularidade</h3>
-                <p className="text-sm text-slate-600 mb-6">
-                  A Certidão atesta que o servidor não possui pendências de prestação de contas anteriores.
-                </p>
-                <div className="p-4 bg-white rounded-xl border border-slate-200">
-                  <div className="flex items-center gap-3 text-emerald-600">
-                    <CheckCircle2 size={24} />
-                    <span className="font-bold">Servidor {process.beneficiary} encontra-se REGULAR</span>
-                  </div>
-                </div>
-              </div>
-              <button onClick={handleGenerateCertidao}
-                disabled={isProcessing || generatedDocs.CERTIDAO}
-                className="w-full py-4 bg-emerald-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <Award size={16} />}
-                {generatedDocs.CERTIDAO ? 'Certidão Emitida ✓' : 'Emitir Certidão'}
-              </button>
-            </div>
-          )}
-
-          {/* Step: NE */}
-          {currentStep === 'NE' && (
-            <div className="space-y-6">
-              <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100">
-                <h3 className="text-lg font-black text-slate-800 mb-2">3. Nota de Empenho (NE)</h3>
-                <p className="text-sm text-slate-600 mb-6">
-                  Upload do PDF original da NE do <strong>SIAFE</strong>. O Ordenador assinará este PDF (não é minuta).
-                </p>
-                <div className="mb-6">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Valor da NE (R$)</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
-                    <input type="number" step="0.01" value={neValor} onChange={e => setNeValor(Number(e.target.value))}
-                      className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 text-lg" />
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1">Triple Check: NE ≥ DL ≥ OB</p>
-                </div>
-                {renderUploadArea(neFile, setNeFile, 'ne-upload', 'amber',
-                  f => handleUploadFile(f, 'NE', setNeFile, setNeFilePath))}
-              </div>
-              <button onClick={() => neFile && handleSaveDocument('NOTA_EMPENHO', 'Nota de Empenho', neValor, neFile, 'ne', false, neFilePath)}
-                disabled={!neFile || isProcessing}
-                className="w-full py-4 bg-amber-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <DollarSign size={16} />}
-                {generatedDocs.NE ? 'NE Registrada ✓' : 'Registrar NE'}
-              </button>
-            </div>
-          )}
-
-          {/* Step: DL (Auto-signed by SOSFU) */}
-          {currentStep === 'DL' && (
-            <div className="space-y-6">
-              <div className="bg-purple-50 p-6 rounded-2xl border border-purple-100">
-                <h3 className="text-lg font-black text-slate-800 mb-2">4. Documento de Liquidação (DL)</h3>
-                <p className="text-sm text-slate-600 mb-2">
-                  Upload do PDF do DL do <strong>SIAFE</strong>. <span className="text-purple-700 font-bold">Assinado automaticamente pelo analista SOSFU.</span>
-                </p>
-                <div className="mb-6">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Valor da Liquidação (R$)</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
-                    <input type="number" step="0.01" value={dlValor} onChange={e => setDlValor(Number(e.target.value))}
-                      className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 text-lg" />
-                  </div>
-                  {dlValor !== neValor && dlValor > 0 && (
-                    <p className="text-xs text-amber-600 font-bold mt-1 flex items-center gap-1">
-                      <AlertTriangle size={12} /> Valor diferente da NE ({formatCurrency(neValor)})
-                    </p>
+                  {selectedPtres && selectedDotacao && (
+                    <div className="mt-6 p-4 bg-white rounded-xl border border-slate-200">
+                      <p className="text-[10px] font-black text-slate-400 uppercase mb-2">Prévia do Art. 1º</p>
+                      <p className="text-sm text-slate-700">
+                        <strong>Art. 1º</strong> AUTORIZAR a concessão de Suprimento de Fundos ao servidor {process.beneficiary},
+                        a ser executado através do <strong className="text-blue-600">PTRES {selectedPtres}</strong> e
+                        <strong className="text-blue-600"> Dotação Orçamentária {selectedDotacao}</strong>.
+                      </p>
+                    </div>
                   )}
                 </div>
-                {renderUploadArea(dlFile, setDlFile, 'dl-upload', 'purple',
-                  f => handleUploadFile(f, 'DL', setDlFile, setDlFilePath))}
+                <button onClick={handleGeneratePortaria}
+                  disabled={!selectedPtres || !selectedDotacao || isProcessing || generatedDocs.PORTARIA}
+                  className="w-full py-4 bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <FileText size={16} />}
+                  {generatedDocs.PORTARIA ? 'Portaria Gerada ✓' : 'Minutar Portaria SF'}
+                </button>
               </div>
-              <button onClick={() => dlFile && handleSaveDocument('LIQUIDACAO', 'Doc. de Liquidação', dlValor, dlFile, 'dl', true, dlFilePath)}
-                disabled={!dlFile || isProcessing}
-                className="w-full py-4 bg-purple-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <FileCheck size={16} />}
-                {generatedDocs.DL ? 'DL Registrado ✓' : 'Registrar e Assinar DL'}
-              </button>
-            </div>
-          )}
+            )}
 
-          {/* Step: OB (Auto-signed by SOSFU) */}
-          {currentStep === 'OB' && (
-            <div className="space-y-6">
-              <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100">
-                <h3 className="text-lg font-black text-slate-800 mb-2">5. Ordem Bancária (OB)</h3>
-                <p className="text-sm text-slate-600 mb-2">
-                  Upload do PDF da OB do <strong>SIAFE</strong>. <span className="text-indigo-700 font-bold">Assinada automaticamente pelo analista SOSFU.</span>
-                </p>
-                <div className="mb-6">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Valor da Ordem Bancária (R$)</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
-                    <input type="number" step="0.01" value={obValor} onChange={e => setObValor(Number(e.target.value))}
-                      className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 text-lg" />
+            {/* Step: CERTIDAO */}
+            {currentStep === 'CERTIDAO' && (
+              <div className="space-y-6">
+                <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
+                  <h3 className="text-lg font-black text-slate-800 mb-2">2. Certidão de Regularidade</h3>
+                  <p className="text-sm text-slate-600 mb-6">
+                    A Certidão atesta que o servidor não possui pendências de prestação de contas anteriores.
+                  </p>
+                  <div className="p-4 bg-white rounded-xl border border-slate-200">
+                    <div className="flex items-center gap-3 text-emerald-600">
+                      <ShieldCheck size={24} />
+                      <span className="font-bold">Servidor {process.beneficiary} encontra-se REGULAR</span>
+                    </div>
                   </div>
-                  {obValor !== dlValor && obValor > 0 && (
-                    <p className="text-xs text-red-600 font-bold mt-1 flex items-center gap-1">
-                      <AlertTriangle size={12} /> Valor diferente do DL ({formatCurrency(dlValor)})
-                    </p>
-                  )}
                 </div>
-                {renderUploadArea(obFile, setObFile, 'ob-upload', 'indigo',
-                  f => handleUploadFile(f, 'OB', setObFile, setObFilePath))}
+                <button onClick={handleGenerateCertidao}
+                  disabled={isProcessing || generatedDocs.CERTIDAO}
+                  className="w-full py-4 bg-emerald-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <Award size={16} />}
+                  {generatedDocs.CERTIDAO ? 'Certidão Emitida ✓' : 'Emitir Certidão'}
+                </button>
               </div>
-              <button onClick={() => obFile && handleSaveDocument('ORDEM_BANCARIA', 'Ordem Bancária', obValor, obFile, 'ob', true, obFilePath)}
-                disabled={!obFile || isProcessing}
-                className="w-full py-4 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <CreditCard size={16} />}
-                {generatedDocs.OB ? 'OB Registrada ✓' : 'Registrar e Assinar OB'}
-              </button>
-            </div>
-          )}
+            )}
 
-          {/* Step: TRAMITAR */}
-          {currentStep === 'TRAMITAR' && (
-            <div className="space-y-6">
-              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                <h3 className="text-lg font-black text-slate-800 mb-2">6. Tramitar para Ordenador (SEFIN)</h3>
-                <p className="text-sm text-slate-600 mb-6">
-                  Envie Portaria (minuta), Certidão (minuta) e NE (PDF original) para assinatura do Ordenador de Despesa.
-                </p>
-                <div className="space-y-3">
-                  {[
-                    { key: 'PORTARIA', label: `Portaria SF ${portariaNumero ? `(${portariaNumero})` : ''}`, dest: 'SEFIN — Minuta' },
-                    { key: 'CERTIDAO', label: 'Certidão de Regularidade', dest: 'SEFIN — Minuta' },
-                    { key: 'NE', label: 'Nota de Empenho', dest: 'SEFIN — PDF Original' },
-                    { key: 'DL', label: 'Doc. de Liquidação', dest: 'Dossiê — Auto-assinado' },
-                    { key: 'OB', label: 'Ordem Bancária', dest: 'Dossiê — Auto-assinado' },
-                  ].map(doc => (
-                    <div key={doc.key} className={`flex items-center justify-between p-3 rounded-xl ${
-                      generatedDocs[doc.key] ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
-                    }`}>
-                      <div className="flex items-center gap-2">
-                        {generatedDocs[doc.key] ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
-                        <span className="font-bold text-sm">{doc.label}</span>
+            {/* Step: NE */}
+            {currentStep === 'NE' && (
+              <div className="space-y-6">
+                <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100">
+                  <h3 className="text-lg font-black text-slate-800 mb-2">3. Nota de Empenho (NE)</h3>
+                  <p className="text-sm text-slate-600 mb-6">
+                    Anexe o PDF original da NE extraído do <strong>SIAFE</strong>. O Ordenador assinará este documento.
+                  </p>
+                  <div className="mb-6">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Valor da NE (R$)</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
+                      <input type="number" step="0.01" value={neValor} onChange={e => setNeValor(Number(e.target.value))}
+                        className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 text-lg" />
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">Triple Check: NE ≥ DL ≥ OB</p>
+                  </div>
+                  {renderUploadArea(neUpload, setNeUpload, 'ne-upload', 'amber')}
+                </div>
+                <button onClick={() => neUpload && handleSaveDocument('NOTA_EMPENHO', 'Nota de Empenho', neValor, neUpload, 'ne', false)}
+                  disabled={!neUpload || isProcessing || generatedDocs.NE}
+                  className="w-full py-4 bg-amber-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <DollarSign size={16} />}
+                  {generatedDocs.NE ? 'NE Registrada ✓' : 'Registrar NE'}
+                </button>
+              </div>
+            )}
+
+            {/* Step: DL (Auto-signed by SOSFU) */}
+            {currentStep === 'DL' && (
+              <div className="space-y-6">
+                <div className="bg-purple-50 p-6 rounded-2xl border border-purple-100">
+                  <h3 className="text-lg font-black text-slate-800 mb-2">4. Documento de Liquidação (DL)</h3>
+                  <p className="text-sm text-slate-600 mb-2">
+                    Anexe o PDF do DL do <strong>SIAFE</strong>. <span className="text-purple-700 font-bold">Assinado automaticamente pelo analista SOSFU.</span>
+                  </p>
+                  <div className="mb-6">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Valor da Liquidação (R$)</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
+                      <input type="number" step="0.01" value={dlValor} onChange={e => setDlValor(Number(e.target.value))}
+                        className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 text-lg" />
+                    </div>
+                    {dlValor !== neValor && dlValor > 0 && (
+                      <p className="text-xs text-amber-600 font-bold mt-1 flex items-center gap-1">
+                        <AlertTriangle size={12} /> Valor diferente da NE ({formatCurrency(neValor)})
+                      </p>
+                    )}
+                  </div>
+                  {renderUploadArea(dlUpload, setDlUpload, 'dl-upload', 'purple')}
+                </div>
+                <button onClick={() => dlUpload && handleSaveDocument('LIQUIDACAO', 'Doc. de Liquidação', dlValor, dlUpload, 'dl', true)}
+                  disabled={!dlUpload || isProcessing || generatedDocs.DL}
+                  className="w-full py-4 bg-purple-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <FileCheck size={16} />}
+                  {generatedDocs.DL ? 'DL Registrado ✓' : 'Registrar e Assinar DL'}
+                </button>
+              </div>
+            )}
+
+            {/* Step: OB (Auto-signed by SOSFU) */}
+            {currentStep === 'OB' && (
+              <div className="space-y-6">
+                <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100">
+                  <h3 className="text-lg font-black text-slate-800 mb-2">5. Ordem Bancária (OB)</h3>
+                  <p className="text-sm text-slate-600 mb-2">
+                    Anexe o PDF da OB do <strong>SIAFE</strong>. <span className="text-indigo-700 font-bold">Assinada automaticamente pelo analista SOSFU.</span>
+                  </p>
+                  <div className="mb-6">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Valor da Ordem Bancária (R$)</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
+                      <input type="number" step="0.01" value={obValor} onChange={e => setObValor(Number(e.target.value))}
+                        className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 text-lg" />
+                    </div>
+                    {obValor !== dlValor && obValor > 0 && (
+                      <p className="text-xs text-red-600 font-bold mt-1 flex items-center gap-1">
+                        <AlertTriangle size={12} /> Valor diferente do DL ({formatCurrency(dlValor)})
+                      </p>
+                    )}
+                  </div>
+                  {renderUploadArea(obUpload, setObUpload, 'ob-upload', 'indigo')}
+                </div>
+                <button onClick={() => obUpload && handleSaveDocument('ORDEM_BANCARIA', 'Ordem Bancária', obValor, obUpload, 'ob', true)}
+                  disabled={!obUpload || isProcessing || generatedDocs.OB}
+                  className="w-full py-4 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <CreditCard size={16} />}
+                  {generatedDocs.OB ? 'OB Registrada ✓' : 'Registrar e Assinar OB'}
+                </button>
+              </div>
+            )}
+
+            {/* Step: TRAMITAR */}
+            {currentStep === 'TRAMITAR' && (
+              <div className="space-y-6">
+                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                  <h3 className="text-lg font-black text-slate-800 mb-2">6. Tramitar para Ordenador (SEFIN)</h3>
+                  <p className="text-sm text-slate-600 mb-6">
+                    Envie Portaria (minuta), Certidão (minuta) e NE (PDF original) para assinatura do Ordenador de Despesa.
+                  </p>
+                  <div className="space-y-3">
+                    {[
+                      { key: 'PORTARIA', label: `Portaria SF ${portariaNumero ? `(${portariaNumero})` : ''}`, dest: 'SEFIN — Minuta' },
+                      { key: 'CERTIDAO', label: 'Certidão de Regularidade', dest: 'SEFIN — Minuta' },
+                      { key: 'NE', label: 'Nota de Empenho', dest: 'SEFIN — PDF Original' },
+                      { key: 'DL', label: 'Doc. de Liquidação', dest: 'Dossiê — Auto-assinado' },
+                      { key: 'OB', label: 'Ordem Bancária', dest: 'Dossiê — Auto-assinado' },
+                    ].map(doc => (
+                      <div key={doc.key} className={`flex items-center justify-between p-3 rounded-xl ${
+                        generatedDocs[doc.key] ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          {generatedDocs[doc.key] ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+                          <span className="font-bold text-sm">{doc.label}</span>
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">→ {doc.dest}</span>
                       </div>
-                      <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">→ {doc.dest}</span>
+                    ))}
+                  </div>
+
+                  {/* Triple Check Summary */}
+                  {generatedDocs.NE && (
+                    <div className="mt-6 p-4 bg-white rounded-xl border border-slate-200">
+                      <p className="text-[10px] font-black text-slate-400 uppercase mb-3">Triple Check: NE → DL → OB</p>
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div><p className="text-[9px] font-bold text-amber-600 uppercase">NE</p><p className="text-lg font-black text-slate-800">{formatCurrency(neValor)}</p></div>
+                        <div><p className="text-[9px] font-bold text-purple-600 uppercase">DL</p><p className="text-lg font-black text-slate-800">{formatCurrency(dlValor)}</p></div>
+                        <div><p className="text-[9px] font-bold text-indigo-600 uppercase">OB</p><p className="text-lg font-black text-slate-800">{formatCurrency(obValor)}</p></div>
+                      </div>
                     </div>
-                  ))}
+                  )}
+
+                  {(!generatedDocs.PORTARIA || !generatedDocs.CERTIDAO || !generatedDocs.NE) && (
+                    <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                      <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                      <p className="text-sm text-amber-700">Gere todos os documentos obrigatórios (Portaria, Certidão, NE) antes de tramitar.</p>
+                    </div>
+                  )}
                 </div>
 
-                {/* Triple Check Summary */}
-                {generatedDocs.NE && (
-                  <div className="mt-6 p-4 bg-white rounded-xl border border-slate-200">
-                    <p className="text-[10px] font-black text-slate-400 uppercase mb-3">Triple Check: NE → DL → OB</p>
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                      <div><p className="text-[9px] font-bold text-amber-600 uppercase">NE</p><p className="text-lg font-black text-slate-800">{formatCurrency(neValor)}</p></div>
-                      <div><p className="text-[9px] font-bold text-purple-600 uppercase">DL</p><p className="text-lg font-black text-slate-800">{formatCurrency(dlValor)}</p></div>
-                      <div><p className="text-[9px] font-bold text-indigo-600 uppercase">OB</p><p className="text-lg font-black text-slate-800">{formatCurrency(obValor)}</p></div>
-                    </div>
-                  </div>
-                )}
-
-                {(!generatedDocs.PORTARIA || !generatedDocs.CERTIDAO || !generatedDocs.NE) && (
-                  <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
-                    <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-sm text-amber-700">Gere todos os documentos obrigatórios (Portaria, Certidão, NE) antes de tramitar.</p>
-                  </div>
-                )}
+                <button onClick={handleTramitarOrdenador}
+                  disabled={!generatedDocs.PORTARIA || !generatedDocs.CERTIDAO || !generatedDocs.NE || isProcessing}
+                  className="w-full py-4 bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
+                  Tramitar para Ordenador (SEFIN)
+                </button>
               </div>
+            )}
+          </div>
 
-              <button onClick={handleTramitarOrdenador}
-                disabled={!generatedDocs.PORTARIA || !generatedDocs.CERTIDAO || !generatedDocs.NE || isProcessing}
-                className="w-full py-4 bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
-                Tramitar para Ordenador (SEFIN)
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Footer Navigation */}
-        <div className="p-6 border-t border-slate-100 flex justify-between shrink-0">
-          <button onClick={goPrev} disabled={isFirstStep}
-            className="flex items-center gap-2 px-6 py-3 text-slate-500 font-bold text-xs hover:bg-slate-50 rounded-xl disabled:opacity-30">
-            <ChevronLeft size={16} /> Anterior
-          </button>
-          {currentStep !== 'TRAMITAR' && (
-            <button onClick={goNext}
-              className="flex items-center gap-2 px-6 py-3 text-blue-600 font-bold text-xs hover:bg-blue-50 rounded-xl">
-              Pular <ChevronRight size={16} />
+          {/* Footer Navigation */}
+          <div className="p-6 border-t border-slate-100 flex justify-between shrink-0">
+            <button onClick={goPrev} disabled={isFirstStep}
+              className="flex items-center gap-2 px-6 py-3 text-slate-500 font-bold text-xs hover:bg-slate-50 rounded-xl disabled:opacity-30">
+              <ChevronLeft size={16} /> Anterior
             </button>
-          )}
+            {currentStep !== 'TRAMITAR' && (
+              <button onClick={goNext}
+                className="flex items-center gap-2 px-6 py-3 text-blue-600 font-bold text-xs hover:bg-blue-50 rounded-xl">
+                Pular <ChevronRight size={16} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* PDF Preview Modal */}
+      {previewData && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setPreviewData(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 shrink-0">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <Eye size={18} className="text-blue-600" />
+                Pré-visualização do PDF
+              </h3>
+              <button onClick={() => setPreviewData(null)}
+                className="p-2 bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 rounded-full transition-all">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1">
+              <iframe
+                src={previewData}
+                className="w-full h-full border-0"
+                title="Preview PDF"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
