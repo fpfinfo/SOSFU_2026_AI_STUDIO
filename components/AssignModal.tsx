@@ -9,7 +9,7 @@ interface AssignModalProps {
     currentAnalystId?: string;
     title?: string;
     /** Module to filter team members. If not provided, will auto-detect from current user's role */
-    module?: 'SOSFU' | 'SEFIN' | 'AJSEFIN' | 'SGP' | 'SEAD' | 'PRESIDENCIA' | 'GESTOR';
+    module?: 'SOSFU' | 'SEFIN' | 'AJSEFIN' | 'SGP' | 'SEAD' | 'PRESIDENCIA' | 'GESTOR' | 'SODPA' | 'RESSARCIMENTO';
 }
 
 interface TeamMember {
@@ -30,6 +30,8 @@ const MODULE_ROLE_PREFIXES: Record<string, string[]> = {
     'SEAD': ['SEAD', 'ADMIN'],
     'PRESIDENCIA': ['PRESIDENCIA', 'ADMIN'],
     'GESTOR': ['GESTOR', 'ADMIN'],
+    'SODPA': ['SODPA', 'ADMIN'],
+    'RESSARCIMENTO': ['RESSARCIMENTO', 'ADMIN'], // Added RESSARCIMENTO
 };
 
 export const AssignModal: React.FC<AssignModalProps> = ({ 
@@ -80,6 +82,7 @@ export const AssignModal: React.FC<AssignModalProps> = ({
                 else if (userRoleSlug.startsWith('SGP')) effectiveModule = 'SGP';
                 else if (userRoleSlug.startsWith('SEAD')) effectiveModule = 'SEAD';
                 else if (userRoleSlug.startsWith('PRESIDENCIA')) effectiveModule = 'PRESIDENCIA';
+                else if (userRoleSlug.startsWith('RESSARCIMENTO')) effectiveModule = 'RESSARCIMENTO';
                 else if (userRoleSlug === 'GESTOR') effectiveModule = 'GESTOR';
                 else effectiveModule = 'SOSFU'; // Default
             }
@@ -103,7 +106,7 @@ export const AssignModal: React.FC<AssignModalProps> = ({
                     .in('id', teamUserIds);
 
                 if (teamProfiles) {
-                    const funcaoMap = new Map(teamRows.map(r => [r.user_id, r.funcao]));
+                    const funcaoMap = new Map<string, any>(teamRows.map(r => [r.user_id, r.funcao]));
                     teamProfiles.forEach(p => {
                         if (!seenIds.has(p.id)) {
                             members.push({

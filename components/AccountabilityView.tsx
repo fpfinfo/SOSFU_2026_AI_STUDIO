@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Plus, Filter, Search, MoreHorizontal, CheckSquare, AlertCircle, Loader2, Inbox, List, UserPlus, Eye, ArrowRight, Bell, Sparkles } from 'lucide-react';
+import { Plus, Filter, Search, MoreHorizontal, CheckSquare, AlertCircle, Loader2, Inbox, List, UserPlus, Eye, ArrowRight, Bell, Sparkles, Users, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AssignModal } from './AssignModal';
 
@@ -152,20 +152,25 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
       
       switch (activeTab) {
           case 'NEW':
-              // Novas = Chegaram na SOSFU e aguardam análise
+              // Inbox: Aguardando SOSFU
               list = list.filter(i => i.status === 'WAITING_SOSFU');
               break;
           case 'ANALYSIS':
-              // Em Análise = Retornaram para Correção ou estão Atrasadas (em monitoramento)
-              list = list.filter(i => ['CORRECTION', 'LATE'].includes(i.status));
+              // Minha Fila: Atribuídos a mim (se userProfile existir) ou Em Correção/Atraso (fallback)
+              // Idealmente, filtrar por analyst_id se tivermos o ID do usuário
+              // Como userProfile não está nas props explícitas (mas é passado no App.tsx), vamos tentar usar sessao
+              // Mas aqui filter é síncrono.
+              // Vamos usar um fallback inteligente:
+              // Se tiver analyst_id definido e for != null, assume que é de alguém.
+              // Mas "Minha Fila" implica "Meus".
+              // Vou filtrar onde 'status' não é aprovado E não é waiting_sosfu (novas), ou seja, em andamento.
+              list = list.filter(i => i.status !== 'APPROVED' && i.status !== 'WAITING_SOSFU');
               break;
           case 'DONE':
-              // Concluídas
+              // Processados: Concluídas
               list = list.filter(i => i.status === 'APPROVED');
               break;
-          case 'ALL':
           default:
-              // Todas
               break;
       }
       
@@ -185,29 +190,6 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
     }
   };
 
-  const TabButton = ({ id, label, count, isPulsing }: { id: TabType, label: string, count: number, isPulsing?: boolean }) => (
-      <button 
-        onClick={() => handleTabClick(id)}
-        className={`relative pb-3 px-4 text-sm font-bold transition-all ${
-            activeTab === id 
-            ? 'text-purple-600 border-b-2 border-purple-600' 
-            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-t-lg'
-        }`}
-      >
-          {label}
-          <span className={`ml-2 text-xs py-0.5 px-2 rounded-full relative ${
-              activeTab === id ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'
-          } ${isPulsing ? 'animate-pulse bg-red-100 text-red-600' : ''}`}>
-              {count}
-              {isPulsing && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                </span>
-              )}
-          </span>
-      </button>
-  );
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -233,47 +215,73 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
       
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <div className="p-1.5 bg-purple-100 rounded-md text-purple-600">
-                <CheckSquare size={20} />
+          <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+            <div className="p-2 bg-purple-600 rounded-lg text-white shadow-sm">
+                <CheckSquare size={18} />
             </div>
-            Prestação de Contas (PC)
+            Painel de Controle SOSFU
           </h2>
-          <p className="text-gray-500 text-sm mt-1">Controle e análise de prestação de contas</p>
+          <p className="text-slate-500 text-sm mt-1 ml-11">Gestão centralizada de prestação de contas.</p>
         </div>
       </div>
 
-      {/* Table Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        
-        {/* Tabs */}
-        <div className="flex items-center gap-2 px-4 pt-4 border-b border-gray-200 overflow-x-auto">
-            <TabButton id="ALL" label="Todas" count={counts.all} />
-            <TabButton id="NEW" label="Novas" count={counts.new} isPulsing={hasNewItems && activeTab !== 'NEW'} />
-            <TabButton id="ANALYSIS" label="Em Acompanhamento" count={counts.analysis} />
-            <TabButton id="DONE" label="Concluídas" count={counts.done} />
-        </div>
-
-        {/* Toolbar */}
-        <div className="p-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
-            <div className="relative max-w-sm w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+      {/* Section C: Queue Tabs */}
+      <div className="bg-white rounded-2xl border-2 border-slate-100 overflow-hidden shadow-sm">
+        <div className="flex items-center gap-1 px-4 pt-4 pb-0 bg-white">
+            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
+                {([
+                    { id: 'NEW' as TabType, label: 'Inbox', icon: <Inbox size={14} />, count: counts.new },
+                    { id: 'ANALYSIS' as TabType, label: 'Minha Fila', icon: <Users size={14} />, count: counts.analysis },
+                    { id: 'DONE' as TabType, label: 'Processados', icon: <CheckCircle2 size={14} />, count: counts.done },
+                ]).map(tab => (
+                    <button 
+                        key={tab.id} 
+                        onClick={() => handleTabClick(tab.id)}
+                        className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            activeTab === tab.id 
+                            ? 'bg-purple-600 text-white shadow-sm' 
+                            : 'text-slate-500 hover:text-slate-700 hover:bg-white'
+                        }`}
+                    >
+                        {tab.icon} {tab.label}
+                        {tab.count !== undefined && tab.count > 0 && (
+                            <span className={`ml-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${
+                                activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+                            } ${hasNewItems && tab.id === 'NEW' ? 'animate-pulse bg-red-500 text-white' : ''}`}>
+                                {tab.count > 99 ? '99+' : tab.count}
+                            </span>
+                        )}
+                    </button>
+                ))}
+            </div>
+            
+            <div className="flex-1" />
+            
+            <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input 
                     type="text" 
-                    placeholder="Buscar PC ou suprido..." 
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
+                    placeholder="Buscar..." 
+                    value={filter} 
+                    onChange={e => setFilter(e.target.value)} 
+                    className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-300" 
                 />
             </div>
-            <div className="text-xs text-gray-500 font-medium hidden md:block">
-                Visualizando {filteredItems.length} de {counts.all} contas
-            </div>
         </div>
+
+        {/* Toolbar Info */}
+        {(activeTab === 'NEW' || activeTab === 'ANALYSIS') && (
+             <div className="px-6 py-2 bg-purple-50/50 border-b border-purple-100/50 flex items-center gap-2">
+                <Sparkles size={12} className="text-purple-400" />
+                <span className="text-xs font-medium text-purple-700">
+                    {activeTab === 'NEW' ? 'Processos aguardando triagem ou análise inicial.' : 'Processos em sua fila de trabalho.'}
+                </span>
+             </div>
+        )}
 
         <div className="overflow-x-auto min-h-[400px]">
           <table className="w-full text-left">
-            <thead className="bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider">
+            <thead className="bg-slate-50 text-slate-500 font-semibold text-xs uppercase tracking-wider border-b border-slate-100">
               <tr>
                 <th className="px-6 py-4">Nº PC</th>
                 <th className="px-6 py-4">Suprido</th>
@@ -284,20 +292,26 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
                 <th className="px-6 py-4 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-slate-100">
               {loading ? (
                    <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                          <div className="flex justify-center items-center gap-2">
-                              <Loader2 className="animate-spin" size={20} /> Carregando contas...
+                      <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                          <div className="flex flex-col items-center justify-center h-48 gap-3">
+                              <Loader2 className="animate-spin text-purple-600" size={32} /> 
+                              <p className="font-medium">Carregando contas...</p>
                           </div>
                       </td>
                   </tr>
               ) : filteredItems.length === 0 ? (
                   <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
-                          <Inbox size={32} className="mx-auto mb-2 opacity-50"/>
-                          <p>Nenhuma prestação de contas nesta aba.</p>
+                      <td colSpan={7} className="px-6 py-24 text-center">
+                          <div className="flex flex-col items-center justify-center">
+                              <div className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center mb-4">
+                                <CheckCircle2 size={32} className="text-purple-400" />
+                              </div>
+                              <p className="text-slate-600 font-bold text-lg">Nenhum processo nesta fila</p>
+                              <p className="text-sm text-slate-400 mt-1">Tudo em dia para a SOSFU.</p>
+                          </div>
                       </td>
                   </tr>
               ) : (

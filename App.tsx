@@ -17,6 +17,8 @@ import { SgpDashboard } from './components/sgp/SgpDashboard';
 import { SeadDashboard } from './components/sead/SeadDashboard';
 import { PresidenciaDashboard } from './components/presidencia/PresidenciaDashboard';
 import { SodpaCockpit } from './components/sodpa/SodpaCockpit';
+import { RessarcimentoCockpit } from './components/ressarcimento/RessarcimentoCockpit';
+import { SosfuInbox } from './components/sosfu/SosfuInbox';
 import { EmergencySolicitation } from './components/suprido/EmergencySolicitation';
 import { JurySolicitation } from './components/suprido/JurySolicitation';
 import { ProcessDetailView } from './components/process/ProcessDetailView';
@@ -196,6 +198,8 @@ const App: React.FC = () => {
         setActiveTab('presidencia_dashboard');
       } else if (role.startsWith('SODPA')) {
         setActiveTab('sodpa_dashboard');
+      } else if (role.startsWith('RESSARCIMENTO')) {
+        setActiveTab('ressarcimento_dashboard');
       }
     }
   }, [userProfile, activeTab]);
@@ -255,6 +259,7 @@ const App: React.FC = () => {
                   <StatCard key={stat.id} data={stat} />
                 ))}
              </div>
+             <SosfuInbox onNavigate={handleNavigation} userProfile={userProfile} />
              <TeamTable isGestor={true} />
           </div>
         );
@@ -274,6 +279,8 @@ const App: React.FC = () => {
         return <PresidenciaDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
       case 'sodpa_dashboard':
         return <SodpaCockpit onNavigate={handleNavigation} userProfile={userProfile} />;
+      case 'ressarcimento_dashboard':
+        return <RessarcimentoCockpit onNavigate={handleNavigation} userProfile={userProfile} />;
       case 'solicitation_emergency':
         return <EmergencySolicitation onNavigate={handleNavigation} />;
       case 'solicitation_jury':
@@ -297,6 +304,7 @@ const App: React.FC = () => {
                     if (role.startsWith('SEAD')) return setActiveTab('sead_dashboard');
                     if (role.startsWith('PRESIDENCIA')) return setActiveTab('presidencia_dashboard');
                     if (role.startsWith('SODPA')) return setActiveTab('sodpa_dashboard');
+                    if (role.startsWith('RESSARCIMENTO')) return setActiveTab('ressarcimento_dashboard');
                     if (role === 'GESTOR') return setActiveTab('gestor_dashboard');
                     if (role === 'USER') return setActiveTab('suprido_dashboard');
                     if (role.startsWith('SOSFU') || role === 'ADMIN') return setActiveTab('accountability');
@@ -343,7 +351,7 @@ const App: React.FC = () => {
         userProfile={userProfile}
       />
       
-      {activeTab === 'sefin_dashboard' || activeTab === 'ajsefin_dashboard' || activeTab === 'sodpa_dashboard' ? (
+      {activeTab === 'sefin_dashboard' || activeTab === 'ajsefin_dashboard' || activeTab === 'sodpa_dashboard' || activeTab === 'ressarcimento_dashboard' ? (
         <div id="main-content">{renderContent()}</div>
       ) : (
         <main id="main-content" className="max-w-[1600px] mx-auto px-6 py-8">

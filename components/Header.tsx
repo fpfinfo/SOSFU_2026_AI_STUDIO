@@ -59,6 +59,15 @@ const MODULE_CONFIGS: Record<string, { title: string; subtitle: string; color: s
     accentBg: 'bg-sky-50',
     accentText: 'text-sky-600',
   },
+  ressarcimento_dashboard: {
+    title: 'RESSARCIMENTO TJPA',
+    subtitle: '• Gestão de Despesas e Reembolsos',
+    color: 'emerald',
+    bgColor: 'bg-emerald-50',
+    textColor: 'text-emerald-700',
+    accentBg: 'bg-emerald-50',
+    accentText: 'text-emerald-600',
+  },
   dashboard: {
     title: 'SOSFU',
     subtitle: '• Gerência de Suprimento de Fundos',
@@ -116,7 +125,7 @@ const MODULE_CONFIGS: Record<string, { title: string; subtitle: string; color: s
 };
 
 // Modules that manage their own internal navigation (no tabs in main header)
-const INDEPENDENT_MODULES = ['sefin_dashboard', 'gestor_dashboard', 'suprido_dashboard', 'ajsefin_dashboard', 'sodpa_dashboard'];
+const INDEPENDENT_MODULES = ['sefin_dashboard', 'gestor_dashboard', 'suprido_dashboard', 'ajsefin_dashboard', 'sodpa_dashboard', 'ressarcimento_dashboard'];
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNavigate, userProfile }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -151,6 +160,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
           moduleConfig = MODULE_CONFIGS['dashboard']; // SOSFU Branding
       } else if (userRole.startsWith('SODPA')) {
           moduleConfig = MODULE_CONFIGS['sodpa_dashboard']; // SODPA Branding
+      } else if (userRole.startsWith('RESSARCIMENTO')) {
+          moduleConfig = MODULE_CONFIGS['ressarcimento_dashboard']; // Ressarcimento Branding
       } else if (userRole === 'USER' || userRole === 'SERVIDOR') {
           moduleConfig = MODULE_CONFIGS['suprido_dashboard']; // Portal do Usuário
       }
