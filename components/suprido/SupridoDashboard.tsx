@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Siren, Gavel, FileText, Clock, Search, ChevronRight, Loader2, Wallet, AlertTriangle, ArrowRight, Play, CheckCircle2, RotateCcw, Plus, UserCheck, Shield, Banknote, Receipt, TrendingUp } from 'lucide-react';
+import { Siren, Gavel, FileText, Clock, Search, ChevronRight, Loader2, Wallet, AlertTriangle, ArrowRight, Play, CheckCircle2, RotateCcw, Plus, UserCheck, Shield, Banknote, Receipt, TrendingUp, Plane, ShieldCheck } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { StatusBadge } from '../StatusBadge';
 import { Tooltip } from '../ui/Tooltip';
@@ -293,6 +293,28 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                         <h4 className="text-lg font-bold text-gray-800 mb-1">Extra-Júri</h4>
                         <p className="text-sm text-gray-500 mb-4 max-w-xs">Para custeio de alimentação em sessões do Júri.</p>
                         <span className="text-xs font-bold text-blue-600 flex items-center gap-1 group-hover:gap-2 transition-all">Iniciar Solicitação <ArrowRight size={14} /></span>
+                    </div>
+                </div>
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all group cursor-pointer relative overflow-hidden" onClick={() => onNavigate('solicitation_diarias')}>
+                    <div className="relative z-10">
+                        <div className="flex justify-between items-start">
+                            <div className="w-12 h-12 bg-sky-50 rounded-xl flex items-center justify-center text-sky-500 mb-4 group-hover:scale-105 transition-transform"><Plane size={24} /></div>
+                            <span className="bg-sky-50 text-sky-600 text-[10px] font-bold px-2 py-1 rounded uppercase">Deslocamento</span>
+                        </div>
+                        <h4 className="text-lg font-bold text-gray-800 mb-1">Diárias e Passagens</h4>
+                        <p className="text-sm text-gray-500 mb-4 max-w-xs">Para deslocamentos a serviço com diárias e passagens aéreas.</p>
+                        <span className="text-xs font-bold text-sky-600 flex items-center gap-1 group-hover:gap-2 transition-all">Iniciar Solicitação <ArrowRight size={14} /></span>
+                    </div>
+                </div>
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all group cursor-pointer relative overflow-hidden" onClick={() => onNavigate('solicitation_ressarcimento')}>
+                    <div className="relative z-10">
+                        <div className="flex justify-between items-start">
+                            <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-purple-500 mb-4 group-hover:scale-105 transition-transform"><ShieldCheck size={24} /></div>
+                            <span className="bg-purple-50 text-purple-600 text-[10px] font-bold px-2 py-1 rounded uppercase">Reembolso</span>
+                        </div>
+                        <h4 className="text-lg font-bold text-gray-800 mb-1">Ressarcimento</h4>
+                        <p className="text-sm text-gray-500 mb-4 max-w-xs">Para ressarcimento de despesas realizadas com recursos próprios.</p>
+                        <span className="text-xs font-bold text-purple-600 flex items-center gap-1 group-hover:gap-2 transition-all">Iniciar Solicitação <ArrowRight size={14} /></span>
                     </div>
                 </div>
             </div>

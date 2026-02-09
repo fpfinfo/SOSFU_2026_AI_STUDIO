@@ -21,6 +21,8 @@ import { RessarcimentoCockpit } from './components/ressarcimento/RessarcimentoCo
 import { SosfuInbox } from './components/sosfu/SosfuInbox';
 import { EmergencySolicitation } from './components/suprido/EmergencySolicitation';
 import { JurySolicitation } from './components/suprido/JurySolicitation';
+import { DiariasSolicitation } from './components/suprido/DiariasSolicitation';
+import { RessarcimentoSolicitation } from './components/suprido/RessarcimentoSolicitation';
 import { ProcessDetailView } from './components/process/ProcessDetailView';
 import { AccountabilityWizard } from './components/accountability/AccountabilityWizard';
 import { LoginView } from './components/LoginView';
@@ -285,7 +287,11 @@ const App: React.FC = () => {
         return <EmergencySolicitation onNavigate={handleNavigation} />;
       case 'solicitation_jury':
         return <JurySolicitation onNavigate={handleNavigation} />;
-      
+      case 'solicitation_diarias':
+        return <DiariasSolicitation onNavigate={handleNavigation} />;
+      case 'solicitation_ressarcimento':
+        return <RessarcimentoSolicitation onNavigate={handleNavigation} />;
+
       // DEPRECATED: accountability_wizard agora é embutido no process_detail
       
       case 'process_detail':
