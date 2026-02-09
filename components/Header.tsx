@@ -141,7 +141,20 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
 
   // Determine if current module is independent (has its own internal navigation)
   const isIndependentModule = INDEPENDENT_MODULES.includes(activeTab || '');
-  const moduleConfig = MODULE_CONFIGS[activeTab || ''];
+  
+  let moduleConfig = MODULE_CONFIGS[activeTab || ''];
+
+  // 🆕 Fix for Shared Pages (Profile, Settings)
+  // Inherit branding from user's primary role to avoid incorrectly showing "SODPA" fallback
+  if (['profile', 'settings'].includes(activeTab || '')) {
+      if (userRole.startsWith('SOSFU') || userRole === 'ADMIN') {
+          moduleConfig = MODULE_CONFIGS['dashboard']; // SOSFU Branding
+      } else if (userRole.startsWith('SODPA')) {
+          moduleConfig = MODULE_CONFIGS['sodpa_dashboard']; // SODPA Branding
+      } else if (userRole === 'USER' || userRole === 'SERVIDOR') {
+          moduleConfig = MODULE_CONFIGS['suprido_dashboard']; // Portal do Usuário
+      }
+  }
 
   // For independent modules, don't show the standard nav tabs
   // Only show the module's own dashboard tab (for the user to return to their home)
