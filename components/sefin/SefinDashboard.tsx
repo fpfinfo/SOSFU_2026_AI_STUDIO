@@ -3,7 +3,7 @@ import {
     Briefcase, FileText, CheckCircle2, Search, DollarSign, ChevronRight, ChevronLeft,
     Scale, Loader2, XCircle, Award, FileCheck, CreditCard, Send, AlertTriangle,
     Inbox, CheckSquare, Square, X, FileSignature, UserPlus, Trash2,
-    Zap, TrendingUp, Calendar, Mail, Activity, Users, Eye,
+    Zap, TrendingUp, Calendar, Mail, Activity, Users, Eye, AlertCircle,
     ChevronUp, ChevronDown
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -12,6 +12,7 @@ import { usePriorityScore, PRIORITY_STYLES } from '../../hooks/usePriorityScore'
 import { useStaleProcesses } from '../../hooks/useStaleProcesses';
 import { StaleProcessBanner } from '../ui/StaleProcessBanner';
 import { useRealtimeInbox } from '../../hooks/useRealtimeInbox';
+import { AssignModal } from '../AssignModal';
 
 // ==================== TYPES ====================
 interface SefinDashboardProps {
@@ -32,6 +33,8 @@ interface SigningTask {
     solicitation?: { process_number: string; beneficiary: string; value: number };
     process_number: string;
     beneficiary: string;
+    assigned_to?: string | null;
+    assignee_name?: string | null;
 }
 
 type ListFilter = 'PENDING' | 'SIGNED';
@@ -824,7 +827,7 @@ interface TaskRowProps {
     task: SigningTask;
     isSelected: boolean;
     onToggleSelect: () => void;
-    onSign?: () => void;
+    onSign?: (task: SigningTask) => void;
     onReject: () => void;
     onView: () => void;
 }
@@ -888,7 +891,7 @@ const TaskRow: React.FC<TaskRowProps> = ({ task, isSelected, onToggleSelect, onS
                     </button>
                 </Tooltip>
                 <Tooltip content="Assinar" position="top">
-                    <button onClick={onSign} className="p-1.5 hover:bg-emerald-50 rounded-lg transition-colors">
+                    <button onClick={() => onSign?.(task)} className="p-1.5 hover:bg-emerald-50 rounded-lg transition-colors">
                         <FileSignature size={15} className="text-emerald-500" />
                     </button>
                 </Tooltip>
@@ -922,6 +925,11 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({
     const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [rejectReason, setRejectReason] = useState('');
     const [queueTab, setQueueTab] = useState<QueueTab>('inbox');
+    
+    // Assignment State
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [assignTarget, setAssignTarget] = useState<{ id: string, docType: string, solId: string } | null>(null);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     useEffect(() => { fetchSefinData(); }, []);
 
@@ -946,6 +954,7 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({
             if (user) {
                 const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
                 setUserName(profile?.full_name || 'Ordenador');
+                setCurrentUserId(user.id);
             }
 
             const { data: solicitations } = await supabase.from('solicitations').select('*')
@@ -957,12 +966,15 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({
                 setApprovedHistory(solicitations.filter(s => s.status !== 'WAITING_SEFIN_SIGNATURE'));
             }
 
-            // Fetch ALL signing tasks
-            const { data: allTasks } = await supabase.from('sefin_signing_tasks').select('*').order('created_at', { ascending: false });
+            // Fetch ALL signing tasks with assignee info
+            const { data: allTasks } = await supabase
+                .from('sefin_signing_tasks')
+                .select('*, assignee:profiles!sefin_signing_tasks_assigned_to_fkey(id, full_name)')
+                .order('created_at', { ascending: false });
 
             if (allTasks) {
                 const enriched: SigningTask[] = [];
-                const solIds = [...new Set(allTasks.map(t => t.solicitation_id))];
+                const solIds = [...new Set(allTasks.map((t: any) => t.solicitation_id))];
                 const solMap: Record<string, any> = {};
                 if (solIds.length > 0) {
                     const { data: sols } = await supabase.from('solicitations')
@@ -970,7 +982,11 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({
                     if (sols) sols.forEach(s => { solMap[s.id] = s; });
                 }
                 for (const task of allTasks) {
-                    enriched.push({ ...task, solicitation: solMap[task.solicitation_id] });
+                    enriched.push({ 
+                        ...task, 
+                        solicitation: solMap[task.solicitation_id],
+                        assignee_name: task.assignee?.full_name 
+                    });
                 }
                 setSigningTasks(enriched.filter(t => t.status === 'PENDING'));
                 setSignedTasks(enriched.filter(t => t.status === 'SIGNED'));
@@ -1004,6 +1020,7 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({
 
     const filteredTasks = useMemo(() => {
         if (listFilter === 'SIGNED') {
+            // ... filtering for SIGNED ...
             if (!searchTerm) return signedTasks;
             const q = searchTerm.toLowerCase();
             return signedTasks.filter(t =>
@@ -1012,16 +1029,34 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({
                 t.solicitation?.beneficiary?.toLowerCase().includes(q)
             );
         }
-        // For PENDING, use prioritized (sorted) list
-        const sorted = prioritizedTasks.map(p => p.task);
-        if (!searchTerm) return sorted;
+        
+        // For PENDING
+        let tasks = prioritizedTasks.map(p => p.task);
+
+        // Filter by Queue Tab
+        if (queueTab === 'minha_fila') {
+            tasks = tasks.filter(t => t.assigned_to === currentUserId);
+        } else if (queueTab === 'inbox') {
+             // Inbox shows unassigned
+             tasks = tasks.filter(t => !t.assigned_to);
+        }
+
+        if (!searchTerm) return tasks;
         const q = searchTerm.toLowerCase();
-        return sorted.filter(t =>
+        return tasks.filter(t =>
             t.title.toLowerCase().includes(q) ||
             t.solicitation?.process_number?.toLowerCase().includes(q) ||
             t.solicitation?.beneficiary?.toLowerCase().includes(q)
         );
-    }, [prioritizedTasks, signedTasks, listFilter, searchTerm]);
+    }, [prioritizedTasks, signedTasks, listFilter, searchTerm, queueTab, currentUserId]);
+
+    const myQueueCount = useMemo(() => 
+        signingTasks.filter(t => t.assigned_to === currentUserId).length
+    , [signingTasks, currentUserId]);
+    
+    const unassignedCount = useMemo(() => 
+        signingTasks.filter(t => !t.assigned_to).length
+    , [signingTasks]);
 
     // Build a quick lookup for priority info per task id
     const priorityMap = useMemo(() => {
@@ -1113,8 +1148,10 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({
         } finally { setProcessing(false); }
     };
 
-    const handleSingleSign = async (taskId: string) => {
-        setSelectedTaskIds(new Set([taskId]));
+
+
+    const handleSingleSign = async (task: SigningTask) => {
+        setSelectedTaskIds(new Set([task.id]));
         setShowSignModal(true);
     };
 
@@ -1148,6 +1185,37 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({
             console.error(err);
             alert('Erro ao devolver.');
         } finally { setProcessing(false); }
+    };
+
+    // Handler for task assignment
+    const handleOpenAssign = (task: SigningTask) => {
+        setAssignTarget({ id: task.id, docType: task.document_type, solId: task.solicitation_id });
+        setShowAssignModal(true);
+    };
+
+    const handleAssign = async (analystId: string) => {
+        if (!assignTarget) return;
+        try {
+            // Update sefin_signing_tasks
+            const { error: errTask } = await supabase
+                .from('sefin_signing_tasks')
+                .update({ assigned_to: analystId })
+                .eq('id', assignTarget.id);
+            if (errTask) throw errTask;
+
+            // Also update process_documents for consistency if needed
+            const { error: errDoc } = await supabase
+                .from('process_documents')
+                .update({ assigned_to: analystId })
+                .eq('solicitation_id', assignTarget.solId)
+                .eq('document_type', assignTarget.docType);
+             if (errDoc) console.warn('Could not update process_documents assignment', errDoc);
+
+            await fetchSefinData();
+        } catch (err) {
+            console.error('Error assigning task:', err);
+            alert('Erro ao atribuir tarefa.');
+        } 
     };
 
     // ==================== LOADING ====================
@@ -1198,8 +1266,8 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({
                 <div className="flex items-center gap-1 px-4 pt-4 pb-0">
                     <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
                         {([
-                            { id: 'inbox' as QueueTab, label: 'Inbox', icon: <Inbox size={14} />, count: signingTasks.length },
-                            { id: 'minha_fila' as QueueTab, label: 'Minha Fila', icon: <Users size={14} /> },
+                            { id: 'inbox' as QueueTab, label: 'Inbox', icon: <Inbox size={14} />, count: unassignedCount },
+                            { id: 'minha_fila' as QueueTab, label: 'Minha Fila', icon: <Users size={14} />, count: myQueueCount },
                             { id: 'processados' as QueueTab, label: 'Processados', icon: <CheckCircle2 size={14} />, count: signedTasks.length },
                         ]).map(tab => (
                             <button key={tab.id} onClick={() => {
@@ -1310,13 +1378,33 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({
                             }
 
                             return (
-                                <TaskRow key={task.id} task={task}
-                                    isSelected={selectedTaskIds.has(task.id)}
-                                    onToggleSelect={() => handleToggleSelect(task.id)}
-                                    onSign={isGestor ? () => handleSingleSign(task.id) : undefined}
-                                    onReject={() => setRejectingId(task.id)}
-                                    onView={() => onNavigate('process_detail', task.solicitation_id)}
-                                />
+                                <div key={task.id} className="relative group/row">
+                                    <TaskRow task={task}
+                                        isSelected={selectedTaskIds.has(task.id)}
+                                        onToggleSelect={() => handleToggleSelect(task.id)}
+                                        onSign={isGestor ? (task) => handleSingleSign(task) : undefined}
+                                        onReject={() => setRejectingId(task.id)}
+                                        onView={() => onNavigate('process_detail', task.solicitation_id)}
+                                    />
+                                    {/* Assign Button */}
+                                    {listFilter === 'PENDING' && isGestor && (
+                                        <div className="absolute right-36 top-1/2 -translate-y-1/2 opacity-0 group-hover/row:opacity-100 transition-opacity flex items-center gap-2">
+                                            {task.assignee_name && (
+                                                <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-lg border border-blue-100">
+                                                    {task.assignee_name.split(' ')[0]}
+                                                </span>
+                                            )}
+                                            <Tooltip content="Atribuir Responsável" position="top">
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleOpenAssign(task); }}
+                                                    className="p-1.5 bg-white border hover:bg-slate-50 rounded-lg text-slate-400 hover:text-blue-500 shadow-sm transition-colors"
+                                                >
+                                                    <UserPlus size={14} />
+                                                </button>
+                                            </Tooltip>
+                                        </div>
+                                    )}
+                                </div>
                             );
                         })
                     ) : (
@@ -1370,6 +1458,17 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({
                     </div>
                 </div>
             </div>
+
+
+            {/* ===== ASSIGN MODAL ===== */}
+            <AssignModal
+                isOpen={showAssignModal}
+                onClose={() => { setShowAssignModal(false); setAssignTarget(null); }}
+                onAssign={handleAssign}
+                module="SEFIN"
+                currentAnalystId={signingTasks.find(t => t.id === assignTarget?.id)?.assigned_to || undefined}
+                title="Atribuir Documento"
+            />
 
             {/* ===== SIGNATURE MODAL ===== */}
             <SignatureConfirmModal

@@ -307,6 +307,7 @@ export const AjsefinProcessView: React.FC<AjsefinProcessViewProps> = ({ onNaviga
                 currentAnalystId={undefined}
                 onAssign={handleAssign}
                 title="Atribuir para Análise Jurídica"
+                module="AJSEFIN"
             />
         </div>
     );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, UserPlus, Search, Check, Loader2, Shield } from 'lucide-react';
+import { X, UserPlus, Search, Check, Loader2, Shield, Users, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface AssignModalProps {
@@ -8,39 +8,148 @@ interface AssignModalProps {
     onAssign: (analystId: string) => Promise<void>;
     currentAnalystId?: string;
     title?: string;
+    /** Module to filter team members. If not provided, will auto-detect from current user's role */
+    module?: 'SOSFU' | 'SEFIN' | 'AJSEFIN' | 'SGP' | 'SEAD' | 'PRESIDENCIA' | 'GESTOR';
 }
 
-export const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, onAssign, currentAnalystId, title = "Atribuir Processo" }) => {
-    const [team, setTeam] = useState<any[]>([]);
+interface TeamMember {
+    id: string;
+    full_name: string;
+    email: string;
+    avatar_url?: string;
+    role_slug?: string;
+    funcao?: string;
+}
+
+// Map module to the role prefixes that can be assigned
+const MODULE_ROLE_PREFIXES: Record<string, string[]> = {
+    'SOSFU': ['SOSFU', 'ADMIN'],
+    'SEFIN': ['SEFIN', 'ADMIN'],
+    'AJSEFIN': ['AJSEFIN', 'ADMIN'],
+    'SGP': ['SGP', 'ADMIN'],
+    'SEAD': ['SEAD', 'ADMIN'],
+    'PRESIDENCIA': ['PRESIDENCIA', 'ADMIN'],
+    'GESTOR': ['GESTOR', 'ADMIN'],
+};
+
+export const AssignModal: React.FC<AssignModalProps> = ({ 
+    isOpen, 
+    onClose, 
+    onAssign, 
+    currentAnalystId, 
+    title = "Atribuir Processo",
+    module 
+}) => {
+    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [assigning, setAssigning] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [currentUser, setCurrentUser] = useState<any>(null);
+    const [detectedModule, setDetectedModule] = useState<string | null>(null);
 
     useEffect(() => {
         if (isOpen) {
-            fetchTeam();
+            fetchTeamMembers();
         }
-    }, [isOpen]);
+    }, [isOpen, module]);
 
-    const fetchTeam = async () => {
+    const fetchTeamMembers = async () => {
         setLoading(true);
         try {
-            // Pega usuário atual
+            // Get current user
             const { data: { user } } = await supabase.auth.getUser();
             setCurrentUser(user);
+            if (!user) return;
 
-            // Busca membros da SOSFU e ADMINs
-            const { data, error } = await supabase
+            // Get current user's profile to detect module if not provided
+            const { data: profile } = await supabase
                 .from('profiles')
-                .select('id, full_name, email, avatar_url, dperfil!inner(slug, name)')
-                .in('dperfil.slug', ['SOSFU', 'ADMIN'])
-                .order('full_name');
+                .select('dperfil(slug)')
+                .eq('id', user.id)
+                .single();
+
+            const userRoleSlug = profile?.dperfil?.slug || '';
             
-            if (error) throw error;
-            setTeam(data || []);
+            // Determine which module to use
+            let effectiveModule = module;
+            if (!effectiveModule) {
+                // Auto-detect from user's role
+                if (userRoleSlug.startsWith('SOSFU')) effectiveModule = 'SOSFU';
+                else if (userRoleSlug.startsWith('SEFIN')) effectiveModule = 'SEFIN';
+                else if (userRoleSlug.startsWith('AJSEFIN')) effectiveModule = 'AJSEFIN';
+                else if (userRoleSlug.startsWith('SGP')) effectiveModule = 'SGP';
+                else if (userRoleSlug.startsWith('SEAD')) effectiveModule = 'SEAD';
+                else if (userRoleSlug.startsWith('PRESIDENCIA')) effectiveModule = 'PRESIDENCIA';
+                else if (userRoleSlug === 'GESTOR') effectiveModule = 'GESTOR';
+                else effectiveModule = 'SOSFU'; // Default
+            }
+            setDetectedModule(effectiveModule);
+
+            // Strategy: Combine team_members table + profiles with matching roles
+            const members: TeamMember[] = [];
+            const seenIds = new Set<string>();
+
+            // 1) First, get members from team_members table for this module
+            const { data: teamRows } = await supabase
+                .from('team_members')
+                .select('user_id, funcao')
+                .eq('module', effectiveModule);
+
+            if (teamRows && teamRows.length > 0) {
+                const teamUserIds = teamRows.map(r => r.user_id);
+                const { data: teamProfiles } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, email, avatar_url')
+                    .in('id', teamUserIds);
+
+                if (teamProfiles) {
+                    const funcaoMap = new Map(teamRows.map(r => [r.user_id, r.funcao]));
+                    teamProfiles.forEach(p => {
+                        if (!seenIds.has(p.id)) {
+                            members.push({
+                                id: p.id,
+                                full_name: p.full_name || '',
+                                email: p.email || '',
+                                avatar_url: p.avatar_url,
+                                funcao: funcaoMap.get(p.id) || undefined,
+                            });
+                            seenIds.add(p.id);
+                        }
+                    });
+                }
+            }
+
+            // 2) Also get users with matching role prefixes from dperfil
+            const rolePrefixes = MODULE_ROLE_PREFIXES[effectiveModule] || ['ADMIN'];
+            const { data: roleProfiles } = await supabase
+                .from('profiles')
+                .select('id, full_name, email, avatar_url, dperfil(slug, name)')
+                .order('full_name');
+
+            if (roleProfiles) {
+                roleProfiles.forEach((p: any) => {
+                    const slug = p.dperfil?.slug || '';
+                    const matchesRole = rolePrefixes.some(prefix => 
+                        slug.startsWith(prefix) || slug === prefix
+                    );
+                    if (matchesRole && !seenIds.has(p.id)) {
+                        members.push({
+                            id: p.id,
+                            full_name: p.full_name || '',
+                            email: p.email || '',
+                            avatar_url: p.avatar_url,
+                            role_slug: slug,
+                        });
+                        seenIds.add(p.id);
+                    }
+                });
+            }
+
+            // Sort by name
+            members.sort((a, b) => a.full_name.localeCompare(b.full_name));
+            setTeamMembers(members);
         } catch (err) {
-            console.error(err);
+            console.error('Error fetching team members:', err);
         } finally {
             setLoading(false);
         }
@@ -48,19 +157,25 @@ export const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, onAss
 
     const handleAssign = async (analystId: string) => {
         setAssigning(true);
-        await onAssign(analystId);
-        setAssigning(false);
-        onClose();
+        try {
+            await onAssign(analystId);
+        } finally {
+            setAssigning(false);
+            onClose();
+        }
     };
 
     const getInitials = (name: string) => (name || 'U').substring(0, 2).toUpperCase();
 
     if (!isOpen) return null;
 
-    const filteredTeam = team.filter(t => 
+    const filteredTeam = teamMembers.filter(t => 
         t.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
         t.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    // Separate current user from team list
+    const otherMembers = filteredTeam.filter(m => m.id !== currentUser?.id);
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
@@ -92,16 +207,20 @@ export const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, onAss
                         <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-blue-600" /></div>
                     ) : (
                         <>
-                            {/* Opção para mim mesmo (atalho) */}
+                            {/* Quick option: Assign to myself */}
                             {currentUser && (
                                 <button 
                                     onClick={() => handleAssign(currentUser.id)}
                                     disabled={assigning}
-                                    className="w-full flex items-center justify-between p-3 hover:bg-blue-50 rounded-lg transition-colors group border border-transparent hover:border-blue-100"
+                                    className={`w-full flex items-center justify-between p-3 hover:bg-blue-50 rounded-lg transition-colors group border ${
+                                        currentAnalystId === currentUser.id 
+                                            ? 'border-blue-200 bg-blue-50' 
+                                            : 'border-transparent hover:border-blue-100'
+                                    }`}
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
-                                            EU
+                                            <User size={14} />
                                         </div>
                                         <div className="text-left">
                                             <p className="text-sm font-bold text-gray-800 group-hover:text-blue-700">Atribuir para Mim</p>
@@ -112,34 +231,60 @@ export const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, onAss
                                 </button>
                             )}
                             
-                            <div className="h-px bg-gray-100 my-2 mx-3"></div>
-
-                            {filteredTeam.map(member => (
-                                <button 
-                                    key={member.id}
-                                    onClick={() => handleAssign(member.id)}
-                                    disabled={assigning}
-                                    className="w-full flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-xs overflow-hidden border border-white shadow-sm">
-                                            {member.avatar_url ? <img src={member.avatar_url} className="w-full h-full object-cover"/> : getInitials(member.full_name)}
-                                        </div>
-                                        <div className="text-left">
-                                            <div className="flex items-center gap-1.5">
-                                                <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">{member.full_name}</p>
-                                                {member.dperfil?.slug === 'ADMIN' && (
-                                                    <span className="text-[9px] bg-red-100 text-red-700 px-1.5 rounded-full font-bold flex items-center gap-0.5">
-                                                        <Shield size={8} /> Admin
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <p className="text-xs text-gray-400">{member.email}</p>
-                                        </div>
+                            {/* Team members section */}
+                            {otherMembers.length > 0 && (
+                                <>
+                                    <div className="flex items-center gap-2 px-3 py-2 mt-2">
+                                        <Users size={14} className="text-gray-400" />
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">
+                                            Colegas da Equipe ({otherMembers.length})
+                                        </span>
                                     </div>
-                                    {currentAnalystId === member.id && <Check size={16} className="text-green-600" />}
-                                </button>
-                            ))}
+
+                                    {otherMembers.map(member => (
+                                        <button 
+                                            key={member.id}
+                                            onClick={() => handleAssign(member.id)}
+                                            disabled={assigning}
+                                            className={`w-full flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group ${
+                                                currentAnalystId === member.id ? 'bg-green-50 border border-green-200' : ''
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-xs overflow-hidden border border-white shadow-sm">
+                                                    {member.avatar_url ? <img src={member.avatar_url} className="w-full h-full object-cover"/> : getInitials(member.full_name)}
+                                                </div>
+                                                <div className="text-left">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">{member.full_name}</p>
+                                                        {member.role_slug === 'ADMIN' && (
+                                                            <span className="text-[9px] bg-red-100 text-red-700 px-1.5 rounded-full font-bold flex items-center gap-0.5">
+                                                                <Shield size={8} /> Admin
+                                                            </span>
+                                                        )}
+                                                        {member.funcao && (
+                                                            <span className="text-[9px] bg-gray-100 text-gray-600 px-1.5 rounded-full font-bold">
+                                                                {member.funcao}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-gray-400">{member.email}</p>
+                                                </div>
+                                            </div>
+                                            {currentAnalystId === member.id && <Check size={16} className="text-green-600" />}
+                                        </button>
+                                    ))}
+                                </>
+                            )}
+
+                            {/* Empty state */}
+                            {otherMembers.length === 0 && !loading && (
+                                <div className="py-8 text-center text-gray-400">
+                                    <Users size={24} className="mx-auto mb-2 opacity-50" />
+                                    <p className="text-sm">Nenhum colega encontrado na equipe</p>
+                                    <p className="text-xs mt-1">Adicione membros em Configurações → Equipe</p>
+                                </div>
+                            )}
                         </>
                     )}
                 </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
     Briefcase, FileText, CheckCircle2, Search, DollarSign,
     Loader2, XCircle, FileCheck, CreditCard, Send,
-    Inbox, CheckSquare, Square, X, FileSignature, Users, Eye
+    Inbox, CheckSquare, Square, X, FileSignature, Users, Eye, UserPlus
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Tooltip } from '../ui/Tooltip';
@@ -10,6 +10,7 @@ import { usePriorityScore, PRIORITY_STYLES } from '../../hooks/usePriorityScore'
 import { useStaleProcesses } from '../../hooks/useStaleProcesses';
 import { StaleProcessBanner } from '../ui/StaleProcessBanner';
 import { useRealtimeInbox } from '../../hooks/useRealtimeInbox';
+import { AssignModal } from '../AssignModal';
 
 // ==================== TYPES ====================
 interface SgpDashboardProps {
@@ -30,6 +31,8 @@ interface SigningTask {
     solicitation?: { process_number: string; beneficiary: string; value: number };
     process_number: string;
     beneficiary: string;
+    sgp_analyst_id?: string | null;
+    sgp_analyst_name?: string | null;
 }
 
 type ListFilter = 'PENDING' | 'SIGNED';
@@ -274,6 +277,11 @@ export const SgpDashboard: React.FC<SgpDashboardProps> = ({ onNavigate, darkMode
     const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [rejectReason, setRejectReason] = useState('');
     const [queueTab, setQueueTab] = useState<QueueTab>('inbox');
+    
+    // Assignment Modal State
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     const MODULE_NAME = 'SGP';
     const WAITING_STATUS = 'WAITING_SGP_ANALYSIS'; // Adjusted for SGP
@@ -299,29 +307,22 @@ export const SgpDashboard: React.FC<SgpDashboardProps> = ({ onNavigate, darkMode
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
+                setCurrentUserId(user.id);
                 const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
                 setUserName(profile?.full_name || 'Servidor SGP');
             }
 
-            // SGP workflow logic would go here. For now mimicking SEFIN structure but ideally querying SGP specific tasks
-            // Assuming SGP also uses sefin_signing_tasks for signatures or has its own logic.
-            // If SGP is just approving steps, logic might differ.
-            // For standardization request, we deploy the same structure.
-
-            // Using placeholder logic for data fetch similar to SEFIN but filtered for SGP context if schemas allow
-            // Currently schemas might not have specific SGP tables, so using Solicitations directly
-            
-             const { data: solicitations } = await supabase.from('solicitations').select('*')
-                .eq('status', WAITING_STATUS) // SGP Work queue
+            // Fetch solicitations with analyst info
+            const { data: solicitations } = await supabase.from('solicitations')
+                .select('*, sgp_analyst:profiles!solicitations_sgp_analyst_id_fkey(id, full_name)')
+                .eq('status', WAITING_STATUS)
                 .order('created_at', { ascending: false });
             
             if (solicitations) {
-                 // Adapt solicitations to "Tasks" structure for the UI
-                 // This is a simplification to match the SEFIN UI requested
-                 const tasks: SigningTask[] = solicitations.map(s => ({
-                     id: s.id, // Using solicitation ID as task ID for now if no separate task exists
+                 const tasks: SigningTask[] = solicitations.map((s: any) => ({
+                     id: s.id,
                      solicitation_id: s.id,
-                     document_type: 'GENERIC', // Placeholder
+                     document_type: 'GENERIC',
                      title: `Processo ${s.process_number}`,
                      origin: s.unit || 'Desconhecido',
                      value: s.value || 0,
@@ -329,7 +330,9 @@ export const SgpDashboard: React.FC<SgpDashboardProps> = ({ onNavigate, darkMode
                      created_at: s.created_at,
                      solicitation: s,
                      process_number: s.process_number,
-                     beneficiary: s.beneficiary
+                     beneficiary: s.beneficiary,
+                     sgp_analyst_id: s.sgp_analyst_id,
+                     sgp_analyst_name: s.sgp_analyst?.full_name || null
                  }));
 
                 setSigningTasks(tasks);
@@ -348,22 +351,64 @@ export const SgpDashboard: React.FC<SgpDashboardProps> = ({ onNavigate, darkMode
         } finally { setLoading(false); }
     };
 
-    // ... (Computed properties similar to SEFIN) ...
-     const prioritizedTasks = usePriorityScore<SigningTask>(signingTasks);
+    // Computed properties
+    const prioritizedTasks = usePriorityScore<SigningTask>(signingTasks);
 
+    // Filter tasks by queue tab and search term
     const filteredTasks = useMemo(() => {
-        // Implementation for filtering similar to SEFIN
-         const sorted = prioritizedTasks.map(p => p.task);
-        if (!searchTerm) return sorted;
+        let tasks = prioritizedTasks.map(p => p.task);
+        
+        // Filter by queue tab
+        if (queueTab === 'minha_fila') {
+            tasks = tasks.filter(t => t.sgp_analyst_id === currentUserId);
+        } else if (queueTab === 'inbox') {
+            // Inbox shows unassigned or all pending
+            tasks = tasks.filter(t => !t.sgp_analyst_id);
+        }
+        
+        // Apply search
+        if (!searchTerm) return tasks;
         const q = searchTerm.toLowerCase();
-        return sorted.filter(t =>
+        return tasks.filter(t =>
             t.title.toLowerCase().includes(q) ||
             t.solicitation?.process_number?.toLowerCase().includes(q) ||
             t.solicitation?.beneficiary?.toLowerCase().includes(q)
         );
-    }, [prioritizedTasks, searchTerm]);
+    }, [prioritizedTasks, searchTerm, queueTab, currentUserId]);
 
-    // ... (Handlers similar to SEFIN) ...
+    // Counts for tabs
+    const myQueueCount = useMemo(() => 
+        signingTasks.filter(t => t.sgp_analyst_id === currentUserId).length
+    , [signingTasks, currentUserId]);
+    
+    const unassignedCount = useMemo(() => 
+        signingTasks.filter(t => !t.sgp_analyst_id).length
+    , [signingTasks]);
+
+    // Handler to open assignment modal
+    const handleOpenAssign = (processId: string) => {
+        setSelectedProcessId(processId);
+        setShowAssignModal(true);
+    };
+
+    // Handler for assignment
+    const handleAssign = async (analystId: string) => {
+        if (!selectedProcessId) return;
+        try {
+            const { error } = await supabase
+                .from('solicitations')
+                .update({ sgp_analyst_id: analystId })
+                .eq('id', selectedProcessId);
+
+            if (error) throw error;
+
+            // Refresh data
+            await fetchData();
+        } catch (err) {
+            console.error('Erro ao atribuir analista SGP:', err);
+        }
+    };
+
     const handleToggleSelect = useCallback((id: string) => {
         setSelectedTaskIds(prev => {
             const next = new Set(prev);
@@ -465,8 +510,8 @@ export const SgpDashboard: React.FC<SgpDashboardProps> = ({ onNavigate, darkMode
                 <div className="flex items-center gap-1 px-4 pt-4 pb-0">
                     <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
                         {([
-                            { id: 'inbox' as QueueTab, label: 'Inbox', icon: <Inbox size={14} />, count: signingTasks.length },
-                            { id: 'minha_fila' as QueueTab, label: 'Minha Fila', icon: <Users size={14} /> },
+                            { id: 'inbox' as QueueTab, label: 'Inbox', icon: <Inbox size={14} />, count: unassignedCount },
+                            { id: 'minha_fila' as QueueTab, label: 'Minha Fila', icon: <Users size={14} />, count: myQueueCount },
                             { id: 'processados' as QueueTab, label: 'Processados', icon: <CheckCircle2 size={14} />, count: signedTasks.length },
                         ]).map(tab => (
                             <button key={tab.id} onClick={() => {
@@ -558,13 +603,34 @@ export const SgpDashboard: React.FC<SgpDashboardProps> = ({ onNavigate, darkMode
                             }
 
                             return (
-                                <TaskRow key={task.id} task={task}
-                                    isSelected={selectedTaskIds.has(task.id)}
-                                    onToggleSelect={() => handleToggleSelect(task.id)}
-                                    onSign={isGestor ? () => handleSingleSign(task.id) : undefined}
-                                    onReject={isGestor ? () => setRejectingId(task.id) : undefined}
-                                    onView={() => onNavigate('process_detail', task.solicitation_id)}
-                                />
+                                <div key={task.id} className="relative">
+                                    <TaskRow task={task}
+                                        isSelected={selectedTaskIds.has(task.id)}
+                                        onToggleSelect={() => handleToggleSelect(task.id)}
+                                        onSign={isGestor ? () => handleSingleSign(task.id) : () => {}}
+                                        onReject={isGestor ? () => setRejectingId(task.id) : () => {}}
+                                        onView={() => onNavigate('process_detail', task.solicitation_id)}
+                                    />
+                                    {/* Assign Button - overlaid on the row */}
+                                    <div className="absolute right-24 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Tooltip content="Atribuir Analista" position="top">
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); handleOpenAssign(task.id); }}
+                                                className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors"
+                                            >
+                                                <UserPlus size={15} className="text-blue-500" />
+                                            </button>
+                                        </Tooltip>
+                                    </div>
+                                    {/* Show assigned analyst badge */}
+                                    {task.sgp_analyst_name && (
+                                        <div className="absolute right-44 top-1/2 -translate-y-1/2">
+                                            <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-600 text-[10px] font-bold">
+                                                {task.sgp_analyst_name.split(' ')[0]}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
                             );
                         })
                     ) : (
@@ -617,8 +683,17 @@ export const SgpDashboard: React.FC<SgpDashboardProps> = ({ onNavigate, darkMode
                 onClose={() => { setShowSignModal(false); setSelectedTaskIds(new Set()); }}
                 onConfirm={handleBatchSign}
                 documentsCount={selectedTaskIds.size}
-                totalValue={0} // Calc logic
+                totalValue={0}
                 isProcessing={processing}
+            />
+
+            {/* ===== ASSIGNMENT MODAL ===== */}
+            <AssignModal
+                isOpen={showAssignModal}
+                onClose={() => { setShowAssignModal(false); setSelectedProcessId(null); }}
+                onAssign={handleAssign}
+                module="SGP"
+                processNumber={signingTasks.find(t => t.id === selectedProcessId)?.process_number}
             />
         </div>
     );

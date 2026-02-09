@@ -392,6 +392,7 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
         onAssign={handleAssign}
         currentAnalystId={currentAnalystId}
         title="Atribuir Prestação de Contas"
+        module="SOSFU"
       />
     </div>
   );

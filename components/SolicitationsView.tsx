@@ -369,6 +369,7 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
         onClose={() => setIsAssignModalOpen(false)}
         onAssign={handleAssign}
         currentAnalystId={currentAnalystId}
+        module="SOSFU"
       />
     </div>
   );

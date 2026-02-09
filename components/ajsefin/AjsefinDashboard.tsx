@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { StatusBadge } from '../StatusBadge';
+import { AssignModal } from '../AssignModal';
+import { Tooltip } from '../ui/Tooltip';
 
 interface AjsefinDashboardProps {
     onNavigate: (page: string, processId?: string) => void;
@@ -620,6 +622,11 @@ export const AjsefinDashboard: React.FC<AjsefinDashboardProps> = ({
     const [minutasCount, setMinutasCount] = useState(0);
     const [tramiteCount, setTramiteCount] = useState(0);
 
+    // Assignment Modal State
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
+    const [selectedProcessNumber, setSelectedProcessNumber] = useState<string | null>(null);
+
     // Fetch dashboard data
     useEffect(() => {
         const fetchData = async () => {
@@ -638,7 +645,7 @@ export const AjsefinDashboard: React.FC<AjsefinDashboardProps> = ({
                 const { count: myDesk } = await supabase
                     .from('solicitations')
                     .select('*', { count: 'exact', head: true })
-                    .eq('analyst_id', user.id)
+                    .eq('ajsefin_analyst_id', user.id)
                     .not('status', 'in', '("PAID","REJECTED")');
 
                 // 3. Minutas — Processos com minuta pendente (aguardando assinatura SEFIN)
@@ -658,10 +665,10 @@ export const AjsefinDashboard: React.FC<AjsefinDashboardProps> = ({
                 setMinutasCount(minutas || 0);
                 setTramiteCount(tramite || 0);
 
-                // Recent processes
+                // Recent processes with analyst info
                 const { data: recent } = await supabase
                     .from('solicitations')
-                    .select('id, process_number, beneficiary, status, created_at, request_type, estimated_value')
+                    .select('id, process_number, beneficiary, status, created_at, request_type, estimated_value, ajsefin_analyst_id, ajsefin_analyst:profiles!solicitations_ajsefin_analyst_id_fkey(id, full_name)')
                     .order('created_at', { ascending: false })
                     .limit(6);
 
@@ -675,6 +682,37 @@ export const AjsefinDashboard: React.FC<AjsefinDashboardProps> = ({
 
         fetchData();
     }, []);
+
+    // Handler to open assignment modal
+    const handleOpenAssign = (processId: string, processNumber: string) => {
+        setSelectedProcessId(processId);
+        setSelectedProcessNumber(processNumber);
+        setShowAssignModal(true);
+    };
+
+    // Handler for assignment
+    const handleAssign = async (analystId: string) => {
+        if (!selectedProcessId) return;
+        try {
+            const { error } = await supabase
+                .from('solicitations')
+                .update({ ajsefin_analyst_id: analystId })
+                .eq('id', selectedProcessId);
+
+            if (error) throw error;
+
+            // Refresh recent processes
+            const { data: recent } = await supabase
+                .from('solicitations')
+                .select('id, process_number, beneficiary, status, created_at, request_type, estimated_value, ajsefin_analyst_id, ajsefin_analyst:profiles!solicitations_ajsefin_analyst_id_fkey(id, full_name)')
+                .order('created_at', { ascending: false })
+                .limit(6);
+
+            setRecentProcesses(recent || []);
+        } catch (err) {
+            console.error('Erro ao atribuir analista AJSEFIN:', err);
+        }
+    };
 
     // ====================== RENDER ======================
     return (
@@ -774,12 +812,27 @@ export const AjsefinDashboard: React.FC<AjsefinDashboardProps> = ({
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3 shrink-0">
-                                            {proc.estimated_value && (
+                                        {proc.estimated_value && (
                                                 <span className={`font-mono text-xs font-bold ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                                                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proc.estimated_value)}
                                                 </span>
                                             )}
+                                            {/* Assigned Analyst Badge */}
+                                            {proc.ajsefin_analyst?.full_name && (
+                                                <span className="px-2 py-0.5 rounded-lg bg-teal-50 text-teal-600 text-[10px] font-bold">
+                                                    {proc.ajsefin_analyst.full_name.split(' ')[0]}
+                                                </span>
+                                            )}
                                             <StatusBadge status={proc.status} />
+                                            {/* Assign Button */}
+                                            <Tooltip content="Atribuir Analista" position="left">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleOpenAssign(proc.id, proc.process_number); }}
+                                                    className={`p-1.5 rounded-lg transition-colors ${darkMode ? 'hover:bg-teal-500/20' : 'hover:bg-teal-50'}`}
+                                                >
+                                                    <UserPlus size={14} className="text-teal-500" />
+                                                </button>
+                                            </Tooltip>
                                             <ChevronRight size={14} className={darkMode ? 'text-slate-600' : 'text-slate-300'} />
                                         </div>
                                     </div>
@@ -789,6 +842,15 @@ export const AjsefinDashboard: React.FC<AjsefinDashboardProps> = ({
                     </div>
                 </div>
             )}
+
+            {/* ===== ASSIGNMENT MODAL ===== */}
+            <AssignModal
+                isOpen={showAssignModal}
+                onClose={() => { setShowAssignModal(false); setSelectedProcessId(null); }}
+                onAssign={handleAssign}
+                module="AJSEFIN"
+                processNumber={selectedProcessNumber || undefined}
+            />
         </div>
     );
 };
