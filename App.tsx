@@ -248,7 +248,7 @@ const App: React.FC = () => {
   }
 
   if (!session) {
-    return <LoginView />;
+    return <LoginView onPostLoginNavigate={(tab) => setActiveTab(tab)} />;
   }
 
   const renderContent = () => {

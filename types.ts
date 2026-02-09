@@ -28,15 +28,27 @@ export enum TabCategory {
   MANAGEMENT = 'MANAGEMENT'
 }
 
+// Status compartilhados entre todos os módulos
+export type SharedStatus = 'PENDING' | 'WAITING_MANAGER' | 'WAITING_CORRECTION' | 'APPROVED' | 'REJECTED' | 'PAID' | 'ARCHIVED';
+
+// Status específicos por módulo
+export type SosfuStatus = 'WAITING_SOSFU_ANALYSIS' | 'WAITING_SOSFU_EXECUTION' | 'WAITING_SEFIN_SIGNATURE' | 'WAITING_SOSFU_PAYMENT' | 'WAITING_SUPRIDO_CONFIRMATION';
+export type SodpaStatus = 'WAITING_SODPA_ANALYSIS' | 'WAITING_SODPA_EXECUTION' | 'WAITING_SODPA_APPROVAL' | 'WAITING_SODPA_PAYMENT';
+export type RessarcimentoStatus = 'WAITING_RESSARCIMENTO_ANALYSIS' | 'WAITING_RESSARCIMENTO_EXECUTION' | 'WAITING_RESSARCIMENTO_APPROVAL' | 'WAITING_RESSARCIMENTO_PAYMENT';
+
+export type SolicitationStatus = SharedStatus | SosfuStatus | SodpaStatus | RessarcimentoStatus;
+
+export type SolicitationType = 'EMERGENCY' | 'JURY' | 'ORDINARY' | 'DIARIAS_PASSAGENS' | 'RESSARCIMENTO';
+
 export interface Solicitation {
   id: string;
   process_number: string;
-  type?: 'EMERGENCY' | 'JURY' | 'ORDINARY';
+  type?: SolicitationType;
   beneficiary: string;
   unit: string;
   value: number;
   date: string;
-  status: 'PENDING' | 'WAITING_MANAGER' | 'WAITING_SOSFU_ANALYSIS' | 'WAITING_SEFIN_SIGNATURE' | 'WAITING_SOSFU_PAYMENT' | 'WAITING_SUPRIDO_CONFIRMATION' | 'WAITING_CORRECTION' | 'APPROVED' | 'REJECTED' | 'PAID' | 'ARCHIVED';
+  status: SolicitationStatus;
   manager_name?: string;
   manager_email?: string;
 }

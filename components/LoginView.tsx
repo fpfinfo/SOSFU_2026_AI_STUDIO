@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
-import { 
-    Lock, Mail, ArrowRight, AlertCircle, CheckCircle2, User, 
-    Wallet, Plane, FileText, Receipt, ShieldCheck 
+import {
+    Lock, Mail, ArrowRight, AlertCircle, CheckCircle2, User,
+    Wallet, Plane, FileText, Receipt, ShieldCheck, ChevronRight
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-export const LoginView: React.FC = () => {
+interface LoginViewProps {
+    onPostLoginNavigate?: (tab: string) => void;
+}
+
+export const LoginView: React.FC<LoginViewProps> = ({ onPostLoginNavigate }) => {
     const [isSignUp, setIsSignUp] = useState(false);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -13,6 +17,7 @@ export const LoginView: React.FC = () => {
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
     const [loading, setLoading] = useState(false);
+    const [selectedModule, setSelectedModule] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -53,6 +58,17 @@ export const LoginView: React.FC = () => {
                 });
 
                 if (authError) throw authError;
+
+                // If user selected a module card, store navigation intent
+                if (selectedModule && onPostLoginNavigate) {
+                    const moduleMap: Record<string, string> = {
+                        suprimento: 'solicitation_emergency',
+                        diarias: 'solicitation_diarias',
+                        ressarcimento: 'solicitation_ressarcimento',
+                    };
+                    const targetTab = moduleMap[selectedModule];
+                    if (targetTab) onPostLoginNavigate(targetTab);
+                }
             }
         } catch (err: any) {
             setError(err.message || 'Ocorreu um erro inesperado.');
@@ -99,35 +115,36 @@ export const LoginView: React.FC = () => {
 
                         {/* Modules Grid */}
                         <div className="grid grid-cols-1 gap-4">
-                            <div className="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
-                                <div className="p-2.5 bg-blue-500/20 rounded-lg text-blue-300">
-                                    <Wallet size={24} />
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold text-white">Suprimento de Fundos</h3>
-                                    <p className="text-xs text-gray-400">Gestão de adiantamentos e prestação de contas</p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
-                                <div className="p-2.5 bg-emerald-500/20 rounded-lg text-emerald-300">
-                                    <Receipt size={24} />
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold text-white">Diárias e Passagens</h3>
-                                    <p className="text-xs text-gray-400">Controle de deslocamentos e indenizações</p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
-                                <div className="p-2.5 bg-purple-500/20 rounded-lg text-purple-300">
-                                    <ShieldCheck size={24} />
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold text-white">Ressarcimentos</h3>
-                                    <p className="text-xs text-gray-400">Solicitação e acompanhamento de reembolsos</p>
-                                </div>
-                            </div>
+                            {[
+                                { id: 'suprimento', tab: 'solicitation_emergency', icon: Wallet, label: 'Suprimento de Fundos', desc: 'Gestão de adiantamentos e prestação de contas', color: 'blue' },
+                                { id: 'diarias', tab: 'solicitation_diarias', icon: Receipt, label: 'Diárias e Passagens', desc: 'Controle de deslocamentos e indenizações', color: 'emerald' },
+                                { id: 'ressarcimento', tab: 'solicitation_ressarcimento', icon: ShieldCheck, label: 'Ressarcimentos', desc: 'Solicitação e acompanhamento de reembolsos', color: 'purple' },
+                            ].map(mod => (
+                                <button
+                                    key={mod.id}
+                                    type="button"
+                                    onClick={() => setSelectedModule(selectedModule === mod.id ? null : mod.id)}
+                                    className={`flex items-center gap-4 p-4 rounded-xl border backdrop-blur-sm transition-all text-left w-full group ${
+                                        selectedModule === mod.id
+                                            ? `bg-white/15 border-${mod.color}-400/40 ring-1 ring-${mod.color}-400/30`
+                                            : 'bg-white/5 border-white/10 hover:bg-white/10'
+                                    }`}
+                                >
+                                    <div className={`p-2.5 bg-${mod.color}-500/20 rounded-lg text-${mod.color}-300`}>
+                                        <mod.icon size={24} />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="font-semibold text-white">{mod.label}</h3>
+                                        <p className="text-xs text-gray-400">{mod.desc}</p>
+                                    </div>
+                                    <ChevronRight size={16} className={`text-gray-500 transition-transform ${selectedModule === mod.id ? 'rotate-90 text-white' : 'group-hover:translate-x-0.5'}`} />
+                                </button>
+                            ))}
+                            {selectedModule && (
+                                <p className="text-xs text-blue-300 text-center animate-in fade-in duration-300">
+                                    Faça login para acessar o módulo selecionado
+                                </p>
+                            )}
                         </div>
                     </div>
 
