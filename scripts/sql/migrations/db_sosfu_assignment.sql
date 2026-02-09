@@ -1,21 +1,22 @@
 -- 1. ADICIONAR COLUNA DE ANALISTA RESPONSÁVEL
 -- Permite saber com quem está o processo dentro da SOSFU
-ALTER TABLE public.solicitations 
+ALTER TABLE public.solicitations
 ADD COLUMN IF NOT EXISTS analyst_id UUID REFERENCES public.profiles(id);
 
-ALTER TABLE public.accountabilities 
+ALTER TABLE public.accountabilities
 ADD COLUMN IF NOT EXISTS analyst_id UUID REFERENCES public.profiles(id);
 
 -- 2. POLÍTICA DE ATUALIZAÇÃO PARA SOSFU
--- Garante que membros da SOSFU possam "pegar" (update) qualquer processo
+-- Garante que membros da SOSFU possam "pegar" (update) qualquer processo.
+-- Usa LIKE 'SOSFU%' para capturar variantes: SOSFU, SOSFU_GESTOR, SOSFU_EQUIPE
 DROP POLICY IF EXISTS "SOSFU gerencia tudo" ON public.solicitations;
 CREATE POLICY "SOSFU gerencia tudo" ON public.solicitations
 FOR ALL
 USING (
   EXISTS (
-    SELECT 1 FROM public.profiles p 
+    SELECT 1 FROM public.profiles p
     JOIN public.dperfil dp ON p.perfil_id = dp.id
-    WHERE p.id = auth.uid() AND dp.slug IN ('ADMIN', 'SOSFU')
+    WHERE p.id = auth.uid() AND (dp.slug = 'ADMIN' OR dp.slug LIKE 'SOSFU%')
   )
 );
 
@@ -24,8 +25,20 @@ CREATE POLICY "SOSFU gerencia PC" ON public.accountabilities
 FOR ALL
 USING (
   EXISTS (
-    SELECT 1 FROM public.profiles p 
+    SELECT 1 FROM public.profiles p
     JOIN public.dperfil dp ON p.perfil_id = dp.id
-    WHERE p.id = auth.uid() AND dp.slug IN ('ADMIN', 'SOSFU')
+    WHERE p.id = auth.uid() AND (dp.slug = 'ADMIN' OR dp.slug LIKE 'SOSFU%')
+  )
+);
+
+-- 3. POLÍTICA ADICIONAL PARA AJSEFIN (análise jurídica)
+DROP POLICY IF EXISTS "AJSEFIN gerencia processos" ON public.solicitations;
+CREATE POLICY "AJSEFIN gerencia processos" ON public.solicitations
+FOR ALL
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    JOIN public.dperfil dp ON p.perfil_id = dp.id
+    WHERE p.id = auth.uid() AND (dp.slug = 'ADMIN' OR dp.slug LIKE 'AJSEFIN%')
   )
 );

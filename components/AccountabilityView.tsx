@@ -108,21 +108,27 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
     }
   };
 
-  const handleAssign = async (analystId: string) => {
-      if (!selectedId) return;
+  const handleAssign = async (analystId: string): Promise<boolean> => {
+      if (!selectedId) return false;
       try {
-          const { error } = await supabase
+          const { data, error } = await supabase
             .from('accountabilities')
             .update({ analyst_id: analystId })
-            .eq('id', selectedId);
-          
+            .eq('id', selectedId)
+            .select();
+
           if (error) throw error;
-          
-          // Refresh
-          await fetchAccountabilities(); 
+
+          if (!data || data.length === 0) {
+              console.error('Atribuição bloqueada: sem permissão ou PC não encontrada.');
+              return false;
+          }
+
+          await fetchAccountabilities();
+          return true;
       } catch (err) {
-          console.error(err);
-          console.error('Erro ao atribuir analista.');
+          console.error('Erro ao atribuir analista:', err);
+          return false;
       }
   };
 

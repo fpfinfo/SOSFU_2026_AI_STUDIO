@@ -85,24 +85,30 @@ export const AjsefinProcessView: React.FC<AjsefinProcessViewProps> = ({ onNaviga
         minuted: processes.filter(p => p.status === 'WAITING_SEFIN_SIGNATURE').length,
     }), [processes]);
 
-    const handleAssign = async (analystId: string) => {
-        if (!selectedProcessForAssign) return;
+    const handleAssign = async (analystId: string): Promise<boolean> => {
+        if (!selectedProcessForAssign) return false;
         try {
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('solicitations')
                 .update({ analyst_id: analystId, status: 'WAITING_SOSFU_ANALYSIS' })
-                .eq('id', selectedProcessForAssign);
+                .eq('id', selectedProcessForAssign)
+                .select();
 
             if (error) throw error;
 
-            // Update locally
+            if (!data || data.length === 0) {
+                console.error('Atribuição bloqueada: sem permissão ou processo não encontrado.');
+                return false;
+            }
+
             setProcesses(prev => prev.map(p =>
                 p.id === selectedProcessForAssign ? { ...p, analyst_id: analystId, status: 'WAITING_SOSFU_ANALYSIS' } : p
             ));
-            setShowAssignModal(false);
             setSelectedProcessForAssign(null);
+            return true;
         } catch (err) {
             console.error('Assign error:', err);
+            return false;
         }
     };
 
@@ -307,6 +313,7 @@ export const AjsefinProcessView: React.FC<AjsefinProcessViewProps> = ({ onNaviga
                 currentAnalystId={undefined}
                 onAssign={handleAssign}
                 title="Atribuir para Análise Jurídica"
+                departmentFilter={['AJSEFIN', 'SOSFU', 'ADMIN']}
             />
         </div>
     );

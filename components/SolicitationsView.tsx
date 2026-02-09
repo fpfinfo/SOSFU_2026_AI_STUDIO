@@ -107,24 +107,32 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
     }
   };
 
-  const handleAssign = async (analystId: string) => {
-      if (!selectedProcessId) return;
+  const handleAssign = async (analystId: string): Promise<boolean> => {
+      if (!selectedProcessId) return false;
       try {
-          const { error } = await supabase
+          const { data, error } = await supabase
             .from('solicitations')
             .update({ analyst_id: analystId })
-            .eq('id', selectedProcessId);
-          
+            .eq('id', selectedProcessId)
+            .select();
+
           if (error) throw error;
-          
+
+          // Se RLS bloqueou, nenhuma row é retornada
+          if (!data || data.length === 0) {
+              console.error('Atribuição bloqueada: sem permissão ou processo não encontrado.');
+              return false;
+          }
+
           // Refresh local state
-          setSolicitations(prev => prev.map(s => 
+          setSolicitations(prev => prev.map(s =>
              s.id === selectedProcessId ? { ...s, analyst_id: analystId } : s
           ));
-          await fetchSolicitations(); // Full refresh to get analyst name
+          await fetchSolicitations();
+          return true;
       } catch (err) {
-          console.error(err);
-          console.error('Erro ao atribuir analista.');
+          console.error('Erro ao atribuir analista:', err);
+          return false;
       }
   };
 
