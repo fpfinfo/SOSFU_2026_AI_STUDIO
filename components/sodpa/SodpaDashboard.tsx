@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
     Briefcase, FileText, CheckCircle2, Search, DollarSign,
     Loader2, XCircle, FileCheck, CreditCard, Send,
-    Inbox, CheckSquare, Square, X, FileSignature, Users, Eye
+    Inbox, CheckSquare, Square, X, FileSignature, Users, Eye, UserPlus
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Tooltip } from '../ui/Tooltip';
@@ -10,6 +10,7 @@ import { usePriorityScore, PRIORITY_STYLES } from '../../hooks/usePriorityScore'
 import { useStaleProcesses } from '../../hooks/useStaleProcesses';
 import { StaleProcessBanner } from '../ui/StaleProcessBanner';
 import { useRealtimeInbox } from '../../hooks/useRealtimeInbox';
+import { SodpaTeamWidget } from './SodpaTeamWidget';
 
 // ==================== TYPES ====================
 interface SodpaDashboardProps {
@@ -30,6 +31,16 @@ interface SigningTask {
     solicitation?: { process_number: string; beneficiary: string; value: number };
     process_number: string;
     beneficiary: string;
+    analyst_id?: string; // To show if assigned
+}
+
+interface TeamMember {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    avatar_url?: string;
+    active: boolean;
 }
 
 type ListFilter = 'PENDING' | 'SIGNED';
@@ -67,7 +78,7 @@ const getDocColor = (type: string) => {
     }
 };
 
-// ==================== SIGNATURE CONFIRM MODAL ====================
+// ==================== MODALS ====================
 interface SignatureModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -124,7 +135,6 @@ const SignatureConfirmModal: React.FC<SignatureModalProps> = ({
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
             onClick={(e) => e.target === e.currentTarget && onClose()}>
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in-95 duration-200">
-                {/* Header */}
                 <div className="text-center mb-6">
                     <div className="w-16 h-16 bg-sky-50 border-2 border-sky-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                         <FileSignature className="text-sky-600" size={28} />
@@ -134,8 +144,6 @@ const SignatureConfirmModal: React.FC<SignatureModalProps> = ({
                         {documentsCount} documento{documentsCount > 1 ? 's' : ''} • {formatCurrency(totalValue)}
                     </p>
                 </div>
-
-                {/* PIN Input */}
                 <div className="mb-2">
                     <div className="flex items-center justify-center gap-3 mb-3">
                         {pin.map((digit, i) => (
@@ -149,24 +157,78 @@ const SignatureConfirmModal: React.FC<SignatureModalProps> = ({
                             />
                         ))}
                     </div>
-                    {error && (
-                        <p className="text-center text-sm text-red-500 font-medium">{error}</p>
-                    )}
+                    {error && <p className="text-center text-sm text-red-500 font-medium">{error}</p>}
                     <p className="text-center text-[10px] text-slate-400 mt-2">PIN padrão de teste: 1234</p>
                 </div>
-
-                {/* Actions */}
                 <div className="flex gap-3">
-                    <button onClick={onClose}
-                        className="flex-1 px-4 py-3 border-2 border-slate-200 text-slate-600 font-bold rounded-xl
-                            hover:bg-slate-50 transition-all text-sm">
-                        Cancelar
-                    </button>
+                    <button onClick={onClose} className="flex-1 px-4 py-3 border-2 border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all text-sm">Cancelar</button>
                     <button onClick={handleSubmit} disabled={!isFilled || isProcessing}
-                        className="flex-1 px-4 py-3 bg-sky-600 text-white font-bold rounded-xl
-                            hover:bg-sky-700 transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                        className="flex-1 px-4 py-3 bg-sky-600 text-white font-bold rounded-xl hover:bg-sky-700 transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2">
                         {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                         {isProcessing ? 'Enviando...' : 'Enviar'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+interface AssignModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onAssign: (memberId: string) => Promise<void>;
+    members: TeamMember[];
+    isProcessing: boolean;
+    count: number;
+}
+
+const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, onAssign, members, isProcessing, count }) => {
+    const [selectedMember, setSelectedMember] = useState<string | null>(null);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 animate-in fade-in zoom-in-95 duration-200">
+                <div className="mb-6">
+                    <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <Users className="text-indigo-600" size={24} /> Atribuir {count} Processo(s)
+                    </h2>
+                    <p className="text-sm text-slate-500">Selecione o membro da equipe para assumir a responsabilidade.</p>
+                </div>
+                
+                <div className="max-h-60 overflow-y-auto space-y-2 mb-6 pr-1">
+                    {members.map(member => (
+                        <div key={member.id} onClick={() => setSelectedMember(member.id)}
+                            className={`p-3 rounded-xl border cursor-pointer flex items-center gap-3 transition-all ${
+                                selectedMember === member.id ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-200' : 'border-slate-200 hover:bg-slate-50'
+                            }`}>
+                            {member.avatar_url ? (
+                                <img src={member.avatar_url} alt={member.name} className="w-10 h-10 rounded-full object-cover" />
+                            ) : (
+                                <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+                                    {member.name.charAt(0)}
+                                </div>
+                            )}
+                            <div className="flex-1">
+                                <h4 className="text-sm font-bold text-slate-800">{member.name}</h4>
+                                <p className="text-xs text-slate-500">{member.role}</p>
+                            </div>
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                selectedMember === member.id ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300'
+                            }`}>
+                                {selectedMember === member.id && <div className="w-2 h-2 rounded-full bg-white" />}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="flex gap-3">
+                    <button onClick={onClose} className="px-5 py-2.5 text-slate-600 font-bold hover:bg-slate-100 rounded-lg text-sm">Cancelar</button>
+                    <button onClick={() => selectedMember && onAssign(selectedMember)} disabled={!selectedMember || isProcessing}
+                        className="flex-1 px-5 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                        {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={18} />}
+                        Atribuir
                     </button>
                 </div>
             </div>
@@ -193,33 +255,31 @@ const TaskRow: React.FC<TaskRowProps> = ({ task, isSelected, onToggleSelect, onS
         <div className={`flex items-center gap-4 px-4 py-3.5 border-b border-slate-100 hover:bg-slate-50/70 transition-all group ${
             isSelected ? 'bg-sky-50/50' : ''
         }`}>
-            {/* Checkbox */}
             <button onClick={onToggleSelect} className="shrink-0">
                 {isSelected 
                     ? <CheckSquare size={18} className="text-sky-600" />
                     : <Square size={18} className="text-slate-300 group-hover:text-slate-400" />
                 }
             </button>
-
-            {/* Doc Type Icon */}
             <div className={`w-9 h-9 rounded-lg ${docColor.bg} ${docColor.text} flex items-center justify-center shrink-0`}>
                 {getDocIcon(task.document_type)}
             </div>
-
-            {/* Info */}
             <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-slate-800 truncate">{task.solicitation?.process_number || task.title}</p>
-                <p className="text-xs text-slate-500 truncate">
-                    {task.solicitation?.beneficiary} • {getDocLabel(task.document_type)}
-                </p>
+                <div className="flex items-center gap-2">
+                    <p className="text-xs text-slate-500 truncate">
+                        {task.solicitation?.beneficiary} • {getDocLabel(task.document_type)}
+                    </p>
+                    {task.analyst_id && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 font-medium flex items-center gap-1">
+                            <Users size={10} /> Atribuído
+                        </span>
+                    )}
+                </div>
             </div>
-
-            {/* Value */}
             <div className="text-right shrink-0 hidden md:block">
                 <p className="text-sm font-bold text-slate-700">{formatCurrency(task.value || 0)}</p>
             </div>
-
-            {/* Urgency Badge */}
             {(() => {
                 const priorityLevel = isUrgent ? 'ALTO' : (hours > 48 ? 'CRITICO' : undefined);
                 const style = priorityLevel ? PRIORITY_STYLES[priorityLevel as keyof typeof PRIORITY_STYLES] : null;
@@ -229,13 +289,9 @@ const TaskRow: React.FC<TaskRowProps> = ({ task, isSelected, onToggleSelect, onS
                         {style.label}
                     </span>
                 ) : isUrgent ? (
-                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-red-100 text-red-600 shrink-0">
-                        +24h
-                    </span>
+                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-red-100 text-red-600 shrink-0">+24h</span>
                 ) : null;
             })()}
-
-            {/* Actions */}
             <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Tooltip content="Examinar processo" position="top">
                     <button onClick={onView} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
@@ -270,29 +326,37 @@ export const SodpaDashboard: React.FC<SodpaDashboardProps> = ({ onNavigate, dark
     const [listFilter, setListFilter] = useState<ListFilter>('PENDING');
     const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
     const [showSignModal, setShowSignModal] = useState(false);
+    const [showAssignModal, setShowAssignModal] = useState(false);
     const [processing, setProcessing] = useState(false);
     const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [rejectReason, setRejectReason] = useState('');
     const [queueTab, setQueueTab] = useState<QueueTab>('inbox');
+    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
 
     const MODULE_NAME = 'SODPA';
     const WAITING_STATUS = 'WAITING_SODPA_ANALYSIS'; 
 
-    useEffect(() => { fetchData(); }, []);
+    useEffect(() => { fetchData(); fetchTeam(); }, []);
 
     const refetch = useCallback(() => { fetchData(); }, []);
 
-    // ⚡ Realtime
-    useRealtimeInbox({
-        module: MODULE_NAME,
-        onAnyChange: refetch,
-    });
+    useRealtimeInbox({ module: MODULE_NAME, onAnyChange: refetch, });
 
-    // ⏳ Stale process detection
-    const { staleProcesses } = useStaleProcesses({
-        statuses: [WAITING_STATUS],
-        thresholdDays: 3,
-    });
+    const { staleProcesses } = useStaleProcesses({ statuses: [WAITING_STATUS], thresholdDays: 3 });
+
+    const fetchTeam = async () => {
+        try {
+            const { data } = await supabase.from('sys_user_roles').select('user_id, sys_roles(slug, name), profiles:user_id(full_name, email, avatar_url)').eq('sys_roles.slug', 'SODPA');
+            let members: TeamMember[] = [];
+            if (!data || data.length === 0) {
+                 const { data: legacyData } = await supabase.from('profiles').select('id, full_name, email, avatar_url, role').ilike('role', '%SODPA%');
+                 if (legacyData) members = legacyData.map(p => ({ id: p.id, name: p.full_name || 'Sem nome', email: p.email || '', role: 'Analista SODPA', avatar_url: p.avatar_url, active: true }));
+            } else {
+                members = data.map((r: any) => ({ id: r.user_id, name: r.profiles?.full_name || 'Usuário', email: r.profiles?.email || '', role: r.sys_roles?.name || 'Membro da Equipe', avatar_url: r.profiles?.avatar_url, active: true }));
+            }
+            setTeamMembers(members);
+        } catch (err) { console.error('Erro ao buscar equipe:', err); }
+    };
 
     const fetchData = async () => {
         setLoading(true);
@@ -303,56 +367,32 @@ export const SodpaDashboard: React.FC<SodpaDashboardProps> = ({ onNavigate, dark
                 setUserName(profile?.full_name || 'Servidor SODPA');
             }
 
-             const { data: solicitations } = await supabase.from('solicitations').select('*')
-                .eq('status', WAITING_STATUS) // SODPA Work queue
-                .order('created_at', { ascending: false });
+             const { data: solicitations } = await supabase.from('solicitations').select('*').eq('status', WAITING_STATUS).order('created_at', { ascending: false });
             
             if (solicitations) {
                  const tasks: SigningTask[] = solicitations.map(s => ({
-                     id: s.id, 
-                     solicitation_id: s.id,
-                     document_type: 'GENERIC', 
-                     title: `Processo ${s.process_number}`,
-                     origin: s.unit || 'Desconhecido',
-                     value: s.value || 0,
-                     status: 'PENDING',
-                     created_at: s.created_at,
-                     solicitation: s,
-                     process_number: s.process_number,
-                     beneficiary: s.beneficiary
+                     id: s.id, solicitation_id: s.id, document_type: 'GENERIC', title: `Processo ${s.process_number}`,
+                     origin: s.unit || 'Desconhecido', value: s.value || 0, status: 'PENDING', created_at: s.created_at,
+                     solicitation: s, process_number: s.process_number, beneficiary: s.beneficiary, analyst_id: s.analyst_id
                  }));
-
                 setSigningTasks(tasks);
                 setPendingTasks(tasks);
             }
             
-            // Fetch history
-             const { data: hist } = await supabase.from('solicitations').select('*')
-                .neq('status', WAITING_STATUS)
-                .order('created_at', { ascending: false })
-                .limit(20);
+             const { data: hist } = await supabase.from('solicitations').select('*').neq('status', WAITING_STATUS).order('created_at', { ascending: false }).limit(20);
             if (hist) setHistory(hist);
-
-        } catch (error) {
-            console.error(`Erro ${MODULE_NAME}:`, error);
-        } finally { setLoading(false); }
+        } catch (error) { console.error(`Erro ${MODULE_NAME}:`, error); } finally { setLoading(false); }
     };
 
-    // ... (Computed properties similar to SEFIN) ...
      const prioritizedTasks = usePriorityScore<SigningTask>(signingTasks);
 
     const filteredTasks = useMemo(() => {
          const sorted = prioritizedTasks.map(p => p.task);
         if (!searchTerm) return sorted;
         const q = searchTerm.toLowerCase();
-        return sorted.filter(t =>
-            t.title.toLowerCase().includes(q) ||
-            t.solicitation?.process_number?.toLowerCase().includes(q) ||
-            t.solicitation?.beneficiary?.toLowerCase().includes(q)
-        );
+        return sorted.filter(t => t.title.toLowerCase().includes(q) || t.solicitation?.process_number?.toLowerCase().includes(q) || t.solicitation?.beneficiary?.toLowerCase().includes(q));
     }, [prioritizedTasks, searchTerm]);
 
-    // ... (Handlers) ...
     const handleToggleSelect = useCallback((id: string) => {
         setSelectedTaskIds(prev => {
             const next = new Set(prev);
@@ -362,11 +402,8 @@ export const SodpaDashboard: React.FC<SodpaDashboardProps> = ({ onNavigate, dark
     }, []);
 
     const handleSelectAll = useCallback(() => {
-         if (selectedTaskIds.size === signingTasks.length) {
-            setSelectedTaskIds(new Set());
-        } else {
-            setSelectedTaskIds(new Set(signingTasks.map(t => t.id)));
-        }
+         if (selectedTaskIds.size === signingTasks.length) setSelectedTaskIds(new Set());
+         else setSelectedTaskIds(new Set(signingTasks.map(t => t.id)));
     }, [signingTasks, selectedTaskIds.size]);
 
     const handleBatchSign = async (enteredPin: string) => {
@@ -375,30 +412,32 @@ export const SodpaDashboard: React.FC<SodpaDashboardProps> = ({ onNavigate, dark
              alert('Simulação: Lote SODPA processado com sucesso');
              setSelectedTaskIds(new Set());
              fetchData();
-        } catch (err) {
-            console.error(err);
-        } finally { setProcessing(false); }
+        } catch (err) { console.error(err); } finally { setProcessing(false); }
+    };
+
+    const handleBatchAssign = async (memberId: string) => {
+        setProcessing(true);
+        try {
+            const { error } = await supabase.from('solicitations').update({ analyst_id: memberId }).in('id', Array.from(selectedTaskIds));
+            if (error) throw error;
+            alert(`${selectedTaskIds.size} processo(s) atribuído(s) com sucesso.`);
+            setShowAssignModal(false);
+            setSelectedTaskIds(new Set());
+            fetchData();
+        } catch (err) { console.error(err); alert('Erro ao atribuir processos.'); } finally { setProcessing(false); }
     };
     
-     const handleSingleSign = async (taskId: string) => {
-        setSelectedTaskIds(new Set([taskId]));
-        setShowSignModal(true);
-    };
+     const handleSingleSign = async (taskId: string) => { setSelectedTaskIds(new Set([taskId])); setShowSignModal(true); };
 
     const handleRejectDocument = async (task: SigningTask) => {
          if (!rejectReason.trim()) { alert('Informe o motivo.'); return; }
           setProcessing(true);
         try {
             alert(`Simulação: Processo SODPA devolvido. Motivo: ${rejectReason}`);
-            setRejectingId(null);
-            setRejectReason('');
-            fetchData();
-        } catch (err) {
-             console.error(err);
-        } finally { setProcessing(false); }
+            setRejectingId(null); setRejectReason(''); fetchData();
+        } catch (err) { console.error(err); } finally { setProcessing(false); }
     };
 
-    // ==================== LOADING ====================
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center h-96 gap-4">
@@ -411,24 +450,16 @@ export const SodpaDashboard: React.FC<SodpaDashboardProps> = ({ onNavigate, dark
         );
     }
 
-    // ==================== RENDER ====================
     return (
         <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-
             {/* ===== WELCOME BANNER ===== */}
             <div className="bg-gradient-to-r from-sky-600 via-sky-500 to-indigo-600 rounded-2xl p-6 shadow-lg">
                 <h2 className="text-xl font-black text-white">Painel SODPA</h2>
-                <p className="text-sm text-sky-100 mt-1.5">
-                    Olá, <span className="font-bold text-white">{userName}</span>. Gerencie aqui as diárias e passagens.
-                </p>
+                <p className="text-sm text-sky-100 mt-1.5">Olá, <span className="font-bold text-white">{userName}</span>. Gerencie aqui as diárias e passagens.</p>
             </div>
 
             {/* ===== STALE PROCESS ALERT ===== */}
-            <StaleProcessBanner
-                staleProcesses={staleProcesses}
-                onViewProcess={(id) => onNavigate('process_detail', id)}
-                accent="red"
-            />
+            <StaleProcessBanner staleProcesses={staleProcesses} onViewProcess={(id) => onNavigate('process_detail', id)} accent="red" />
             
              {/* ACTIONS TOOLBAR */}
             <div className="flex gap-4">
@@ -440,10 +471,11 @@ export const SodpaDashboard: React.FC<SodpaDashboardProps> = ({ onNavigate, dark
                 </button>
             </div>
 
+            {/* ===== SECTION B: TEAM MANAGEMENT ===== */}
+            <SodpaTeamWidget darkMode={darkMode} onManageTeam={() => onNavigate('settings')} />
 
             {/* ===== SECTION C: DOCUMENT QUEUE ===== */}
             <div className="bg-white rounded-2xl border-2 border-slate-100 overflow-hidden">
-                {/* Queue Tabs */}
                 <div className="flex items-center gap-1 px-4 pt-4 pb-0">
                     <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
                         {([
@@ -451,38 +483,21 @@ export const SodpaDashboard: React.FC<SodpaDashboardProps> = ({ onNavigate, dark
                             { id: 'minha_fila' as QueueTab, label: 'Minha Fila', icon: <Users size={14} /> },
                             { id: 'processados' as QueueTab, label: 'Processados', icon: <CheckCircle2 size={14} />, count: signedTasks.length },
                         ]).map(tab => (
-                            <button key={tab.id} onClick={() => {
-                                setQueueTab(tab.id);
-                                if (tab.id === 'processados') setListFilter('SIGNED');
-                                else setListFilter('PENDING');
-                            }}
-                                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                                    queueTab === tab.id
-                                        ? 'bg-sky-500 text-white shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-700 hover:bg-white'
-                                }`}>
-                                {tab.icon}
-                                {tab.label}
+                            <button key={tab.id} onClick={() => { setQueueTab(tab.id); if (tab.id === 'processados') setListFilter('SIGNED'); else setListFilter('PENDING'); }}
+                                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${queueTab === tab.id ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-white'}`}>
+                                {tab.icon} {tab.label}
                                 {tab.count !== undefined && tab.count > 0 && (
-                                    <span className={`ml-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${
-                                        queueTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
-                                    }`}>
+                                    <span className={`ml-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${queueTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'}`}>
                                         {tab.count > 99 ? '99+' : tab.count}
                                     </span>
                                 )}
                             </button>
                         ))}
                     </div>
-
-                    {/* Spacer */}
                     <div className="flex-1" />
-
-                    {/* Search */}
                     <div className="relative">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input type="text" placeholder="Buscar..." value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                            className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-300" />
+                        <input type="text" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-300" />
                     </div>
                 </div>
 
@@ -490,27 +505,31 @@ export const SodpaDashboard: React.FC<SodpaDashboardProps> = ({ onNavigate, dark
                 {listFilter === 'PENDING' && signingTasks.length > 0 && (
                     <div className="flex items-center justify-between px-4 py-2.5 mt-2 mx-4 bg-sky-50 rounded-xl border border-sky-100">
                         <div className="flex items-center gap-3">
-                            <button onClick={handleSelectAll}
-                                className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-sky-600 transition-colors font-medium">
+                            <button onClick={handleSelectAll} className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-sky-600 transition-colors font-medium">
                                 {selectedTaskIds.size > 0 ? <CheckSquare size={16} className="text-sky-600" /> : <Square size={16} />}
                                 {selectedTaskIds.size > 0 ? 'Desselecionar' : 'Selecionar Todos'}
                             </button>
                             {selectedTaskIds.size > 0 && (
                                 <>
                                     <span className="text-sm font-bold text-sky-600">{selectedTaskIds.size} selecionado(s)</span>
-                                    <button onClick={() => setSelectedTaskIds(new Set())} className="text-slate-400 hover:text-slate-600">
-                                        <X size={14} />
+                                    <button onClick={() => setSelectedTaskIds(new Set())} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+                                </>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {selectedTaskIds.size > 0 && isGestor && (
+                                <>
+                                    <button onClick={() => setShowAssignModal(true)} disabled={processing}
+                                        className="flex items-center gap-2 px-4 py-2 bg-indigo-100 text-indigo-700 text-sm font-bold rounded-xl hover:bg-indigo-200 shadow-sm transition-all disabled:opacity-50">
+                                        <UserPlus size={16} /> Atribuir
+                                    </button>
+                                    <button onClick={() => setShowSignModal(true)} disabled={processing}
+                                        className="flex items-center gap-2 px-5 py-2 bg-sky-600 text-white text-sm font-bold rounded-xl hover:bg-sky-700 shadow-sm transition-all disabled:opacity-50">
+                                        <Send size={16} /> Tramitar
                                     </button>
                                 </>
                             )}
                         </div>
-                        {selectedTaskIds.size > 0 && isGestor && (
-                            <button onClick={() => setShowSignModal(true)} disabled={processing}
-                                className="flex items-center gap-2 px-5 py-2 bg-sky-600 text-white text-sm font-bold rounded-xl hover:bg-sky-700 shadow-sm transition-all disabled:opacity-50">
-                                <Send size={16} />
-                                Tramitar {selectedTaskIds.size} Itens
-                            </button>
-                        )}
                     </div>
                 )}
 
@@ -522,45 +541,27 @@ export const SodpaDashboard: React.FC<SodpaDashboardProps> = ({ onNavigate, dark
                                 return (
                                     <div key={task.id} className="mx-4 my-2 bg-red-50 border-2 border-red-200 rounded-2xl p-5">
                                         <p className="text-sm font-bold text-red-800 mb-3">Devolver: {task.title}</p>
-                                        <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
-                                            placeholder="Motivo da devolução..."
-                                            className="w-full p-3 border border-red-200 rounded-xl text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-red-300" autoFocus />
+                                        <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Motivo da devolução..." className="w-full p-3 border border-red-200 rounded-xl text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-red-300" autoFocus />
                                         <div className="flex gap-2 mt-3">
-                                            <button onClick={() => handleRejectDocument(task)} disabled={processing}
-                                                className="px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 disabled:opacity-50">
-                                                Confirmar Devolução
-                                            </button>
-                                            <button onClick={() => { setRejectingId(null); setRejectReason(''); }}
-                                                className="px-4 py-2 text-slate-500 text-xs font-medium hover:bg-slate-100 rounded-lg">
-                                                Cancelar
-                                            </button>
+                                            <button onClick={() => handleRejectDocument(task)} disabled={processing} className="px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 disabled:opacity-50">Confirmar Devolução</button>
+                                            <button onClick={() => { setRejectingId(null); setRejectReason(''); }} className="px-4 py-2 text-slate-500 text-xs font-medium hover:bg-slate-100 rounded-lg">Cancelar</button>
                                         </div>
                                     </div>
                                 );
                             }
-
                             return (
-                                <TaskRow key={task.id} task={task}
-                                    isSelected={selectedTaskIds.has(task.id)}
-                                    onToggleSelect={() => handleToggleSelect(task.id)}
-                                    onSign={isGestor ? () => handleSingleSign(task.id) : undefined}
-                                    onReject={isGestor ? () => setRejectingId(task.id) : undefined}
-                                    onView={() => onNavigate('process_detail', task.solicitation_id)}
-                                />
+                                <TaskRow key={task.id} task={task} isSelected={selectedTaskIds.has(task.id)} onToggleSelect={() => handleToggleSelect(task.id)} onSign={isGestor ? () => handleSingleSign(task.id) : undefined} onReject={isGestor ? () => setRejectingId(task.id) : undefined} onView={() => onNavigate('process_detail', task.solicitation_id)} />
                             );
                         })
                     ) : (
                         <div className="text-center py-16">
-                            <div className="w-16 h-16 bg-sky-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <CheckCircle2 size={32} className="text-sky-400" />
-                            </div>
+                            <div className="w-16 h-16 bg-sky-50 rounded-full flex items-center justify-center mx-auto mb-4"><CheckCircle2 size={32} className="text-sky-400" /></div>
                             <p className="text-slate-600 font-bold">Nenhum processo nesta fila</p>
                             <p className="text-sm text-slate-400 mt-1">Tudo em dia para o SODPA.</p>
                         </div>
                     )}
                 </div>
             </div>
-
 
             {/* ===== HISTORY ===== */}
             <div>
@@ -571,21 +572,12 @@ export const SodpaDashboard: React.FC<SodpaDashboardProps> = ({ onNavigate, dark
                             <div className="p-10 text-center text-slate-400 text-sm">Nenhum histórico.</div>
                         ) : (
                             history.slice(0, 8).map(proc => (
-                                <div key={proc.id} onClick={() => onNavigate('process_detail', proc.id)}
-                                    className="p-4 hover:bg-slate-50 transition-colors cursor-pointer flex items-center justify-between group">
+                                <div key={proc.id} onClick={() => onNavigate('process_detail', proc.id)} className="p-4 hover:bg-slate-50 transition-colors cursor-pointer flex items-center justify-between group">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center">
-                                            <Briefcase size={18} />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-gray-800 group-hover:text-sky-700 transition-colors">{proc.process_number}</p>
-                                            <p className="text-xs text-gray-500">{proc.beneficiary}</p>
-                                        </div>
+                                        <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center"><Briefcase size={18} /></div>
+                                        <div><p className="text-sm font-bold text-gray-800 group-hover:text-sky-700 transition-colors">{proc.process_number}</p><p className="text-xs text-gray-500">{proc.beneficiary}</p></div>
                                     </div>
-                                    <div className="text-right">
-                                        <span className="inline-block px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700">{proc.status}</span>
-                                        <p className="text-[10px] text-gray-400 mt-0.5">{formatCurrency(proc.value || 0)}</p>
-                                    </div>
+                                    <div className="text-right"><span className="inline-block px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700">{proc.status}</span><p className="text-[10px] text-gray-400 mt-0.5">{formatCurrency(proc.value || 0)}</p></div>
                                 </div>
                             ))
                         )}
@@ -593,15 +585,8 @@ export const SodpaDashboard: React.FC<SodpaDashboardProps> = ({ onNavigate, dark
                 </div>
             </div>
 
-            {/* ===== SIGNATURE/ACTION MODAL ===== */}
-            <SignatureConfirmModal
-                isOpen={showSignModal}
-                onClose={() => { setShowSignModal(false); setSelectedTaskIds(new Set()); }}
-                onConfirm={handleBatchSign}
-                documentsCount={selectedTaskIds.size}
-                totalValue={0} // Calc logic
-                isProcessing={processing}
-            />
+            <SignatureConfirmModal isOpen={showSignModal} onClose={() => { setShowSignModal(false); setSelectedTaskIds(new Set()); }} onConfirm={handleBatchSign} documentsCount={selectedTaskIds.size} totalValue={0} isProcessing={processing} />
+            <AssignModal isOpen={showAssignModal} onClose={() => setShowAssignModal(false)} onAssign={handleBatchAssign} members={teamMembers} isProcessing={processing} count={selectedTaskIds.size} />
         </div>
     );
 };

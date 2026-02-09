@@ -16,7 +16,7 @@ import { AjsefinCockpit } from './components/ajsefin/AjsefinCockpit';
 import { SgpDashboard } from './components/sgp/SgpDashboard';
 import { SeadDashboard } from './components/sead/SeadDashboard';
 import { PresidenciaDashboard } from './components/presidencia/PresidenciaDashboard';
-import { SodpaDashboard } from './components/sodpa/SodpaDashboard';
+import { SodpaCockpit } from './components/sodpa/SodpaCockpit';
 import { EmergencySolicitation } from './components/suprido/EmergencySolicitation';
 import { JurySolicitation } from './components/suprido/JurySolicitation';
 import { ProcessDetailView } from './components/process/ProcessDetailView';
@@ -122,7 +122,7 @@ const App: React.FC = () => {
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select(`
           *,
@@ -145,8 +145,29 @@ const App: React.FC = () => {
             avatar_url: '',
             dperfil: { slug: 'ADMIN', name: 'Administrador (Fallback)' }
         });
-      } else if (data) {
-        setUserProfile(data);
+      } else if (profile) {
+        // Fetch modern RBAC roles to override legacy
+        const { data: roles } = await supabase
+            .from('sys_user_roles')
+            .select('sys_roles(slug, name)')
+            .eq('user_id', userId);
+
+        let activeRole = profile.dperfil;
+        
+        if (roles && roles.length > 0) {
+            // Priority 1: SODPA Roles
+            const sodpaRole = roles.find((r: any) => r.sys_roles?.slug?.includes('SODPA'));
+            // Priority 2: Any System Role
+            const anyRole = roles[0]?.sys_roles;
+            
+            if (sodpaRole?.sys_roles) {
+                activeRole = sodpaRole.sys_roles;
+            } else if (anyRole) {
+                activeRole = anyRole;
+            }
+        }
+
+        setUserProfile({ ...profile, dperfil: activeRole });
       }
     } catch (error) {
       console.error('Error:', error);
@@ -252,7 +273,7 @@ const App: React.FC = () => {
       case 'presidencia_dashboard':
         return <PresidenciaDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
       case 'sodpa_dashboard':
-        return <SodpaDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <SodpaCockpit onNavigate={handleNavigation} userProfile={userProfile} />;
       case 'solicitation_emergency':
         return <EmergencySolicitation onNavigate={handleNavigation} />;
       case 'solicitation_jury':
@@ -322,7 +343,7 @@ const App: React.FC = () => {
         userProfile={userProfile}
       />
       
-      {activeTab === 'sefin_dashboard' || activeTab === 'ajsefin_dashboard' ? (
+      {activeTab === 'sefin_dashboard' || activeTab === 'ajsefin_dashboard' || activeTab === 'sodpa_dashboard' ? (
         <div id="main-content">{renderContent()}</div>
       ) : (
         <main id="main-content" className="max-w-[1600px] mx-auto px-6 py-8">

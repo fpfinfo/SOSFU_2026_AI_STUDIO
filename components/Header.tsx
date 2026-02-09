@@ -50,10 +50,19 @@ const MODULE_CONFIGS: Record<string, { title: string; subtitle: string; color: s
     accentBg: 'bg-indigo-50',
     accentText: 'text-indigo-600',
   },
+  sodpa_dashboard: {
+    title: 'SODPA TJPA',
+    subtitle: '• Serviço de Diárias e Passagens',
+    color: 'sky',
+    bgColor: 'bg-sky-50',
+    textColor: 'text-sky-700',
+    accentBg: 'bg-sky-50',
+    accentText: 'text-sky-600',
+  },
 };
 
 // Modules that manage their own internal navigation (no tabs in main header)
-const INDEPENDENT_MODULES = ['sefin_dashboard', 'gestor_dashboard', 'suprido_dashboard', 'ajsefin_dashboard'];
+const INDEPENDENT_MODULES = ['sefin_dashboard', 'gestor_dashboard', 'suprido_dashboard', 'ajsefin_dashboard', 'sodpa_dashboard'];
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNavigate, userProfile }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -61,16 +70,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
   const [gestorLocationTitle, setGestorLocationTitle] = useState<string | null>(null);
   
   const allTabs = [
-    { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SEFIN_GESTOR', 'SEFIN_EQUIPE', 'PRESIDENCIA_GESTOR', 'PRESIDENCIA_EQUIPE', 'SGP_GESTOR', 'SGP_EQUIPE'] },
+    { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SEFIN_GESTOR', 'SEFIN_EQUIPE', 'PRESIDENCIA_GESTOR', 'PRESIDENCIA_EQUIPE', 'SGP_GESTOR', 'SGP_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
     { id: 'suprido_dashboard', label: 'Portal do Usuário', icon: Briefcase, roles: ['USER', 'SERVIDOR'] }, 
     { id: 'gestor_dashboard', label: 'Gabinete do Gestor', icon: Gavel, roles: ['GESTOR', 'ADMIN'] },
     { id: 'sefin_dashboard', label: 'Gabinete SEFIN', icon: Scale, roles: ['SEFIN', 'ADMIN'] },
     { id: 'ajsefin_dashboard', label: 'Gabinete AJSEFIN', icon: Scale, roles: ['AJSEFIN', 'ADMIN'] },
-    { id: 'solicitations', label: 'Gestão de Solicitações', icon: FileText, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE'] },
-    { id: 'accountability', label: 'Gestão de Contas', icon: CheckSquare, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE'] },
-    { id: 'archive', label: 'Arquivo', icon: Archive, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE'] },
-    { id: 'reports', label: 'Relatórios', icon: PieChart, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'PRESIDENCIA_GESTOR', 'PRESIDENCIA_EQUIPE'] },
-    { id: 'settings', label: 'Configurações', icon: Settings, roles: ['ADMIN', 'SOSFU_GESTOR'] },
+    { id: 'solicitations', label: 'Diárias e Passagens', icon: FileText, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
+    { id: 'accountability', label: 'Prest. Contas', icon: CheckSquare, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
+    { id: 'archive', label: 'Arquivo', icon: Archive, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
+    { id: 'reports', label: 'Relatórios', icon: PieChart, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'PRESIDENCIA_GESTOR', 'PRESIDENCIA_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
+    { id: 'settings', label: 'Configurações', icon: Settings, roles: ['ADMIN', 'SOSFU_GESTOR', 'SODPA_GESTOR'] },
   ];
 
   const userRole = userProfile?.dperfil?.slug || 'SERVIDOR';
@@ -143,8 +152,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
   // Dynamic branding based on active module
   const headerTitle = (activeTab === 'gestor_dashboard' && gestorLocationTitle)
     ? gestorLocationTitle
-    : (moduleConfig?.title || 'SOSFU TJPA');
-  const headerSubtitle = moduleConfig?.subtitle || '• Suprimento de Fundos';
+    : (moduleConfig?.title || 'SODPA TJPA');
+  const headerSubtitle = moduleConfig?.subtitle || '• Serviço de Diárias e Passagens';
   const titleColor = moduleConfig?.textColor || 'text-blue-600';
   const subtitleColor = moduleConfig ? moduleConfig.accentText.replace('600', '400') : 'text-blue-400';
   const activeTabBg = moduleConfig?.accentBg || 'bg-blue-50';
