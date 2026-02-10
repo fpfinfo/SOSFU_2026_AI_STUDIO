@@ -63,9 +63,7 @@ const App: React.FC = () => {
   const [processInitialTab, setProcessInitialTab] = useState<ProcessTabType>('OVERVIEW');
   const [availableRoles, setAvailableRoles] = useState<{slug: string, name: string}[]>([]);
 
-  // Seletor de Perfil reativo
-
-  // Seletor de Perfil reativo
+  // Perfil Simulado State (Persistente)
   const [simulatedRole, setSimulatedRole] = useState<string | null>(localStorage.getItem('simulated_role'));
 
   useEffect(() => {
@@ -313,28 +311,28 @@ const App: React.FC = () => {
                   <StatCard key={stat.id} data={stat} />
                 ))}
              </div>
-             <SosfuInbox onNavigate={handleNavigation} userProfile={userProfile} />
+             <SosfuInbox onNavigate={handleNavigation} userProfile={currentUserProfile} />
              <TeamTable isGestor={true} />
           </div>
         );
       case 'suprido_dashboard':
-        return <SupridoDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <SupridoDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} />;
       case 'gestor_dashboard':
-        return <GestorDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <GestorDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} />;
       case 'sefin_dashboard':
-        return <SefinCockpit onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <SefinCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} />;
       case 'ajsefin_dashboard':
-        return <AjsefinCockpit onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <AjsefinCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} />;
       case 'sgp_dashboard':
-        return <SgpDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <SgpDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} />;
       case 'sead_dashboard':
-        return <SeadDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <SeadDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} />;
       case 'presidencia_dashboard':
-        return <PresidenciaDashboard onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <PresidenciaDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} />;
       case 'sodpa_dashboard':
-        return <SodpaCockpit onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <SodpaCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} />;
       case 'ressarcimento_dashboard':
-        return <RessarcimentoCockpit onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <RessarcimentoCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} />;
       case 'solicitation_emergency':
         return <EmergencySolicitation onNavigate={handleNavigation} />;
       case 'solicitation_jury':
@@ -351,7 +349,7 @@ const App: React.FC = () => {
             <ProcessDetailView 
                 processId={selectedProcessId}
                 initialTab={processInitialTab}
-                userProfile={userProfile}
+                userProfile={currentUserProfile}
                 onBack={() => {
                     // Se veio do Arquivo, volta pro Arquivo
                     if (processInitialTab === 'ARCHIVE') return setActiveTab('archive');
@@ -373,13 +371,13 @@ const App: React.FC = () => {
             <div>Erro: Processo não selecionado</div>
         );
       case 'solicitations':
-        return <SolicitationsView onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <SolicitationsView onNavigate={handleNavigation} userProfile={currentUserProfile} />;
       case 'accountability':
-        return <AccountabilityView onNavigate={handleNavigation} userProfile={userProfile} />;
+        return <AccountabilityView onNavigate={handleNavigation} userProfile={currentUserProfile} />;
       case 'archive':
         return <ArchiveView onNavigate={handleNavigation} />;
       case 'settings':
-        return <SettingsView userProfile={userProfile} />;
+        return <SettingsView userProfile={currentUserProfile} />;
       case 'profile':
         return <ProfileView />;
       case 'reports':
