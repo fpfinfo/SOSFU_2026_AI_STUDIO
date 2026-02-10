@@ -409,7 +409,7 @@ const App: React.FC = () => {
         availableRoles={availableRoles}
       />
       
-      {activeTab === 'sefin_dashboard' || activeTab === 'ajsefin_dashboard' || activeTab === 'sodpa_dashboard' || activeTab === 'ressarcimento_dashboard' ? (
+      {['sefin_dashboard', 'ajsefin_dashboard', 'sodpa_dashboard', 'ressarcimento_dashboard', 'sgp_dashboard', 'sead_dashboard', 'presidencia_dashboard'].includes(activeTab || '') ? (
         <div id="main-content">{renderContent()}</div>
       ) : (
         <main id="main-content" className="max-w-[1600px] mx-auto px-6 py-8">

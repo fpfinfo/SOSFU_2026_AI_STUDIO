@@ -123,10 +123,40 @@ const MODULE_CONFIGS: Record<string, { title: string; subtitle: string; color: s
     accentBg: 'bg-blue-50',
     accentText: 'text-blue-600',
   },
+  sgp_dashboard: {
+    title: 'SGP TJPA',
+    subtitle: '• Gestão de Pessoas',
+    color: 'pink',
+    bgColor: 'bg-pink-50',
+    textColor: 'text-pink-700',
+    accentBg: 'bg-pink-50',
+    accentText: 'text-pink-600',
+  },
+  sead_dashboard: {
+    title: 'SEAD TJPA',
+    subtitle: '• Secretaria de Administração',
+    color: 'slate',
+    bgColor: 'bg-slate-50',
+    textColor: 'text-slate-700',
+    accentBg: 'bg-slate-50',
+    accentText: 'text-slate-600',
+  },
+  presidencia_dashboard: {
+    title: 'PRESIDÊNCIA TJPA',
+    subtitle: '• Gabinete da Presidência',
+    color: 'orange',
+    bgColor: 'bg-orange-50',
+    textColor: 'text-orange-700',
+    accentBg: 'bg-orange-50',
+    accentText: 'text-orange-600',
+  },
 };
 
 // Modules that manage their own internal navigation (no tabs in main header)
-const INDEPENDENT_MODULES = ['sefin_dashboard', 'gestor_dashboard', 'suprido_dashboard', 'ajsefin_dashboard', 'sodpa_dashboard', 'ressarcimento_dashboard'];
+const INDEPENDENT_MODULES = [
+  'sefin_dashboard', 'gestor_dashboard', 'suprido_dashboard', 'ajsefin_dashboard', 
+  'sodpa_dashboard', 'ressarcimento_dashboard', 'sgp_dashboard', 'sead_dashboard', 'presidencia_dashboard'
+];
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNavigate, userProfile, availableRoles = [] }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -151,6 +181,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
     { id: 'ajsefin_dashboard', label: 'Gabinete AJSEFIN', icon: Scale, roles: ['AJSEFIN', 'ADMIN'], color: 'teal' },
     { id: 'sodpa_dashboard', label: 'Gabinete SODPA', icon: PieChart, roles: ['SODPA', 'ADMIN'], color: 'sky' },
     { id: 'ressarcimento_dashboard', label: 'Gabinete Ressarcimento', icon: Shield, roles: ['RESSARCIMENTO', 'ADMIN'], color: 'emerald' },
+    { id: 'sgp_dashboard', label: 'Gabinete SGP', icon: User, roles: ['SGP', 'ADMIN'], color: 'pink' },
+    { id: 'sead_dashboard', label: 'Gabinete SEAD', icon: Settings, roles: ['SEAD', 'ADMIN'], color: 'slate' },
+    { id: 'presidencia_dashboard', label: 'Gabinete Presidência', icon: Shield, roles: ['PRESIDENCIA', 'ADMIN'], color: 'orange' },
   ];
 
   const handleRoleSwitch = (slug: string) => {
@@ -345,7 +378,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
                                     amber: { bg: 'bg-amber-50', text: 'text-amber-700', icon: 'bg-amber-100' },
                                     teal: { bg: 'bg-teal-50', text: 'text-teal-700', icon: 'bg-teal-100' },
                                     sky: { bg: 'bg-sky-50', text: 'text-sky-700', icon: 'bg-sky-100' },
-                                    emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: 'bg-emerald-100' }
+                                    emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: 'bg-emerald-100' },
+                                    pink: { bg: 'bg-pink-50', text: 'text-pink-700', icon: 'bg-pink-100' },
+                                    slate: { bg: 'bg-slate-50', text: 'text-slate-700', icon: 'bg-slate-100' },
+                                    orange: { bg: 'bg-orange-50', text: 'text-orange-700', icon: 'bg-orange-100' }
                                 };
                                 const colors = colorSchemes[mod.color as keyof typeof colorSchemes] || colorSchemes.indigo;
 
