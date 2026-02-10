@@ -4,10 +4,10 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
  * Centralized Gemini AI helper (Official SDK: @google/generative-ai)
  */
 
-// We prioritize 1.5-flash because it has a massive daily limit (1500 requests/day free)
+// Use stable, well-known internal model names
 const PRIMARY_MODEL = 'gemini-1.5-flash';
-const SECONDARY_MODEL = 'gemini-1.5-flash-002'; // Specific version often has separate quota
-const TERTIARY_MODEL = 'gemini-1.5-flash-8b';
+const SECONDARY_MODEL = 'gemini-1.5-flash-latest';
+const TERTIARY_MODEL = 'gemini-2.0-flash-exp'; // Try experimental 2.0 as last resort
 
 /** Get the API key from Vite environment */
 const getApiKey = (): string => {
@@ -15,7 +15,7 @@ const getApiKey = (): string => {
   const key = env.VITE_GEMINI_API_KEY || env.VITE_API_KEY || (typeof process !== 'undefined' ? process.env?.GEMINI_API_KEY : '');
   
   if (!key) {
-    throw new Error('⚠️ Chave API não encontrada. Reinicie o servidor após configurar o .env.');
+    throw new Error('⚠️ Chave API não encontrada. Verifique o seu arquivo .env e reinicie o servidor.');
   }
   return key;
 };
@@ -31,20 +31,27 @@ const callWithRetry = async (fn: (modelName: string) => Promise<any>, retries = 
   for (const modelName of models) {
     for (let i = 0; i < retries; i++) {
         try {
-          console.log(`[Sentinela IA] Tentando modelo: ${modelName} (Tentativa ${i + 1})`);
+          console.log(`[Sentinela IA] Orchestrator: Tentando ${modelName}...`);
           return await fn(modelName);
         } catch (error: any) {
           lastError = error;
-          const errorMsg = error?.message || '';
+          const errorMsg = error?.message?.toLowerCase() || '';
           
-          // Se for erro de quota (429), tenta o próximo modelo imediatamente
-          if (errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED')) {
-            console.warn(`[Sentinela IA] Cota excedida para ${modelName}. Pulando para o próximo...`);
+          // Se o modelo não for encontrado (404), pula pro próximo imediatamente
+          if (errorMsg.includes('404') || errorMsg.includes('not found')) {
+            console.warn(`[Sentinela IA] Modelo ${modelName} não disponível. Pulando...`);
             break; 
           }
 
-          // Para outros erros, espera um pouco e tenta de novo o mesmo modelo
+          // Se for erro de quota (429), tenta o próximo modelo
+          if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('resource_exhausted')) {
+            console.warn(`[Sentinela IA] Cota atingida para ${modelName}. Tentando alternativa...`);
+            break; 
+          }
+
+          // Outros erros: faz um retry curto no mesmo modelo
           if (i < retries - 1) {
+            console.log(`[Sentinela IA] Erro temporário em ${modelName}. Re-tentando em 1s...`);
             await new Promise(r => setTimeout(r, 1000));
             continue;
           }
@@ -53,7 +60,6 @@ const callWithRetry = async (fn: (modelName: string) => Promise<any>, retries = 
     }
   }
 
-  // Se chegar aqui, todos falharam. Mostra o erro do primeiro modelo que é o principal
   throw lastError;
 };
 
