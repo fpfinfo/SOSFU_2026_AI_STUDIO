@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, UserPlus, Search, Check, Loader2, Shield, Users, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { UserProfile } from '../types';
 
 interface AssignModalProps {
     isOpen: boolean;
@@ -46,7 +47,7 @@ export const AssignModal: React.FC<AssignModalProps> = ({
     const [loading, setLoading] = useState(true);
     const [assigning, setAssigning] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [currentUser, setCurrentUser] = useState<any>(null);
+    const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
     const [detectedModule, setDetectedModule] = useState<string | null>(null);
 
     useEffect(() => {
@@ -60,17 +61,35 @@ export const AssignModal: React.FC<AssignModalProps> = ({
         try {
             // Get current user
             const { data: { user } } = await supabase.auth.getUser();
-            setCurrentUser(user);
+            
             if (!user) return;
 
-            // Get current user's profile to detect module if not provided
+            // Get current user's profile
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('dperfil(slug)')
+                .select('id, full_name, email, avatar_url, dperfil(slug)')
                 .eq('id', user.id)
                 .single();
 
-            const userRoleSlug = profile?.dperfil?.slug || '';
+            if (profile) {
+                 const userProfile: UserProfile = {
+                    id: profile.id,
+                    full_name: profile.full_name,
+                    email: profile.email,
+                    avatar_url: profile.avatar_url,
+                    dperfil: Array.isArray(profile.dperfil) 
+                        ? profile.dperfil[0] 
+                        : profile.dperfil
+                };
+                setCurrentUser(userProfile);
+            }
+
+            // Safe access to slug
+            const safeProfile = profile as any;
+            const dperfil = safeProfile?.dperfil;
+            const userRoleSlug = Array.isArray(dperfil) 
+                ? dperfil[0]?.slug 
+                : dperfil?.slug || '';
             
             // Determine which module to use
             let effectiveModule = module;
@@ -88,9 +107,11 @@ export const AssignModal: React.FC<AssignModalProps> = ({
             }
             setDetectedModule(effectiveModule);
 
-            // Strategy: Combine team_members table + profiles with matching roles
+            // Strategy: 
+            // 1. Try to fetch from 'team_members' for this module (Managed Team).
+            // 2. If NO members found there, fallback to 'dperfil' logic (Bootstrapping).
+            
             const members: TeamMember[] = [];
-            const seenIds = new Set<string>();
 
             // 1) First, get members from team_members table for this module
             const { data: teamRows } = await supabase
@@ -99,53 +120,60 @@ export const AssignModal: React.FC<AssignModalProps> = ({
                 .eq('module', effectiveModule);
 
             if (teamRows && teamRows.length > 0) {
+                // Managed Team Mode
                 const teamUserIds = teamRows.map(r => r.user_id);
                 const { data: teamProfiles } = await supabase
                     .from('profiles')
-                    .select('id, full_name, email, avatar_url')
+                    .select('id, full_name, email, avatar_url, dperfil(slug)')
                     .in('id', teamUserIds);
 
                 if (teamProfiles) {
                     const funcaoMap = new Map<string, any>(teamRows.map(r => [r.user_id, r.funcao]));
-                    teamProfiles.forEach(p => {
-                        if (!seenIds.has(p.id)) {
-                            members.push({
-                                id: p.id,
-                                full_name: p.full_name || '',
-                                email: p.email || '',
-                                avatar_url: p.avatar_url,
-                                funcao: funcaoMap.get(p.id) || undefined,
-                            });
-                            seenIds.add(p.id);
-                        }
-                    });
-                }
-            }
-
-            // 2) Also get users with matching role prefixes from dperfil
-            const rolePrefixes = MODULE_ROLE_PREFIXES[effectiveModule] || ['ADMIN'];
-            const { data: roleProfiles } = await supabase
-                .from('profiles')
-                .select('id, full_name, email, avatar_url, dperfil(slug, name)')
-                .order('full_name');
-
-            if (roleProfiles) {
-                roleProfiles.forEach((p: any) => {
-                    const slug = p.dperfil?.slug || '';
-                    const matchesRole = rolePrefixes.some(prefix => 
-                        slug.startsWith(prefix) || slug === prefix
-                    );
-                    if (matchesRole && !seenIds.has(p.id)) {
+                    (teamProfiles as any[]).forEach(p => {
+                        const dperfil = p.dperfil;
+                        const roleSlug = Array.isArray(dperfil) ? dperfil[0]?.slug : dperfil?.slug;
+                        
                         members.push({
                             id: p.id,
                             full_name: p.full_name || '',
                             email: p.email || '',
                             avatar_url: p.avatar_url,
-                            role_slug: slug,
+                            funcao: funcaoMap.get(p.id) || undefined,
+                            role_slug: roleSlug
                         });
-                        seenIds.add(p.id);
-                    }
-                });
+                    });
+                }
+            } else {
+                // 2) Fallback: Get users with matching role prefixes from dperfil
+                // Only if team_members is empty.
+                const rolePrefixes = MODULE_ROLE_PREFIXES[effectiveModule] || ['ADMIN'];
+                const { data: roleProfiles } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, email, avatar_url, dperfil(slug, name)')
+                    .order('full_name');
+
+                if (roleProfiles) {
+                    roleProfiles.forEach((p: any) => {
+                        const dperfil = p.dperfil;
+                        // Handle array or object
+                        const slug = Array.isArray(dperfil) 
+                            ? dperfil[0]?.slug 
+                            : dperfil?.slug || '';
+                        
+                        const matchesRole = rolePrefixes.some(prefix => 
+                            slug.startsWith(prefix) || slug === prefix
+                        );
+                        if (matchesRole) {
+                            members.push({
+                                id: p.id,
+                                full_name: p.full_name || '',
+                                email: p.email || '',
+                                avatar_url: p.avatar_url,
+                                role_slug: slug,
+                            });
+                        }
+                    });
+                }
             }
 
             // Sort by name
