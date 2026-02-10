@@ -9,6 +9,7 @@ interface HeaderProps {
   onTabChange?: (tab: string) => void;
   onNavigate?: (page: string, processId?: string) => void;
   userProfile?: any;
+  availableRoles?: {slug: string, name: string}[];
 }
 
 // ==================== MODULE CONFIGS ====================
@@ -127,7 +128,7 @@ const MODULE_CONFIGS: Record<string, { title: string; subtitle: string; color: s
 // Modules that manage their own internal navigation (no tabs in main header)
 const INDEPENDENT_MODULES = ['sefin_dashboard', 'gestor_dashboard', 'suprido_dashboard', 'ajsefin_dashboard', 'sodpa_dashboard', 'ressarcimento_dashboard'];
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNavigate, userProfile }) => {
+export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNavigate, userProfile, availableRoles = [] }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [gestorLocationTitle, setGestorLocationTitle] = useState<string | null>(null);
@@ -145,38 +146,13 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
     { id: 'settings', label: 'Configurações', icon: Settings, roles: ['ADMIN', 'SOSFU_GESTOR', 'SODPA_GESTOR', 'RESSARCIMENTO_GESTOR', 'SEFIN_GESTOR', 'AJSEFIN_GESTOR'] },
   ];
 
-  // Multi-role handling
-  const [availableRoles, setAvailableRoles] = useState<{slug: string, name: string}[]>([]);
-  const [simulatedRole, setSimulatedRole] = useState<string | null>(localStorage.getItem('simulated_role'));
-
-  useEffect(() => {
-    if (userProfile?.id) {
-        (async () => {
-            const { data } = await supabase
-                .from('sys_user_roles')
-                .select('sys_roles(slug, name)')
-                .eq('user_id', userProfile.id)
-                .eq('is_active', true);
-            
-            if (data) {
-                const roles = data.map((d: any) => ({
-                    slug: d.sys_roles.slug,
-                    name: d.sys_roles.name
-                }));
-                setAvailableRoles(roles);
-            }
-        })();
-    }
-  }, [userProfile?.id]);
-
   const handleRoleSwitch = (slug: string) => {
     localStorage.setItem('simulated_role', slug);
-    setSimulatedRole(slug);
     setIsMenuOpen(false);
     window.location.reload(); // Re-render everything with new role context
   };
 
-  const userRole = simulatedRole || userProfile?.dperfil?.slug || 'SERVIDOR';
+  const userRole = userProfile?.dperfil?.slug || 'SERVIDOR';
   const availableTabs = allTabs.filter(tab => tab.roles.includes(userRole));
 
   // Determine if current module is independent (has its own internal navigation)
@@ -384,7 +360,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
                                                 ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
                                                 : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-600'}`}
                                         >
-                                            {r.name.split(' ')[0]}
+                                            {(r.name || r.slug).split(' ')[0]}
                                         </button>
                                     ))}
                                 </div>

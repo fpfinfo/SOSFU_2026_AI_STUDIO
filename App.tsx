@@ -61,6 +61,9 @@ const App: React.FC = () => {
   // Estado para navegação detalhada
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
   const [processInitialTab, setProcessInitialTab] = useState<ProcessTabType>('OVERVIEW');
+  const [availableRoles, setAvailableRoles] = useState<{slug: string, name: string}[]>([]);
+
+  // Seletor de Perfil reativo
 
   // Seletor de Perfil reativo
   const [simulatedRole, setSimulatedRole] = useState<string | null>(localStorage.getItem('simulated_role'));
@@ -193,6 +196,23 @@ const App: React.FC = () => {
         }
 
         setUserProfile({ ...profile, dperfil: activeRole });
+
+        // Fetch all roles for simulation
+        const { data: allRoles } = await supabase
+            .from('sys_user_roles')
+            .select('sys_roles(slug, name)')
+            .eq('user_id', userId)
+            .eq('is_active', true);
+        
+        if (allRoles) {
+            setAvailableRoles(allRoles
+                .filter((d: any) => d.sys_roles) // Defensive check
+                .map((d: any) => ({
+                    slug: d.sys_roles.slug,
+                    name: d.sys_roles.name
+                }))
+            );
+        }
       }
     } catch (error) {
       console.error('Error:', error);
@@ -201,10 +221,19 @@ const App: React.FC = () => {
     }
   };
 
+  // Perfil Computado (Real ou Simulado)
+  const currentUserProfile = userProfile ? {
+    ...userProfile,
+    dperfil: simulatedRole ? { 
+        slug: simulatedRole, 
+        name: availableRoles.find(r => r.slug === simulatedRole)?.name || simulatedRole 
+    } : userProfile.dperfil
+  } : null;
+
   // Redirecionamento reativo: Move da tab genérica 'dashboard' para o dashboard específico do perfil
   useEffect(() => {
-    if (userProfile && activeTab === 'dashboard') {
-      const role = userProfile.dperfil?.slug || '';
+    if (currentUserProfile && activeTab === 'dashboard') {
+      const role = currentUserProfile.dperfil?.slug || '';
       if (role === 'USER' || role === 'SERVIDOR') {
         setActiveTab('suprido_dashboard');
       } else if (role === 'GESTOR') {
@@ -223,9 +252,11 @@ const App: React.FC = () => {
         setActiveTab('sodpa_dashboard');
       } else if (role.startsWith('RESSARCIMENTO')) {
         setActiveTab('ressarcimento_dashboard');
+      } else if (role.startsWith('SOSFU') || role === 'ADMIN') {
+        setActiveTab('dashboard'); // Volta pro painel SOSFU se simulado SOSFU/ADMIN
       }
     }
-  }, [userProfile, activeTab]);
+  }, [currentUserProfile, activeTab]);
 
   // Função de navegação aprimorada
   const handleNavigation = (page: string, processId?: string, accountabilityId?: string) => {
@@ -376,7 +407,8 @@ const App: React.FC = () => {
         activeTab={activeTab} 
         onTabChange={(tab) => handleNavigation(tab)}
         onNavigate={handleNavigation}
-        userProfile={userProfile ? { ...userProfile, dperfil: simulatedRole ? { slug: simulatedRole, name: simulatedRole } : userProfile.dperfil } : null}
+        userProfile={currentUserProfile}
+        availableRoles={availableRoles}
       />
       
       {activeTab === 'sefin_dashboard' || activeTab === 'ajsefin_dashboard' || activeTab === 'sodpa_dashboard' || activeTab === 'ressarcimento_dashboard' ? (
