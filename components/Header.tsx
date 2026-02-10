@@ -17,11 +17,11 @@ const MODULE_CONFIGS: Record<string, { title: string; subtitle: string; color: s
   sefin_dashboard: {
     title: 'SEFIN TJPA',
     subtitle: '• Secretaria de Finanças',
-    color: 'emerald',
-    bgColor: 'bg-emerald-50',
-    textColor: 'text-emerald-700',
-    accentBg: 'bg-emerald-50',
-    accentText: 'text-emerald-600',
+    color: 'indigo',
+    bgColor: 'bg-indigo-50',
+    textColor: 'text-indigo-700',
+    accentBg: 'bg-indigo-50',
+    accentText: 'text-indigo-600',
   },
   gestor_dashboard: {
     title: 'Gabinete do Gestor',
@@ -142,7 +142,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
     { id: 'accountability', label: 'Prest. Contas', icon: CheckSquare, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
     { id: 'archive', label: 'Arquivo', icon: Archive, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
     { id: 'reports', label: 'Relatórios', icon: PieChart, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'PRESIDENCIA_GESTOR', 'PRESIDENCIA_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
-    { id: 'settings', label: 'Configurações', icon: Settings, roles: ['ADMIN', 'SOSFU_GESTOR', 'SODPA_GESTOR', 'RESSARCIMENTO_GESTOR'] },
+    { id: 'settings', label: 'Configurações', icon: Settings, roles: ['ADMIN', 'SOSFU_GESTOR', 'SODPA_GESTOR', 'RESSARCIMENTO_GESTOR', 'SEFIN_GESTOR', 'AJSEFIN_GESTOR'] },
   ];
 
   const userRole = userProfile?.dperfil?.slug || 'SERVIDOR';

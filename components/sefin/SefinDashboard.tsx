@@ -282,20 +282,11 @@ interface GestaoEquipeSectionProps {
 
 const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks, signedTasks, userName, onNavigate, darkMode = false, isGestor = false }) => {
     const [members, setMembers] = useState<TeamMemberLocal[]>([]);
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState<any[]>([]);
-    const [searching, setSearching] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<any | null>(null);
-    const [selectedFuncao, setSelectedFuncao] = useState<string>('');
-    const [cargosFromDB, setCargosFromDB] = useState<string[]>([]);
-    const [removingId, setRemovingId] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [tableFilter, setTableFilter] = useState('');
     const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
     const [memberProcesses, setMemberProcesses] = useState<any[]>([]);
     const [loadingMemberData, setLoadingMemberData] = useState(false);
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Load team members from Supabase
     useEffect(() => {
@@ -334,93 +325,6 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
         })();
     }, []);
 
-    // Fetch distinct cargos from profiles table
-    useEffect(() => {
-        if (!showAddModal) return;
-        (async () => {
-            try {
-                const { data } = await supabase.from('profiles')
-                    .select('cargo')
-                    .not('cargo', 'is', null)
-                    .not('cargo', 'eq', '')
-                    .order('cargo');
-                if (data) {
-                    const unique = [...new Set(data.map(d => d.cargo).filter(Boolean))] as string[];
-                    setCargosFromDB(unique.length > 0 ? unique : SEFIN_FUNCOES_FALLBACK);
-                }
-            } catch { setCargosFromDB(SEFIN_FUNCOES_FALLBACK); }
-        })();
-    }, [showAddModal]);
-
-    // Removing saveMembers as we now use Supabase directly
-
-    // Debounced search from Supabase profiles
-    useEffect(() => {
-        if (!searchQuery || searchQuery.length < 2) { setSearchResults([]); return; }
-        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-
-        searchTimeoutRef.current = setTimeout(async () => {
-            setSearching(true);
-            try {
-                const term = `%${searchQuery}%`;
-                const { data } = await supabase.from('profiles')
-                    .select('id, full_name, email, matricula, avatar_url, cpf, cargo')
-                    .or(`full_name.ilike.${term},matricula.ilike.${term},email.ilike.${term},cpf.ilike.${term}`)
-                    .limit(10);
-                const memberIds = new Set(members.map(m => m.id));
-                setSearchResults((data || []).filter(u => !memberIds.has(u.id)));
-            } catch (err) { console.error('Search error:', err); }
-            finally { setSearching(false); }
-        }, 350);
-
-        return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
-    }, [searchQuery, members]);
-
-    const handleAddMember = async () => {
-        if (!selectedUser) return;
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const { error } = await supabase.from('team_members').upsert({
-                module: SEFIN_MODULE,
-                user_id: selectedUser.id,
-                added_by: user.id,
-                funcao: selectedFuncao,
-            }, { onConflict: 'module,user_id' });
-
-            if (error) {
-                console.error('Error saving SEFIN team member:', error);
-                alert(`Erro ao adicionar membro: ${error.message}`);
-                return;
-            }
-
-            const newMember: TeamMemberLocal = {
-                id: selectedUser.id, full_name: selectedUser.full_name,
-                email: selectedUser.email || '', matricula: selectedUser.matricula || '',
-                avatar_url: selectedUser.avatar_url, funcao: selectedFuncao,
-            };
-            setMembers(prev => [...prev, newMember]);
-        } catch (err) { console.error('Error adding SEFIN team member:', err); }
-        setShowAddModal(false); setSelectedUser(null); setSearchQuery(''); setSearchResults([]);
-        setSelectedFuncao('');
-    };
-
-    const handleRemoveMember = async (id: string) => {
-        try {
-            await supabase.from('team_members')
-                .delete()
-                .eq('module', SEFIN_MODULE)
-                .eq('user_id', id);
-            setMembers(prev => prev.filter(m => m.id !== id));
-        } catch (err) { console.error('Error removing SEFIN team member:', err); }
-        setRemovingId(null);
-        if (expandedMemberId === id) setExpandedMemberId(null);
-    };
-
-    const getInitials = (name: string) => name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
-
-    // Expand member → fetch their processes
     const handleExpandMember = async (memberId: string) => {
         if (expandedMemberId === memberId) { setExpandedMemberId(null); return; }
         setExpandedMemberId(memberId);
@@ -439,12 +343,15 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
         finally { setLoadingMemberData(false); }
     };
 
-    // Filtered + paginated members
     const filteredMembers = tableFilter
         ? members.filter(m => m.full_name.toLowerCase().includes(tableFilter.toLowerCase()) || m.funcao.toLowerCase().includes(tableFilter.toLowerCase()))
         : members;
     const totalPages = Math.ceil(filteredMembers.length / SEFIN_MEMBERS_PER_PAGE);
     const paginatedMembers = filteredMembers.slice((currentPage - 1) * SEFIN_MEMBERS_PER_PAGE, currentPage * SEFIN_MEMBERS_PER_PAGE);
+
+    const getInitials = (name: string) => name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+
+
 
     const formatCurrencyLocal = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
@@ -476,16 +383,6 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
                                 }`}
                             />
                         </div>
-                    )}
-                    {isGestor && (
-                        <button onClick={() => setShowAddModal(true)}
-                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm ${
-                                darkMode
-                                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                                    : 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                            }`}>
-                            <UserPlus size={14} /> Adicionar Membro
-                        </button>
                     )}
                 </div>
             </div>
@@ -575,33 +472,9 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
 
                                             {/* Col 3: Ações */}
                                             <td className="text-right px-5 py-3.5">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    {isGestor && removingId === member.id ? (
-                                                        <div className="flex items-center gap-1.5 animate-in fade-in">
-                                                            <button onClick={(e) => { e.stopPropagation(); handleRemoveMember(member.id); }}
-                                                                className="px-2.5 py-1 bg-red-500 text-white text-[10px] font-bold rounded-lg hover:bg-red-600">Sim</button>
-                                                            <button onClick={(e) => { e.stopPropagation(); setRemovingId(null); }}
-                                                                className={`px-2.5 py-1 text-[10px] font-medium rounded-lg ${
-                                                                    darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                                                }`}>Não</button>
-                                                        </div>
-                                                    ) : (
-                                                        <>
-                                                            {isGestor && (
-                                                                <button onClick={(e) => { e.stopPropagation(); setRemovingId(member.id); }}
-                                                                    className={`p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100 ${
-                                                                        darkMode ? 'text-slate-500 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'
-                                                                    }`}
-                                                                    title="Remover membro">
-                                                                    <Trash2 size={14} />
-                                                                </button>
-                                                            )}
-                                                            <div className={`p-1 rounded-lg transition-colors ${isExpanded ? 'text-emerald-600' : (darkMode ? 'text-slate-500' : 'text-slate-400')}`}>
-                                                                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </div>
+                                                    <div className={`p-1 rounded-lg transition-colors ${isExpanded ? 'text-emerald-600' : (darkMode ? 'text-slate-500' : 'text-slate-400')}`}>
+                                                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                                    </div>
                                             </td>
                                         </tr>
 
@@ -717,107 +590,10 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
                 }`}>
                     <Users size={32} className={`mx-auto mb-3 ${darkMode ? 'text-slate-600' : 'text-slate-300'}`} />
                     <p className={`font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Nenhum membro na equipe ainda</p>
-                    <button onClick={() => setShowAddModal(true)}
-                        className="text-emerald-600 text-sm font-bold mt-2 hover:underline">+ Adicionar primeiro membro</button>
                 </div>
             )}
 
-            {/* ADD MEMBER MODAL */}
-            {showAddModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
-                    onClick={(e) => e.target === e.currentTarget && setShowAddModal(false)}>
-                    <div className={`rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200 ${
-                        darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white'
-                    }`}>
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className={`text-lg font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Adicionar Membro</h3>
-                            <button onClick={() => { setShowAddModal(false); setSelectedUser(null); setSearchQuery(''); setSearchResults([]); }}
-                                className={`p-1.5 rounded-lg transition-all ${darkMode ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}>
-                                <X size={18} />
-                            </button>
-                        </div>
 
-                        <div className="mb-4">
-                            <label className={`text-[10px] font-bold uppercase tracking-widest mb-2 block ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Buscar Servidor</label>
-                            <div className="relative">
-                                <Search size={16} className={`absolute left-3 top-1/2 -translate-y-1/2 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`} />
-                                <input type="text" placeholder="Digite nome, matrícula, CPF ou email..."
-                                    value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setSelectedUser(null); }}
-                                    className={`w-full pl-10 pr-4 py-3 border-2 rounded-xl text-sm focus:outline-none focus:ring-2 ${
-                                        darkMode
-                                            ? 'bg-slate-700 border-slate-600 text-white focus:ring-emerald-500/30 focus:border-emerald-500'
-                                            : 'bg-slate-50 border-slate-200 focus:ring-emerald-200 focus:border-emerald-300'
-                                    }`}
-                                    autoFocus />
-                            </div>
-
-                            {(searchResults.length > 0 || searching) && !selectedUser && (
-                                <div className={`mt-1 border-2 rounded-xl shadow-lg max-h-48 overflow-y-auto ${
-                                    darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
-                                }`}>
-                                    {searching ? (
-                                        <div className={`p-4 text-center text-sm flex items-center justify-center gap-2 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                                            <Loader2 size={14} className="animate-spin" /> Buscando...
-                                        </div>
-                                    ) : (
-                                        searchResults.map(user => (
-                                            <button key={user.id}
-                                                onClick={() => { setSelectedUser(user); setSearchQuery(user.full_name); setSearchResults([]); if (user.cargo) setSelectedFuncao(user.cargo); }}
-                                                className={`w-full flex items-center gap-3 px-4 py-3 transition-colors text-left border-b last:border-0 ${
-                                                    darkMode ? 'hover:bg-emerald-500/10 border-slate-700' : 'hover:bg-emerald-50 border-slate-50'
-                                                }`}>
-                                                {user.avatar_url ? (
-                                                    <img src={user.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
-                                                ) : (
-                                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${
-                                                        darkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-200 text-slate-500'
-                                                    }`}>
-                                                        {getInitials(user.full_name || '')}
-                                                    </div>
-                                                )}
-                                                <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm font-bold truncate ${darkMode ? 'text-white' : 'text-slate-800'}`}>{user.full_name}</p>
-                                                    <p className={`text-[11px] ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                                        {user.matricula && <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold mr-1.5">Mat: {user.matricula}</span>}
-                                                        {user.cpf && <span className={darkMode ? 'text-slate-500' : 'text-slate-400'}>CPF: {user.cpf}</span>}
-                                                    </p>
-                                                    {user.email && <p className={`text-[10px] truncate ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>{user.email}</p>}
-                                                </div>
-                                            </button>
-                                        ))
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="mb-6">
-                            <label className={`text-[10px] font-bold uppercase tracking-widest mb-2 block ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Cargo / Função</label>
-                            <select value={selectedFuncao} onChange={e => setSelectedFuncao(e.target.value)}
-                                className={`w-full px-4 py-3 border-2 rounded-xl text-sm focus:outline-none focus:ring-2 appearance-none cursor-pointer ${
-                                    darkMode
-                                        ? 'bg-slate-700 border-slate-600 text-white focus:ring-emerald-500/30 focus:border-emerald-500'
-                                        : 'bg-slate-50 border-slate-200 focus:ring-emerald-200 focus:border-emerald-300'
-                                }`}>
-                                <option value="">Selecione o cargo...</option>
-                                {cargosFromDB.map(f => <option key={f} value={f}>{f}</option>)}
-                            </select>
-                        </div>
-
-                        <div className="flex gap-3">
-                            <button onClick={() => { setShowAddModal(false); setSelectedUser(null); setSearchQuery(''); }}
-                                className={`flex-1 px-4 py-3 border-2 font-bold rounded-xl transition-all text-sm ${
-                                    darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                                }`}>
-                                Cancelar
-                            </button>
-                            <button onClick={handleAddMember} disabled={!selectedUser || !selectedFuncao}
-                                className="flex-1 px-4 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed">
-                                Salvar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

@@ -5,10 +5,11 @@ import {
     BellRing,
     Sun,
     Moon,
-    Scale
+    Scale,
+    Settings
 } from 'lucide-react';
 
-export type AjsefinViewType = 'painel' | 'processos' | 'equipe';
+export type AjsefinViewType = 'painel' | 'processos' | 'equipe' | 'settings';
 
 interface AjsefinHeaderProps {
     activeView: AjsefinViewType;
@@ -61,10 +62,10 @@ export const AjsefinHeader: React.FC<AjsefinHeaderProps> = ({
             badgeType: urgentCount > 0 ? 'urgent' : 'default'
         },
         {
-            id: 'processos',
-            label: 'Análise Jurídica',
-            shortLabel: 'Processos',
-            icon: <Scale size={18} />
+            id: 'settings',
+            label: 'Configurações',
+            shortLabel: 'Config.',
+            icon: <Settings size={18} />
         }
     ];
 

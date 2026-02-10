@@ -3,6 +3,7 @@ import { AjsefinHeader } from './AjsefinHeader';
 import type { AjsefinViewType } from './AjsefinHeader';
 import { AjsefinDashboard } from './AjsefinDashboard';
 import { AjsefinProcessView } from './AjsefinProcessView';
+import { AjsefinSettings } from './AjsefinSettings';
 import { supabase } from '../../lib/supabase';
 
 const SEEN_COUNT_KEY = 'ajsefin_last_seen_count';
@@ -95,6 +96,8 @@ export const AjsefinCockpit: React.FC<AjsefinCockpitProps> = ({ onNavigate, user
             case 'equipe':
                 // Equipe reutiliza o painel com foco na seção de equipe
                 return <AjsefinDashboard onNavigate={onNavigate} darkMode={darkMode} showTeamOnly isGestor={isGestor} />;
+            case 'settings':
+                return <AjsefinSettings darkMode={darkMode} userProfile={userProfile} />;
             default:
                 return <AjsefinDashboard onNavigate={onNavigate} darkMode={darkMode} isGestor={isGestor} />;
         }

@@ -7,10 +7,11 @@ import {
     BellRing,
     Sun,
     Moon,
-    Map as MapIcon
+    Map as MapIcon,
+    Settings
 } from 'lucide-react';
 
-export type SefinViewType = 'control' | 'explorer' | 'intelligence' | 'team' | 'mapa';
+export type SefinViewType = 'control' | 'explorer' | 'intelligence' | 'team' | 'mapa' | 'settings';
 
 interface SefinHeaderProps {
     activeView: SefinViewType;
@@ -73,6 +74,12 @@ export const SefinHeader: React.FC<SefinHeaderProps> = ({
             label: 'Inteligência',
             shortLabel: 'Intel',
             icon: <TrendingUp size={18} />
+        },
+        {
+            id: 'settings',
+            label: 'Configurações',
+            shortLabel: 'Config.',
+            icon: <Settings size={18} />
         }
     ];
 

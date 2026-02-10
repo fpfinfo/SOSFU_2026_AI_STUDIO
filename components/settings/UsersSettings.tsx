@@ -31,6 +31,18 @@ const MODULE_CONFIGS: Record<string, { label: string; roles: string[]; color: st
         roles: ['RESSARCIMENTO_GESTOR', 'RESSARCIMENTO_EQUIPE'],
         color: 'emerald',
         funcoes: ['Analista de Ressarcimento', 'Chefe de Divisão', 'Técnico Financeiro', 'Estagiário']
+    },
+    'AJSEFIN': {
+        label: 'Equipe Jurídica (AJSEFIN)',
+        roles: ['AJSEFIN_GESTOR', 'AJSEFIN_EQUIPE'],
+        color: 'teal',
+        funcoes: ['Assessor Jurídico', 'Analista Judiciário', 'Técnico Judiciário', 'Estagiário']
+    },
+    'SEFIN': {
+        label: 'Equipe Financeira (SEFIN)',
+        roles: ['SEFIN_GESTOR', 'SEFIN_EQUIPE'],
+        color: 'indigo',
+        funcoes: ['Secretário de Finanças', 'Diretor Financeiro', 'Técnico Financeiro', 'Analista de Contas']
     }
 };
 
@@ -57,6 +69,8 @@ export const UsersSettings: React.FC<{ userProfile?: any }> = ({ userProfile }) 
             const slug = userProfile.dperfil?.slug || '';
             if (slug.includes('SODPA')) setCurrentModule('SODPA');
             else if (slug.includes('RESSARCIMENTO')) setCurrentModule('RESSARCIMENTO');
+            else if (slug.includes('AJSEFIN')) setCurrentModule('AJSEFIN');
+            else if (slug.includes('SEFIN')) setCurrentModule('SEFIN');
             else if (slug.includes('SOSFU') || slug === 'ADMIN') setCurrentModule('SOSFU');
         }
     }, [userProfile]);
@@ -95,7 +109,7 @@ export const UsersSettings: React.FC<{ userProfile?: any }> = ({ userProfile }) 
                     matricula: p?.matricula || '',
                     avatar_url: p?.avatar_url || null,
                     funcao: r.funcao || 'Membro',
-                    role_slug: p?.dperfil?.slug || ''
+                    role_slug: (p as any)?.dperfil?.slug || ''
                 };
             });
 

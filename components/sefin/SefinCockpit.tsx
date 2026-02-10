@@ -5,6 +5,7 @@ import { SefinDashboard } from './SefinDashboard';
 import { SefinExplorerView } from './SefinExplorerView';
 import { SefinIntelligenceView } from './SefinIntelligenceView';
 import { SefinTeamView } from './SefinTeamView';
+import { SefinSettings } from './SefinSettings';
 import { ReportsView } from '../ReportsView';
 import { supabase } from '../../lib/supabase';
 
@@ -100,6 +101,8 @@ export const SefinCockpit: React.FC<SefinCockpitProps> = ({ onNavigate, userProf
                 return <ReportsView />;
             case 'team':
                 return <SefinTeamView darkMode={darkMode} />;
+            case 'settings':
+                return <SefinSettings darkMode={darkMode} userProfile={userProfile} />;
             default:
                 return <SefinDashboard onNavigate={onNavigate} darkMode={darkMode} />;
         }
