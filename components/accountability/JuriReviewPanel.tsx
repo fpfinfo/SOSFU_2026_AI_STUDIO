@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { JuriExceptionInlineAlert } from '../ui/JuriExceptionInlineAlert';
-import { GoogleGenAI } from "@google/genai";
+import { generateWithRole } from '../../lib/gemini';
 
 // ==================== TYPES ====================
 
@@ -215,10 +215,7 @@ export const JuriReviewPanel: React.FC<JuriReviewPanelProps> = ({
         if (!solicitacao) return;
         setGeneratingAI(true);
         try {
-            const apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY || (import.meta as any).env.VITE_API_KEY || (process as any).env.GEMINI_API_KEY;
-            if (!apiKey) throw new Error("API Key não configurada.");
-
-            const ai = new GoogleGenAI({ apiKey } as any);
+            // GEMINI INITIALIZATION REMOVED - Using lib/gemini helper
 
             const prompt = `
                 Como Analista Jurídico de Suprimento de Fundos do TJPA (Sentinela Jurídico), gere uma justificativa técnica FORMAL e CONCISA para o despacho de análise deste processo Extra-Júri.
@@ -243,16 +240,11 @@ export const JuriReviewPanel: React.FC<JuriReviewPanelProps> = ({
                 6. Máximo 4 frases.
             `;
 
-            const result = await (ai as any).models.generateContent({
-                model: 'gemini-2.0-flash',
-                contents: {
-                    role: 'user',
-                    parts: [{ text: prompt }]
-                }
-            });
-
-            const text = result.response.text().trim();
-            setAiJustification(text);
+            const text = await generateWithRole(prompt);
+            
+            if (text) {
+                setAiJustification(text);
+            }
         } catch (err) {
             console.error('[JuriReviewPanel] Error generating AI justification:', err);
         } finally {

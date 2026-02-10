@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Users, Calendar, DollarSign, FileText, CheckCircle2, ChevronRight, ChevronLeft, Minus, Plus, AlertCircle, AlertTriangle, ShieldAlert, Save, Sparkles, Loader2, UserCheck, Scale, Utensils, Coffee, Droplets } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { GoogleGenAI } from "@google/genai";
+import { generateText } from '../../lib/gemini';
 
 interface JurySolicitationProps {
     onNavigate: (page: string, processId?: string) => void;
@@ -278,8 +278,6 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
     const handleGenerateAI = async () => {
         setIsGeneratingAI(true);
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            
             let itemsSummary = '';
             itensBaseEstrutura.forEach(item => {
                 const data = itemsData[item.id];
@@ -310,12 +308,9 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
                 3. Texto corrido, sem saudações (apenas o corpo).
             `;
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: prompt,
-            });
+            const text = await generateText(prompt);
 
-            if (response.text) setJustification(response.text.trim());
+            if (text) setJustification(text);
         } catch (error) {
             console.error(error);
             alert('Erro ao gerar justificativa com IA.');

@@ -9,7 +9,7 @@ import {
     ClipboardCheck
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { GoogleGenAI } from "@google/genai";
+import { generateWithRole } from '../../lib/gemini';
 
 // ==================== TYPES ====================
 
@@ -778,21 +778,8 @@ INSTRUÇÕES:
 5. Mantenha tom extremamente formal, técnico e impessoal. Máximo 5 frases. Não use markdown.
 `;
 
-            const apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY || (import.meta as any).env.VITE_API_KEY || (process as any).env.GEMINI_API_KEY;
-            if (!apiKey) {
-                throw new Error('GEMINI_API_KEY não configurada');
-            }
+            const text = await generateWithRole(prompt);
 
-            const ai = new GoogleGenAI({ apiKey } as any);
-            const result = await (ai as any).models.generateContent({
-                model: 'gemini-2.0-flash',
-                contents: {
-                    role: 'user',
-                    parts: [{ text: prompt }]
-                }
-            });
-
-            const text = result.response.text().trim();
             if (text) {
                 setAiParecer(text);
                 setParecerEdited(false);

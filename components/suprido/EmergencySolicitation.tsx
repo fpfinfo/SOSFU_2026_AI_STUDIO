@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Siren, Calendar, DollarSign, Bookmark, AlertTriangle, User, Mail, Loader2, CheckCircle2, Link as LinkIcon, AlertCircle, ChevronDown, Sparkles, Pencil, ShieldCheck, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { GoogleGenAI } from "@google/genai";
+import { generateText } from '../../lib/gemini';
 import { Tooltip } from '../ui/Tooltip';
 
 interface EmergencySolicitationProps {
@@ -132,19 +132,11 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
 
         setIsGeneratingAI(true);
         try {
-            const apiKey = process.env.API_KEY;
-            if (!apiKey) {
-                setDescription('⚠️ Chave da API Gemini não configurada. Adicione GEMINI_API_KEY ao arquivo .env e reinicie o servidor.');
-                return;
-            }
-
-            const ai = new GoogleGenAI({ apiKey });
-            
             const itemsDesc = filledItems.map(item => {
                 const el = elementos.find(e => e.codigo === item.element);
                 return `- ${item.element} (${el?.descricao || 'Despesa'}): R$ ${item.value}`;
             }).join('\n');
-            
+            // Updated to use centralized Gemini helper with VITE_GEMINI_API_KEY
             const prompt = `
                 Atue como um servidor público do Tribunal de Justiça do Estado do Pará.
                 Escreva uma justificativa formal, técnica e concisa (máximo 500 caracteres) para uma Solicitação de Suprimento de Fundos Extra-Emergencial.
@@ -158,13 +150,10 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                 Não use saudações. Texto corrido e direto. Sem formatação markdown.
             `;
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.0-flash',
-                contents: prompt,
-            });
+            const text = await generateText(prompt);
 
-            if (response.text) {
-                setDescription(response.text.trim());
+            if (text) {
+                setDescription(text);
             } else {
                 setDescription('⚠️ A IA não retornou texto. Tente novamente ou escreva manualmente.');
             }

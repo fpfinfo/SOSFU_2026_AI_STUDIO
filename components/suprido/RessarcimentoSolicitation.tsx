@@ -6,7 +6,7 @@ import {
     Briefcase, Receipt, Image, Clock
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { GoogleGenAI } from "@google/genai";
+import { generateText, generateWithParts } from '../../lib/gemini';
 import { Tooltip } from '../ui/Tooltip';
 
 interface RessarcimentoSolicitationProps {
@@ -141,10 +141,7 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
             });
 
             const base64Content = await base64Promise;
-            const apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY || (process as any).env.GEMINI_API_KEY;
-            if (!apiKey) throw new Error('API Key missing');
 
-            const ai = new GoogleGenAI(apiKey);
             const prompt = `
                 Como Auditor Fiscal Virtual do TJPA (Sentinela Ressarcimento), analise este comprovante.
                 1. Extraia: Valor, Data (YYYY-MM-DD), CNPJ Emitente, Número do Documento.
@@ -153,17 +150,11 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                 4. Retorne apenas JSON puro: { "valor": number, "data": "YYYY-MM-DD", "cnpj": "string", "numero": "string", "alerts": ["string"], "risk": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" }
             `;
 
-            const result = await (ai as any).models.generateContent({
-                model: 'gemini-2.0-flash',
-                contents: {
-                    parts: [
-                        { inlineData: { mimeType: file.type, data: base64Content } },
-                        { text: prompt }
-                    ]
-                }
-            });
+            const responseText = await generateWithParts([
+                { inlineData: { mimeType: file.type, data: (base64Content as string).split(',')[1] } },
+                { text: prompt }
+            ]);
 
-            const responseText = result.response.text();
             const jsonStr = responseText.match(/\{[\s\S]*\}/)?.[0];
             if (jsonStr) {
                 const data = JSON.parse(jsonStr);
@@ -189,10 +180,6 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
 
         setIsGeneratingAI(true);
         try {
-            const apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY || (process as any).env.GEMINI_API_KEY;
-            if (!apiKey) throw new Error('API Key missing');
-
-            const ai = new GoogleGenAI(apiKey);
             const itemsDesc = filledItems.map(item => {
                 const cat = CATEGORIAS_RESSARCIMENTO.find(c => c.value === item.categoria);
                 return `- ${cat?.label || 'N/I'}: ${item.descricao} - R$ ${item.valor} (NF: ${item.notaFiscal || 'N/A'})`;
@@ -213,14 +200,8 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                 Texto corrido e direto. Sem formatação markdown.
             `;
 
-            const result = await (ai as any).models.generateContent({
-                model: 'gemini-2.0-flash',
-                contents: {
-                    parts: [{ text: prompt }]
-                }
-            });
-            const text = result.response.text();
-            if (text) setJustification(text.trim());
+            const text = await generateText(prompt);
+            if (text) setJustification(text);
         } catch (error: any) {
             console.error("Erro ao gerar IA:", error);
             setJustification(`Erro ao gerar justificativa. Escreva manualmente.`);

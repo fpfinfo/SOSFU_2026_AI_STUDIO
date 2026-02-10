@@ -4,7 +4,7 @@ import {
     FileCheck, CheckCircle2, Wallet, Loader2, ScanLine, X, Sparkles, FileText, CloudLightning, PenTool, Ticket, ScrollText, AlertCircle, Plane
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { GoogleGenAI } from "@google/genai";
+import { generateWithParts } from '../../lib/gemini';
 import { SmartReceiptCapture } from './SmartReceiptCapture';
 import { OfflineStatusBanner } from './OfflineStatusBanner';
 import { JuriExceptionInlineAlert } from '../ui/JuriExceptionInlineAlert';
@@ -166,14 +166,6 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
             const base64Data = await convertFileToBase64(file);
             const base64Content = base64Data.split(',')[1]; 
 
-            const apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY || (import.meta as any).env.VITE_API_KEY || (process as any).env.GEMINI_API_KEY;
-            if (!apiKey) {
-                showToast('error', 'Chave da AI não encontrada. Verifique o ambiente.');
-                return;
-            }
-
-            const ai = new GoogleGenAI({ apiKey } as any);
-            
             const systemPrompt = isSodpa ? `
                 Como Auditor Fiscal Virtual do TJPA (Sentinela SODPA), analise este comprovante de VIAGEM (Diárias e Passagens).
                 Extraia os dados técnicos e avalie a CONFORMIDADE com as regras de deslocamento institucional.
@@ -220,17 +212,13 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                 }
             `;
 
-            const result = await (ai as any).models.generateContent({
-                model: 'gemini-2.0-flash', 
-                contents: {
-                    parts: [
-                        { inlineData: { mimeType: file.type, data: base64Content } },
-                        { text: systemPrompt }
-                    ]
-                }
-            });
+            const text = await generateWithParts([
+                { inlineData: { mimeType: file.type, data: base64Content } },
+                { text: systemPrompt }
+            ]);
 
-            const text = result.text || result.response?.text?.() || result.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+            // const result = await (ai as any).models.generateContent({...});
+            // const text = result.text || ...
             if (text) {
                 const cleanedJson = text.replace(/```json|```/g, '').trim();
                 const data = JSON.parse(cleanedJson);
