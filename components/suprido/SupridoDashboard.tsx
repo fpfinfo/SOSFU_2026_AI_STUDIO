@@ -206,11 +206,15 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
 
     const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-    const activeProcesses = processes.filter(p => p.status !== 'ARCHIVED' && p.accountabilities?.[0]?.status !== 'APPROVED');
+    const activeProcesses = processes.filter(p => 
+        p.status !== 'ARCHIVED' && 
+        p.status !== 'REJECTED' &&
+        p.accountabilities?.[0]?.status !== 'APPROVED'
+    );
+
     const historyProcesses = processes.filter(p => 
-        (p.status === 'ARCHIVED' || p.accountabilities?.[0]?.status === 'APPROVED') &&
-        (p.process_number.toLowerCase().includes(filterTerm.toLowerCase()) || 
-         p.unit?.toLowerCase().includes(filterTerm.toLowerCase()))
+        p.process_number.toLowerCase().includes(filterTerm.toLowerCase()) || 
+        p.unit?.toLowerCase().includes(filterTerm.toLowerCase())
     );
 
     const handleAction = (processId: string, action: string) => {
@@ -361,12 +365,12 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                 </div>
             </div>
 
-            {/* Histórico de Processos */}
+            {/* Histórico/Monitoramento de Processos */}
             <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
                 <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50/50">
                     <div>
-                        <h3 className="text-lg font-black text-slate-800">Histórico de Processos</h3>
-                        <p className="text-xs text-slate-500 tracking-wide">Busca avançada de solicitações anteriores</p>
+                        <h3 className="text-lg font-black text-slate-800">Monitoramento de Processos</h3>
+                        <p className="text-xs text-slate-500 tracking-wide">Acompanhe o fluxo de tramitação de todas as suas solicitações</p>
                     </div>
                     <div className="relative w-full md:w-80">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -382,7 +386,7 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                 
                 <div className="divide-y divide-slate-50">
                     {historyProcesses.length === 0 ? (
-                        <div className="p-12 text-center text-slate-400 italic font-medium">Nenhum processo no histórico.</div>
+                        <div className="p-12 text-center text-slate-400 italic font-medium">Você ainda não possui solicitações registradas.</div>
                     ) : (
                         historyProcesses.map((proc) => {
                             const typeInfo = getProcessType(proc.unit);

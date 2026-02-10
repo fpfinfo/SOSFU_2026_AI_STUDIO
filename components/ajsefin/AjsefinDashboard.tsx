@@ -408,7 +408,7 @@ export const AjsefinDashboard: React.FC<AjsefinDashboardProps> = ({ onNavigate, 
                     query = query.in('status', ['PAID', 'REJECTED', 'ARCHIVED']);
                 }
 
-                const { data } = await query.limit(10);
+                const { data } = await query.limit(100);
                 setProcesses(data || []);
             } catch (err) {
                 console.error('AJSEFIN dashboard error:', err);

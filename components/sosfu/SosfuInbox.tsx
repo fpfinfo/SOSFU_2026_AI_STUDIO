@@ -38,21 +38,21 @@ export const SosfuInbox: React.FC<SosfuInboxProps> = ({ onNavigate, userProfile 
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // 1. Fetch Solicitations
+            // 1. Fetch Solicitations (Inclusive of all relevant lifecycle statuses)
             const { data: sols } = await supabase
                 .from('solicitations')
                 .select(`*, analyst:analyst_id(full_name, avatar_url)`)
-                .or('status.eq.WAITING_SOSFU_ANALYSIS,status.eq.WAITING_SOSFU_EXECUTION,status.eq.WAITING_SEFIN_SIGNATURE,status.eq.WAITING_CORRECTION,status.eq.PAID,status.eq.APPROVED')
+                .or('status.eq.WAITING_SOSFU_ANALYSIS,status.eq.WAITING_SOSFU_EXECUTION,status.eq.WAITING_SEFIN_SIGNATURE,status.eq.WAITING_CORRECTION,status.eq.PAID,status.eq.APPROVED,status.eq.REJECTED,status.eq.ARCHIVED')
                 .order('created_at', { ascending: false })
-                .limit(100);
+                .limit(200);
 
             // 2. Fetch Accountabilities
             const { data: pcs } = await supabase
                 .from('accountabilities')
                 .select(`*, analyst:analyst_id(full_name, avatar_url), profiles:requester_id(full_name)`)
-                .or('status.eq.WAITING_SOSFU,status.eq.CORRECTION,status.eq.LATE,status.eq.APPROVED')
+                .or('status.eq.WAITING_SOSFU,status.eq.CORRECTION,status.eq.LATE,status.eq.APPROVED,status.eq.REJECTED,status.eq.ARCHIVED')
                 .order('created_at', { ascending: false })
-                .limit(100);
+                .limit(200);
 
             const combined: InboxItem[] = [];
 
@@ -110,7 +110,7 @@ export const SosfuInbox: React.FC<SosfuInboxProps> = ({ onNavigate, userProfile 
             );
 
             const doneItems = combined.filter(i => 
-                ['PAID', 'APPROVED'].includes(i.status)
+                ['PAID', 'APPROVED', 'REJECTED', 'ARCHIVED'].includes(i.status)
             );
 
             setCounts({
@@ -158,7 +158,7 @@ export const SosfuInbox: React.FC<SosfuInboxProps> = ({ onNavigate, userProfile 
                 );
                 break;
             case 'DONE':
-                list = items.filter(i => ['PAID', 'APPROVED'].includes(i.status));
+                list = items.filter(i => ['PAID', 'APPROVED', 'REJECTED', 'ARCHIVED'].includes(i.status));
                 break;
         }
 

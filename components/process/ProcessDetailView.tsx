@@ -56,6 +56,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
   const [editingDoc, setEditingDoc] = useState<any>(null);
   const [tramitarLoading, setTramitarLoading] = useState(false);
   const [gestorProfile, setGestorProfile] = useState<any>(null);
+  const isSuprido = currentUserRole === 'USER' || currentUserRole === 'SERVIDOR';
 
   useEffect(() => {
     fetchProcessData();
@@ -463,8 +464,8 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
   // --- FUNÇÕES DE TRAMITAÇÃO E CRUD ---
 
   const pendingMinutas = documents.filter((d: any) => d.metadata?.is_draft === true);
-  const canTramitarSOSFU = currentUserRole === 'USER' && processData?.status === 'PENDING' && pendingMinutas.length === 0;
-  const canTramitarGestor = currentUserRole === 'USER' && pendingMinutas.length > 0;
+  const canTramitarSOSFU = isSuprido && processData?.status === 'PENDING' && pendingMinutas.length === 0;
+  const canTramitarGestor = isSuprido && pendingMinutas.length > 0;
   const isArchived = processData?.status === 'ARCHIVED';
   const isRessarcimento = processData?.type === 'RESSARCIMENTO';
 
@@ -593,7 +594,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
         <div className="animate-in fade-in space-y-6">
 
             {/* ═══ Banner: Confirmar Recebimento (Suprido) ═══ */}
-            {isWaitingSupridoConfirmation && currentUserRole === 'USER' && (
+            {isWaitingSupridoConfirmation && isSuprido && (
                 <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 rounded-2xl p-6 shadow-md">
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
                         <div className="flex items-start gap-4">
@@ -648,7 +649,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                     <div>
                         <h3 className="font-bold text-sky-800 text-sm">Ressarcimento em Análise</h3>
                         <p className="text-sky-600 text-xs mt-0.5">
-                            {currentUserRole === 'USER'
+                            {isSuprido
                                 ? 'Sua solicitação de reembolso está sendo analisada pela equipe SOSFU. Você será notificado sobre o resultado.'
                                 : 'Solicitação de ressarcimento aguardando auditoria de comprovantes e homologação.'}
                         </p>
@@ -665,7 +666,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                     <div>
                         <h3 className="font-bold text-emerald-800 text-sm">Reembolso Aprovado — Aguardando Pagamento</h3>
                         <p className="text-emerald-600 text-xs mt-0.5">
-                            {currentUserRole === 'USER'
+                            {isSuprido
                                 ? 'Seu ressarcimento foi homologado pela SOSFU. O pagamento será processado em breve na sua conta bancária.'
                                 : 'Ressarcimento homologado. Gere a NE, DL e OB para processar o pagamento ao servidor.'}
                         </p>

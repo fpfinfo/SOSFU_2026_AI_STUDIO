@@ -110,9 +110,17 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ userId, on
 
     const handleNotificationClick = (notification: Notification) => {
         markAsRead(notification.id);
-        if (notification.process_number && onNavigate) {
-            onNavigate('process_detail', notification.process_number);
+        
+        if (onNavigate) {
+            if (notification.link && notification.link.includes('/process/')) {
+                const processId = notification.link.split('/process/')[1];
+                onNavigate('process_detail', processId);
+            } else if (notification.process_number) {
+                // Fallback (though ideally everything should have a link now)
+                onNavigate('process_detail', notification.process_number);
+            }
         }
+        
         setIsOpen(false);
     };
 

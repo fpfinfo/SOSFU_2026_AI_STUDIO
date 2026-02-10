@@ -336,7 +336,7 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
                 .select('id, process_number, status, value, created_at, unit, beneficiary')
                 .eq('user_id', memberId)
                 .order('created_at', { ascending: false })
-                .limit(6);
+                .limit(20);
 
             setMemberProcesses(sols || []);
         } catch (err) { console.error('Error fetching member data:', err); }
@@ -734,8 +734,9 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({
             }
 
             const { data: solicitations } = await supabase.from('solicitations').select('*')
-                .in('status', ['WAITING_SEFIN_SIGNATURE', 'WAITING_SOSFU_PAYMENT', 'WAITING_SUPRIDO_CONFIRMATION', 'PAID'])
-                .order('created_at', { ascending: false });
+                .in('status', ['WAITING_SEFIN_SIGNATURE', 'WAITING_SOSFU_PAYMENT', 'WAITING_SUPRIDO_CONFIRMATION', 'PAID', 'REJECTED', 'ARCHIVED'])
+                .order('created_at', { ascending: false })
+                .limit(200);
 
             if (solicitations) {
                 setPendingAuth(solicitations.filter(s => s.status === 'WAITING_SEFIN_SIGNATURE'));
