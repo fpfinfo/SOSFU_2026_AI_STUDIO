@@ -52,6 +52,20 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
       tooltip: 'A SOSFU está gerando os documentos financeiros (Portaria SF, NE, DL e OB).'
     },
 
+    // RESSARCIMENTO
+    'WAITING_RESSARCIMENTO_ANALYSIS': {
+      label: 'Ressarcimento em Análise',
+      color: 'bg-sky-50 text-sky-700 border-sky-200',
+      icon: ShieldCheck,
+      tooltip: 'Solicitação de ressarcimento em análise pela SOSFU. Comprovantes em auditoria.'
+    },
+    'WAITING_RESSARCIMENTO_EXECUTION': {
+      label: 'Reembolso Aprovado',
+      color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      icon: CreditCard,
+      tooltip: 'Ressarcimento homologado pela SOSFU. Aguardando execução financeira (NE, DL, OB).'
+    },
+
     // FASE 4: APROVAÇÃO FINANCEIRA
     'WAITING_SEFIN_SIGNATURE': { 
       label: 'Aguardando Ordenador (SEFIN)', 

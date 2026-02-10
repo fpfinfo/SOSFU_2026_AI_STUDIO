@@ -28,8 +28,8 @@ interface Station {
 const STATIONS: Station[] = [
     { id: 0, label: 'Solicitação',          module: 'USER',   icon: FileText,      color: 'blue',    statuses: ['PENDING', 'DRAFT'], description: 'Criação e preenchimento da solicitação de suprimento de fundos' },
     { id: 1, label: 'Atesto',               module: 'GESTOR', icon: UserCheck,      color: 'indigo',  statuses: ['WAITING_MANAGER'], description: 'O gestor da unidade analisa e atesta a necessidade da despesa' },
-    { id: 2, label: 'Análise',              module: 'SOSFU',  icon: Search,         color: 'violet',  statuses: ['WAITING_SOSFU', 'WAITING_SOSFU_ANALYSIS', 'WAITING_CORRECTION'], description: 'A SOSFU verifica conformidade legal, elementos e limites (CNJ 169/2013)' },
-    { id: 3, label: 'Execução',             module: 'SOSFU',  icon: ClipboardList,  color: 'fuchsia', statuses: ['WAITING_SOSFU_EXECUTION'], description: 'Geração dos documentos financeiros: Portaria SF, NE, DL e OB' },
+    { id: 2, label: 'Análise',              module: 'SOSFU',  icon: Search,         color: 'violet',  statuses: ['WAITING_SOSFU', 'WAITING_SOSFU_ANALYSIS', 'WAITING_CORRECTION', 'WAITING_RESSARCIMENTO_ANALYSIS'], description: 'A SOSFU verifica conformidade legal, elementos e limites (CNJ 169/2013)' },
+    { id: 3, label: 'Execução',             module: 'SOSFU',  icon: ClipboardList,  color: 'fuchsia', statuses: ['WAITING_SOSFU_EXECUTION', 'WAITING_RESSARCIMENTO_EXECUTION'], description: 'Geração dos documentos financeiros: Portaria SF, NE, DL e OB' },
     { id: 4, label: 'Autorização',          module: 'SEFIN',  icon: Scale,          color: 'amber',   statuses: ['WAITING_SEFIN_SIGNATURE'], description: 'O Ordenador de Despesa (SEFIN) autoriza e assina os documentos' },
     { id: 5, label: 'Pagamento',            module: 'SOSFU',  icon: Wallet,         color: 'emerald', statuses: ['WAITING_SOSFU_PAYMENT', 'WAITING_SUPRIDO_CONFIRMATION', 'PAID'], description: 'A SOSFU processa o pagamento e libera os recursos ao suprido' },
     { id: 6, label: 'Prestação de Contas',  module: 'USER',   icon: Receipt,        color: 'cyan',    statuses: ['PC_PENDING', 'PC_ANALYSIS', 'PC_APPROVED'], description: 'O suprido comprova a aplicação dos recursos com notas fiscais' },
@@ -45,8 +45,8 @@ function getCurrentStation(status: string, accountabilityStatus?: string): numbe
     }
     if (status === 'WAITING_SUPRIDO_CONFIRMATION' || status === 'WAITING_SOSFU_PAYMENT') return 5;
     if (status === 'WAITING_SEFIN_SIGNATURE') return 4;
-    if (status === 'WAITING_SOSFU_EXECUTION') return 3;
-    if (status === 'WAITING_SOSFU' || status === 'WAITING_SOSFU_ANALYSIS' || status === 'WAITING_CORRECTION') return 2;
+    if (status === 'WAITING_SOSFU_EXECUTION' || status === 'WAITING_RESSARCIMENTO_EXECUTION') return 3;
+    if (status === 'WAITING_SOSFU' || status === 'WAITING_SOSFU_ANALYSIS' || status === 'WAITING_CORRECTION' || status === 'WAITING_RESSARCIMENTO_ANALYSIS') return 2;
     if (status === 'WAITING_MANAGER') return 1;
     return 0;
 }

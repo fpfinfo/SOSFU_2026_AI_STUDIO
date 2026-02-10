@@ -485,6 +485,7 @@ export const SosfuAuditPanel: React.FC<SosfuAuditPanelProps> = ({
     isGestor = false
 }) => {
     // --- State ---
+    const isRessarcimento = processData?.type === 'RESSARCIMENTO';
     const [auditItems, setAuditItems] = useState<AuditItem[]>([]);
     const [isScanning, setIsScanning] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -690,10 +691,14 @@ export const SosfuAuditPanel: React.FC<SosfuAuditPanelProps> = ({
 
             if (error) throw error;
 
+            const isRessarcimento = processData?.type === 'RESSARCIMENTO';
+            const nextStatus = isRessarcimento ? 'WAITING_RESSARCIMENTO_EXECUTION' : 'ARCHIVED';
+
             const { error: solError } = await supabase
                 .from('solicitations')
                 .update({ 
-                    status: 'ARCHIVED',
+                    status: nextStatus,
+                    value: isRessarcimento ? valorHomologado : processData.value, // Ressarcimento value is adjusted by glosas
                     nl_siafe: nlNumber || null,
                     data_baixa: baixaDate ? new Date(baixaDate).toISOString() : new Date().toISOString(),
                 })
@@ -706,18 +711,22 @@ export const SosfuAuditPanel: React.FC<SosfuAuditPanelProps> = ({
             await supabase.from('historico_tramitacao').insert({
                 solicitation_id: processId,
                 status_from: 'WAITING_SOSFU',
-                status_to: 'ARCHIVED',
+                status_to: nextStatus,
                 actor_id: user?.id,
                 actor_name: user?.email,
-                description: `Processo arquivado e responsabilidade baixada via NL ${nlNumber}.`
+                description: isRessarcimento 
+                    ? `Solicitação de Ressarcimento homologada no valor de ${formatCurrency(valorHomologado)}. Encaminhada para execução financeira.`
+                    : `Processo arquivado e responsabilidade baixada via NL ${nlNumber}.`
             });
 
             // 4. Notify Requester
             if (processData?.user_id) {
                 await supabase.from('system_notifications').insert({
                     user_id: processData.user_id,
-                    title: 'Processo Concluído',
-                    message: `Seu processo ${processData.process_number} foi arquivado com sucesso.`,
+                    title: isRessarcimento ? 'Ressarcimento Homologado' : 'Processo Concluído',
+                    message: isRessarcimento 
+                        ? `Seu ressarcimento (${processData.process_number}) foi aprovado e enviado para pagamento.`
+                        : `Seu processo ${processData.process_number} foi arquivado com sucesso.`,
                     type: 'SUCCESS',
                     process_number: processData.process_number,
                     link: 'process_detail'
@@ -912,9 +921,12 @@ INSTRUÇÕES:
                         </button>
                         <button
                             onClick={() => setSiafeModalOpen(true)}
-                            className="px-6 py-2.5 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-black transition-all shadow-lg shadow-slate-400 flex items-center gap-2"
+                            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all shadow-lg flex items-center gap-2 ${
+                                isRessarcimento ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-slate-900 hover:bg-black shadow-slate-400'
+                            }`}
                         >
-                            <Database size={16} /> Baixa SIAFE
+                            {isRessarcimento ? <CheckCheck size={16} /> : <Database size={16} />}
+                            {isRessarcimento ? 'Homologar Ressarcimento' : 'Baixa SIAFE'}
                         </button>
                     </div>
                 </div>
@@ -1124,7 +1136,7 @@ INSTRUÇÕES:
                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Balanço Final</h4>
                         <div className="space-y-4">
                             <div className="flex justify-between items-end pb-2 border-b border-slate-100">
-                                <span className="text-sm text-slate-500">Concedido</span>
+                                <span className="text-sm text-slate-500">{isRessarcimento ? 'Solicitado' : 'Concedido'}</span>
                                 <span className="font-mono text-base font-bold text-slate-900">{formatCurrency(valorLiberado)}</span>
                             </div>
                             <div className="flex justify-between items-end pb-2 border-b border-slate-100">
@@ -1138,12 +1150,14 @@ INSTRUÇÕES:
                                 </div>
                             )}
                             <div className="pt-4 mt-2">
-                                <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Saldo a Devolver (GRU)</span>
+                                <span className="text-xs font-bold text-slate-400 uppercase block mb-1">
+                                    {isRessarcimento ? 'Total a Receber' : 'Saldo a Devolver (GRU)'}
+                                </span>
                                 <div className="flex items-center justify-between">
-                                    <span className={`font-mono text-2xl font-black ${valorDevolver > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
-                                        {formatCurrency(valorDevolver)}
+                                    <span className={`font-mono text-2xl font-black ${isRessarcimento ? 'text-emerald-600' : valorDevolver > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
+                                        {formatCurrency(isRessarcimento ? valorHomologado : valorDevolver)}
                                     </span>
-                                    {valorDevolver > 0 && (
+                                    {!isRessarcimento && valorDevolver > 0 && (
                                         <button className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100">
                                             Gerar GRU
                                         </button>
@@ -1205,9 +1219,12 @@ INSTRUÇÕES:
                     <button
                         onClick={() => setSiafeModalOpen(true)}
                         disabled={finalizing || hasUnsavedChanges || checklist.some(c => c.status === 'fail')}
-                        className="px-4 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                        className={`px-4 py-2 font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
+                            isRessarcimento ? 'bg-blue-700 text-white hover:bg-blue-800' : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                        }`}
                     >
-                        <CheckCheck size={16} /> Aprovar e Baixar (SIAFE)
+                        {isRessarcimento ? <Send size={16} /> : <CheckCheck size={16} />}
+                        {isRessarcimento ? 'Homologar p/ Pagamento' : 'Aprovar e Baixar (SIAFE)'}
                     </button>
                 </div>
             )}
@@ -1222,8 +1239,12 @@ INSTRUÇÕES:
                                 <Database size={24} />
                             </div>
                             <div>
-                                <h3 className="text-lg font-bold text-white">Baixa de Responsabilidade</h3>
-                                <p className="text-slate-400 text-sm">Registro SIAFE e Arquivamento</p>
+                                <h3 className="text-lg font-bold text-white">
+                                    {isRessarcimento ? 'Homologação de Ressarcimento' : 'Baixa de Responsabilidade'}
+                                </h3>
+                                <p className="text-slate-400 text-sm">
+                                    {isRessarcimento ? 'Encaminhamento para Execução Financeira' : 'Registro SIAFE e Arquivamento'}
+                                </p>
                             </div>
                         </div>
                         <div className="p-6 space-y-6">
@@ -1238,8 +1259,8 @@ INSTRUÇÕES:
                                     <span className="font-bold text-slate-800">{processData?.beneficiary?.split(' ').slice(0, 2).join(' ')}</span>
                                 </div>
                                 <div className="flex justify-between border-t border-slate-200 pt-2 mt-2">
-                                    <span className="text-slate-500 font-bold">Valor Homologado</span>
-                                    <span className="font-mono font-bold text-emerald-600">{formatCurrency(valorHomologado)}</span>
+                                    <span className="text-slate-500 font-bold">{isRessarcimento ? 'Valor p/ Reembolso' : 'Valor Homologado'}</span>
+                                    <span className={`font-mono font-bold ${isRessarcimento ? 'text-blue-600' : 'text-emerald-600'}`}>{formatCurrency(isRessarcimento ? valorHomologado : valorHomologado)}</span>
                                 </div>
                             </div>
 
@@ -1272,7 +1293,11 @@ INSTRUÇÕES:
                             {/* Info message */}
                             <div className="bg-blue-50 p-3 rounded-lg text-xs text-blue-800 flex gap-2 items-start border border-blue-100">
                                 <CheckCircle2 size={14} className="mt-0.5 flex-shrink-0" />
-                                <p>Após a baixa, será gerada automaticamente a <strong>Portaria de Regularidade</strong> para assinatura. O processo será <strong>ARQUIVADO</strong>.</p>
+                                <p>
+                                    {isRessarcimento 
+                                        ? 'Ao homologar, o processo será enviado para a fila de pagamento da SEFIN. O valor final será ajustado conforme as glosas aplicadas.'
+                                        : 'Após a baixa, será gerada automaticamente a Portaria de Regularidade para assinatura. O processo será ARQUIVADO.'}
+                                </p>
                             </div>
 
                             {/* Warning for glosas */}
@@ -1293,9 +1318,9 @@ INSTRUÇÕES:
                             <button onClick={() => setSiafeModalOpen(false)} className="px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-white hover:border-slate-300 border border-transparent rounded-lg transition-colors">
                                 Cancelar
                             </button>
-                            <button onClick={handleSiafeBaixa} disabled={!nlNumber || finalizing} className="px-6 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <button onClick={handleSiafeBaixa} disabled={(!nlNumber && !isRessarcimento) || finalizing} className={`px-6 py-2.5 text-white text-sm font-bold rounded-lg transition-all shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${isRessarcimento ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
                                 {finalizing ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />}
-                                Confirmar Baixa
+                                {isRessarcimento ? 'Confirmar e Enviar p/ Pagamento' : 'Confirmar Baixa'}
                             </button>
                         </div>
                     </div>

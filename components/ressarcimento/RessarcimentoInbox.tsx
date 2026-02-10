@@ -20,6 +20,7 @@ interface InboxItem {
     analyst_id?: string;
     analyst?: { full_name: string; avatar_url?: string };
     details?: string;
+    sentinela_risk?: string;
 }
 
 export const RessarcimentoInbox: React.FC<RessarcimentoInboxProps> = ({ onNavigate, userProfile }) => {
@@ -40,7 +41,7 @@ export const RessarcimentoInbox: React.FC<RessarcimentoInboxProps> = ({ onNaviga
             // If DB schema has type column use it, otherwise rely on status 'WAITING_RESSARCIMENTO...'
             const { data } = await supabase
                 .from('solicitations')
-                .select(`*, analyst:analyst_id(full_name, avatar_url)`)
+                .select(`*, analyst:analyst_id(full_name, avatar_url), accountabilities(sentinela_risk)`)
                 .or('status.eq.WAITING_RESSARCIMENTO_ANALYSIS,status.eq.WAITING_RESSARCIMENTO_EXECUTION,status.eq.PAID,status.eq.APPROVED') 
                 .order('created_at', { ascending: false })
                 .limit(100);
@@ -55,7 +56,8 @@ export const RessarcimentoInbox: React.FC<RessarcimentoInboxProps> = ({ onNaviga
                     status: s.status,
                     analyst_id: s.analyst_id,
                     analyst: s.analyst,
-                    details: s.unit
+                    details: s.unit,
+                    sentinela_risk: s.accountabilities?.[0]?.sentinela_risk
                 }));
                 
                 setItems(map);
@@ -236,6 +238,15 @@ export const RessarcimentoInbox: React.FC<RessarcimentoInboxProps> = ({ onNaviga
                                                 <div className="text-[10px] text-slate-400 font-medium">
                                                     {new Date(item.created_at).toLocaleDateString('pt-BR')}
                                                 </div>
+                                                {item.sentinela_risk && (
+                                                    <div className={`mt-1 flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded border inline-flex ${
+                                                        item.sentinela_risk === 'LOW' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                                        item.sentinela_risk === 'MEDIUM' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                                                        'bg-red-50 text-red-600 border-red-100'
+                                                    }`}>
+                                                        <Sparkles size={8} /> {item.sentinela_risk}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </td>

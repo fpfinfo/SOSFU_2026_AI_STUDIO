@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { X, FileText, Save, Loader2, FileSignature, AlertCircle, Pencil, Trash2 } from 'lucide-react';
+import { X, FileText, Save, Loader2, FileSignature, AlertCircle, Pencil, Trash2, Upload, ToggleLeft, ToggleRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { FileUploader, UploadResult } from '../ui/FileUploader';
 
 interface NewDocumentModalProps {
     processId: string;
-    editingDoc?: any; // Se definido, modo edição
+    editingDoc?: any;
     onClose: () => void;
-    onSave: () => void; // Callback para refresh
+    onSave: () => void;
 }
 
 const DOC_SUBTYPES = [
@@ -17,8 +18,13 @@ const DOC_SUBTYPES = [
     { value: 'OFICIO', label: 'Ofício' },
     { value: 'MINUTA_JUSTIFICATIVA', label: 'Minuta de Justificativa' },
     { value: 'DESPACHO', label: 'Despacho' },
+    { value: 'COMPROVANTE', label: 'Comprovante / Nota Fiscal' },
+    { value: 'RECIBO', label: 'Recibo' },
+    { value: 'ANEXO_PDF', label: 'Anexo (PDF Externo)' },
     { value: 'OUTRO', label: 'Outro' },
 ];
+
+type InputMode = 'TEXT' | 'FILE';
 
 export const NewDocumentModal: React.FC<NewDocumentModalProps> = ({ processId, editingDoc, onClose, onSave }) => {
     const [subType, setSubType] = useState(editingDoc?.metadata?.subType || '');
@@ -26,6 +32,12 @@ export const NewDocumentModal: React.FC<NewDocumentModalProps> = ({ processId, e
     const [content, setContent] = useState(editingDoc?.metadata?.content || '');
     const [isDraft, setIsDraft] = useState(editingDoc?.metadata?.is_draft ?? true);
     const [saving, setSaving] = useState(false);
+
+    // Upload state
+    const [inputMode, setInputMode] = useState<InputMode>(
+        editingDoc?.metadata?.file_data || editingDoc?.metadata?.file_url ? 'FILE' : 'TEXT'
+    );
+    const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
 
     const isEditing = !!editingDoc;
 
@@ -39,8 +51,22 @@ export const NewDocumentModal: React.FC<NewDocumentModalProps> = ({ processId, e
         }
     }, [subType]);
 
+    // Auto-switch to FILE mode for file-oriented subtypes
+    useEffect(() => {
+        if (['COMPROVANTE', 'RECIBO', 'ANEXO_PDF'].includes(subType)) {
+            setInputMode('FILE');
+        }
+    }, [subType]);
+
+    const canSave = () => {
+        if (!subType || !title.trim()) return false;
+        if (inputMode === 'TEXT') return content.trim().length > 0;
+        if (inputMode === 'FILE') return !!uploadResult;
+        return false;
+    };
+
     const handleSave = async () => {
-        if (!subType || !title.trim() || !content.trim()) return;
+        if (!canSave()) return;
         setSaving(true);
 
         try {
@@ -57,18 +83,35 @@ export const NewDocumentModal: React.FC<NewDocumentModalProps> = ({ processId, e
                 timestamp: new Date().toISOString(),
             };
 
+            // Build metadata based on inputMode
+            const baseMetadata = {
+                subType,
+                is_draft: isDraft,
+                editable: isDraft,
+            };
+
+            const fileMetadata = uploadResult ? {
+                file_data: uploadResult.base64,
+                file_url: uploadResult.storageUrl,
+                storage_path: uploadResult.storagePath,
+                original_filename: uploadResult.fileName,
+                file_size: uploadResult.fileSize,
+                mime_type: uploadResult.mimeType,
+                source: 'MANUAL_UPLOAD',
+            } : {};
+
+            const textMetadata = inputMode === 'TEXT' ? { content } : {};
+
             if (isEditing) {
-                // UPDATE
                 const existingAudit = editingDoc.metadata?.audit_log || [];
                 const { error } = await supabase.from('process_documents')
                     .update({
                         title,
                         metadata: {
                             ...editingDoc.metadata,
-                            subType,
-                            content,
-                            is_draft: isDraft,
-                            editable: isDraft,
+                            ...baseMetadata,
+                            ...textMetadata,
+                            ...fileMetadata,
                             updated_at: new Date().toISOString(),
                             audit_log: [...existingAudit, auditEntry],
                         }
@@ -77,16 +120,14 @@ export const NewDocumentModal: React.FC<NewDocumentModalProps> = ({ processId, e
 
                 if (error) throw error;
             } else {
-                // CREATE
                 const { error } = await supabase.from('process_documents').insert({
                     solicitation_id: processId,
                     title,
                     document_type: 'GENERIC',
                     metadata: {
-                        subType,
-                        content,
-                        is_draft: isDraft,
-                        editable: isDraft,
+                        ...baseMetadata,
+                        ...textMetadata,
+                        ...fileMetadata,
                         created_by: user.id,
                         created_by_name: userName,
                         audit_log: [auditEntry],
@@ -157,20 +198,69 @@ export const NewDocumentModal: React.FC<NewDocumentModalProps> = ({ processId, e
                         />
                     </div>
 
-                    {/* Conteúdo */}
-                    <div className="space-y-1.5">
-                        <label className="text-sm font-bold text-gray-700">Conteúdo *</label>
-                        <textarea
-                            value={content}
-                            onChange={e => setContent(e.target.value)}
-                            rows={10}
-                            placeholder="Digite o conteúdo do documento..."
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none resize-none leading-relaxed font-serif"
-                        />
-                        <p className="text-[11px] text-gray-400 flex items-center gap-1">
-                            <AlertCircle size={10} /> O conteúdo será renderizado no formato de documento oficial do TJPA.
-                        </p>
+                    {/* Input Mode Toggle */}
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Conteúdo via:</span>
+                        <div className="flex items-center bg-white rounded-lg border border-gray-200 overflow-hidden">
+                            <button
+                                type="button"
+                                onClick={() => setInputMode('TEXT')}
+                                className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold transition-all ${
+                                    inputMode === 'TEXT'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'text-gray-500 hover:bg-gray-50'
+                                }`}
+                            >
+                                <FileText size={14} /> Texto
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setInputMode('FILE')}
+                                className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold transition-all ${
+                                    inputMode === 'FILE'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'text-gray-500 hover:bg-gray-50'
+                                }`}
+                            >
+                                <Upload size={14} /> Arquivo PDF
+                            </button>
+                        </div>
                     </div>
+
+                    {/* Content: Text Mode */}
+                    {inputMode === 'TEXT' && (
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-bold text-gray-700">Conteúdo *</label>
+                            <textarea
+                                value={content}
+                                onChange={e => setContent(e.target.value)}
+                                rows={10}
+                                placeholder="Digite o conteúdo do documento..."
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none resize-none leading-relaxed font-serif"
+                            />
+                            <p className="text-[11px] text-gray-400 flex items-center gap-1">
+                                <AlertCircle size={10} /> O conteúdo será renderizado no formato de documento oficial do TJPA.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Content: File Upload Mode */}
+                    {inputMode === 'FILE' && (
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-bold text-gray-700">Arquivo PDF *</label>
+                            <FileUploader
+                                inputId="new-doc-upload"
+                                pathPrefix={`documents/${processId}`}
+                                color="blue"
+                                buttonLabel="Selecionar PDF"
+                                description="Arraste o PDF aqui ou clique para selecionar"
+                                sizeHint="Máximo 10 MB"
+                                onUpload={setUploadResult}
+                                onRemove={() => setUploadResult(null)}
+                                value={uploadResult}
+                            />
+                        </div>
+                    )}
 
                     {/* Draft Toggle */}
                     <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
@@ -200,7 +290,7 @@ export const NewDocumentModal: React.FC<NewDocumentModalProps> = ({ processId, e
                     </button>
                     <button
                         onClick={handleSave}
-                        disabled={saving || !subType || !title.trim() || !content.trim()}
+                        disabled={saving || !canSave()}
                         className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Tooltip } from '../ui/Tooltip';
+import { FileUploader, UploadResult } from '../ui/FileUploader';
 
 // ==================== TYPES ====================
 interface ProcessData {
@@ -39,6 +40,14 @@ interface UploadedFile {
   name: string;
   size: number;
 }
+
+// Adapter: convert UploadResult from FileUploader to legacy UploadedFile format
+const uploadResultToLegacy = (result: UploadResult): UploadedFile => ({
+  file: new File([], result.fileName),
+  base64: result.base64,
+  name: result.fileName,
+  size: result.fileSize,
+});
 
 type ExecutionStep = 'PORTARIA' | 'CERTIDAO' | 'NE' | 'DL' | 'OB' | 'TRAMITAR';
 
@@ -85,6 +94,9 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
   const [neUpload, setNeUpload] = useState<UploadedFile | null>(null);
   const [dlUpload, setDlUpload] = useState<UploadedFile | null>(null);
   const [obUpload, setObUpload] = useState<UploadedFile | null>(null);
+  const [neUploadResult, setNeUploadResult] = useState<UploadResult | null>(null);
+  const [dlUploadResult, setDlUploadResult] = useState<UploadResult | null>(null);
+  const [obUploadResult, setObUploadResult] = useState<UploadResult | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   // PDF preview
@@ -171,7 +183,7 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
     } finally { setIsProcessing(false); }
   };
 
-  /** Read PDF file and convert to base64 for persistent storage */
+  /** Read PDF file and convert to base64 for persistent storage (legacy) */
   const handleSelectFile = useCallback(async (
     file: File | undefined,
     setUpload: (u: UploadedFile | null) => void
@@ -181,8 +193,8 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
       alert('Selecione um arquivo PDF.');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      alert('O arquivo excede 5 MB. Selecione um PDF menor.');
+    if (file.size > 10 * 1024 * 1024) {
+      alert('O arquivo excede 10 MB. Selecione um PDF menor.');
       return;
     }
     setIsUploading(true);
@@ -197,26 +209,42 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
     }
   }, []);
 
-  /** Save document with embedded base64 PDF content */
+  /** Handler for FileUploader component — bridges UploadResult to legacy UploadedFile */
+  const handleFileUploaderResult = useCallback((
+    result: UploadResult,
+    setUpload: (u: UploadedFile | null) => void,
+    setResult: (r: UploadResult | null) => void
+  ) => {
+    setResult(result);
+    setUpload(uploadResultToLegacy(result));
+  }, []);
+
+  /** Save document with Supabase Storage as PRIMARY, base64 as fallback */
   const handleSaveDocument = async (
     tipo: string, titulo: string, valor: number, upload: UploadedFile,
-    dbField: string, autoSign: boolean
+    dbField: string, autoSign: boolean, uploadRes?: UploadResult | null
   ) => {
     if (valor <= 0) { alert('Informe o valor do documento.'); return; }
     setIsProcessing(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Also try Supabase Storage as secondary (best-effort, non-blocking)
-      let storageUrl: string | null = null;
-      try {
-        const storagePath = `execution/${process.id}/${tipo.toLowerCase()}_${Date.now()}.pdf`;
-        const { error } = await supabase.storage.from('documentos').upload(storagePath, upload.file);
-        if (!error) {
-          const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(storagePath);
-          storageUrl = urlData?.publicUrl || null;
-        }
-      } catch { /* Storage is optional - base64 is the primary */ }
+      // Use FileUploader result if available, otherwise try legacy upload
+      let storageUrl = uploadRes?.storageUrl || null;
+      let storagePath = uploadRes?.storagePath || null;
+
+      if (!storageUrl) {
+        // Fallback: try Supabase Storage upload from legacy UploadedFile
+        try {
+          const path = `execution/${process.id}/${tipo.toLowerCase()}_${Date.now()}.pdf`;
+          const { error } = await supabase.storage.from('documentos').upload(path, upload.file);
+          if (!error) {
+            const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(path);
+            storageUrl = urlData?.publicUrl || null;
+            storagePath = path;
+          }
+        } catch { /* Storage fallback non-critical */ }
+      }
 
       // Update solicitation
       await supabase.from('solicitations').update({
@@ -225,7 +253,7 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
         updated_at: new Date().toISOString()
       } as any).eq('id', process.id);
 
-      // Create document with embedded base64 PDF
+      // Create document — Storage URL is PRIMARY, base64 is FALLBACK
       await supabase.from('process_documents').insert({
         solicitation_id: process.id,
         title: `${titulo} - ${upload.name}`,
@@ -238,8 +266,9 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
           original_filename: upload.name,
           file_size: upload.size,
           source: 'SIAFE_PDF',
-          file_data: upload.base64,       // PRIMARY: base64 data URL
-          file_url: storageUrl,           // SECONDARY: Supabase Storage URL
+          file_url: storageUrl,            // PRIMARY: Supabase Storage URL
+          storage_path: storagePath,       // For future reference
+          file_data: upload.base64,        // FALLBACK: base64 data URL
           ...(autoSign ? { signer: user?.email, signed_at: new Date().toISOString() } : {})
         }
       });
@@ -324,63 +353,25 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
 
   // ==================== RENDER HELPERS ====================
 
+  /** Render upload area using the new FileUploader component */
   const renderUploadArea = (
-    upload: UploadedFile | null,
+    _upload: UploadedFile | null,
     setUpload: (u: UploadedFile | null) => void,
-    inputId: string, color: string
+    inputId: string, color: string,
+    uploadResult: UploadResult | null,
+    setUploadResult: (r: UploadResult | null) => void
   ) => (
-    <div className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${
-      upload ? 'border-emerald-300 bg-emerald-50/50' : `border-gray-200 bg-white hover:border-${color}-300 hover:bg-${color}-50/30`
-    }`}>
-      {upload ? (
-        <div className="space-y-4">
-          <div className="w-16 h-16 mx-auto bg-emerald-100 rounded-2xl flex items-center justify-center">
-            <CheckCircle2 size={32} className="text-emerald-600" />
-          </div>
-          <div>
-            <p className="font-bold text-emerald-800 text-sm">{upload.name}</p>
-            <p className="text-xs text-emerald-600 mt-1">{(upload.size / 1024).toFixed(1)} KB • PDF carregado com sucesso</p>
-          </div>
-          <div className="flex items-center justify-center gap-3">
-            <button
-              onClick={() => setPreviewData(upload.base64)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-all"
-            >
-              <Eye size={14} /> Visualizar PDF
-            </button>
-            <button
-              onClick={() => setUpload(null)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-50 text-red-600 text-xs font-bold rounded-lg hover:bg-red-100 transition-all border border-red-200"
-            >
-              <Trash2 size={14} /> Remover
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className={`w-16 h-16 mx-auto bg-gray-100 rounded-2xl flex items-center justify-center mb-4`}>
-            <Upload size={32} className="text-gray-400" />
-          </div>
-          <p className="text-sm text-slate-600 mb-1">Arraste o PDF aqui ou clique para selecionar</p>
-          <p className="text-[10px] text-slate-400 mb-4">Máximo 5 MB • Apenas arquivos PDF</p>
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={e => handleSelectFile(e.target.files?.[0], setUpload)}
-            className="hidden"
-            id={inputId}
-            disabled={isUploading}
-          />
-          <label
-            htmlFor={inputId}
-            className={`cursor-pointer inline-flex items-center gap-2 px-6 py-3 bg-${color}-600 text-white rounded-xl font-bold hover:bg-${color}-700 transition-all shadow-sm`}
-          >
-            {isUploading ? <Loader2 className="animate-spin" size={16} /> : <FileIcon size={16} />}
-            Selecionar PDF do SIAFE
-          </label>
-        </>
-      )}
-    </div>
+    <FileUploader
+      inputId={inputId}
+      pathPrefix={`execution/${process.id}`}
+      color={color}
+      buttonLabel="Selecionar PDF do SIAFE"
+      description="Arraste o PDF do SIAFE aqui ou clique para selecionar"
+      sizeHint="Máximo 10 MB"
+      value={uploadResult}
+      onUpload={(result) => handleFileUploaderResult(result, setUpload, setUploadResult)}
+      onRemove={() => { setUpload(null); setUploadResult(null); }}
+    />
   );
 
   // ==================== MAIN RENDER ====================
@@ -511,9 +502,9 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
                     </div>
                     <p className="text-[10px] text-slate-400 mt-1">Triple Check: NE ≥ DL ≥ OB</p>
                   </div>
-                  {renderUploadArea(neUpload, setNeUpload, 'ne-upload', 'amber')}
+                  {renderUploadArea(neUpload, setNeUpload, 'ne-upload', 'amber', neUploadResult, setNeUploadResult)}
                 </div>
-                <button onClick={() => neUpload && handleSaveDocument('NOTA_EMPENHO', 'Nota de Empenho', neValor, neUpload, 'ne', false)}
+                <button onClick={() => neUpload && handleSaveDocument('NOTA_EMPENHO', 'Nota de Empenho', neValor, neUpload, 'ne', false, neUploadResult)}
                   disabled={!neUpload || isProcessing || generatedDocs.NE}
                   className="w-full py-4 bg-amber-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2">
                   {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <DollarSign size={16} />}
@@ -543,9 +534,9 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
                       </p>
                     )}
                   </div>
-                  {renderUploadArea(dlUpload, setDlUpload, 'dl-upload', 'purple')}
+                  {renderUploadArea(dlUpload, setDlUpload, 'dl-upload', 'purple', dlUploadResult, setDlUploadResult)}
                 </div>
-                <button onClick={() => dlUpload && handleSaveDocument('LIQUIDACAO', 'Doc. de Liquidação', dlValor, dlUpload, 'dl', true)}
+                <button onClick={() => dlUpload && handleSaveDocument('LIQUIDACAO', 'Doc. de Liquidação', dlValor, dlUpload, 'dl', true, dlUploadResult)}
                   disabled={!dlUpload || isProcessing || generatedDocs.DL}
                   className="w-full py-4 bg-purple-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2">
                   {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <FileCheck size={16} />}
@@ -575,9 +566,9 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
                       </p>
                     )}
                   </div>
-                  {renderUploadArea(obUpload, setObUpload, 'ob-upload', 'indigo')}
+                  {renderUploadArea(obUpload, setObUpload, 'ob-upload', 'indigo', obUploadResult, setObUploadResult)}
                 </div>
-                <button onClick={() => obUpload && handleSaveDocument('ORDEM_BANCARIA', 'Ordem Bancária', obValor, obUpload, 'ob', true)}
+                <button onClick={() => obUpload && handleSaveDocument('ORDEM_BANCARIA', 'Ordem Bancária', obValor, obUpload, 'ob', true, obUploadResult)}
                   disabled={!obUpload || isProcessing || generatedDocs.OB}
                   className="w-full py-4 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2">
                   {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <CreditCard size={16} />}
@@ -660,31 +651,7 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
         </div>
       </div>
 
-      {/* PDF Preview Modal */}
-      {previewData && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setPreviewData(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 shrink-0">
-              <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <Eye size={18} className="text-blue-600" />
-                Pré-visualização do PDF
-              </h3>
-              <button onClick={() => setPreviewData(null)}
-                className="p-2 bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 rounded-full transition-all">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="flex-1">
-              <iframe
-                src={previewData}
-                className="w-full h-full border-0"
-                title="Preview PDF"
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* PDF Preview Modal — now handled by FileUploader component internally */}
     </>
   );
 };

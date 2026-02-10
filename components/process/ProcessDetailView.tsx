@@ -13,8 +13,7 @@ import { AuditLogTab } from './AuditLogTab';
 import { ProcessDetailSkeleton } from '../ui/Skeleton';
 import { Tooltip } from '../ui/Tooltip';
 import { ReconciliationPanel } from '../ui/ReconciliationPanel';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+import { exportElementToPdf, exportDossierToPdf, printDocumentElement } from '../../lib/pdfExport';
 import { 
     ProcessCoverTemplate, 
     RequestTemplate, 
@@ -59,7 +58,6 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
   const [gestorProfile, setGestorProfile] = useState<any>(null);
 
   useEffect(() => {
-    fetchProcessData();
     fetchProcessData();
     if (userProfile?.dperfil?.slug) {
         setCurrentUserRole(userProfile.dperfil.slug.toUpperCase());
@@ -292,15 +290,15 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
   /** Resolve the best available PDF source: base64 data URL > storage URL > storage_path */
   const resolvePdfSource = (doc: any): string | null => {
-      // PRIMARY: base64 data URL embedded in metadata (always works)
-      if (doc?.metadata?.file_data) return doc.metadata.file_data;
-      // SECONDARY: Supabase Storage public URL
+      // PRIMARY: Supabase Storage public URL (preferred, scalable)
       if (doc?.metadata?.file_url) return doc.metadata.file_url;
-      // TERTIARY: reconstruct from storage_path
+      // SECONDARY: reconstruct from storage_path
       if (doc?.metadata?.storage_path) {
           const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(doc.metadata.storage_path);
           return urlData?.publicUrl || null;
       }
+      // FALLBACK: base64 data URL embedded in metadata
+      if (doc?.metadata?.file_data) return doc.metadata.file_data;
       return null;
   };
 
@@ -468,6 +466,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
   const canTramitarSOSFU = currentUserRole === 'USER' && processData?.status === 'PENDING' && pendingMinutas.length === 0;
   const canTramitarGestor = currentUserRole === 'USER' && pendingMinutas.length > 0;
   const isArchived = processData?.status === 'ARCHIVED';
+  const isRessarcimento = processData?.type === 'RESSARCIMENTO';
 
   const handleTramitar = async (destino: 'GESTOR' | 'SOSFU') => {
     if (destino === 'SOSFU' && pendingMinutas.length > 0) {
@@ -628,8 +627,48 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                         <CheckCircle2 size={20} />
                     </div>
                     <div>
-                        <h3 className="font-bold text-emerald-800 text-sm">Recurso Recebido ✓</h3>
-                        <p className="text-emerald-600 text-xs mt-0.5">O suprido confirmou o recebimento. A fase de Prestação de Contas está aberta.</p>
+                        <h3 className="font-bold text-emerald-800 text-sm">
+                            {isRessarcimento ? 'Ressarcimento Pago ✓' : 'Recurso Recebido ✓'}
+                        </h3>
+                        <p className="text-emerald-600 text-xs mt-0.5">
+                            {isRessarcimento
+                                ? 'O reembolso foi processado e depositado na conta do servidor.'
+                                : 'O suprido confirmou o recebimento. A fase de Prestação de Contas está aberta.'}
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* ═══ Banner: Ressarcimento em Análise ═══ */}
+            {isRessarcimento && processData.status === 'WAITING_RESSARCIMENTO_ANALYSIS' && (
+                <div className="bg-sky-50 border border-sky-200 rounded-xl p-5 flex items-center gap-4">
+                    <div className="p-2.5 bg-sky-100 rounded-full text-sky-600">
+                        <Search size={20} />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-sky-800 text-sm">Ressarcimento em Análise</h3>
+                        <p className="text-sky-600 text-xs mt-0.5">
+                            {currentUserRole === 'USER'
+                                ? 'Sua solicitação de reembolso está sendo analisada pela equipe SOSFU. Você será notificado sobre o resultado.'
+                                : 'Solicitação de ressarcimento aguardando auditoria de comprovantes e homologação.'}
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* ═══ Banner: Ressarcimento Aprovado → Pagamento ═══ */}
+            {isRessarcimento && processData.status === 'WAITING_RESSARCIMENTO_EXECUTION' && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex items-center gap-4">
+                    <div className="p-2.5 bg-emerald-100 rounded-full text-emerald-600 animate-pulse">
+                        <Wallet size={20} />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-emerald-800 text-sm">Reembolso Aprovado — Aguardando Pagamento</h3>
+                        <p className="text-emerald-600 text-xs mt-0.5">
+                            {currentUserRole === 'USER'
+                                ? 'Seu ressarcimento foi homologado pela SOSFU. O pagamento será processado em breve na sua conta bancária.'
+                                : 'Ressarcimento homologado. Gere a NE, DL e OB para processar o pagamento ao servidor.'}
+                        </p>
                     </div>
                 </div>
             )}
@@ -691,7 +730,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                         <Wallet size={16} /> Dados Financeiros
                     </h3>
                     <div>
-                        <p className="text-sm text-gray-500 mb-1">Valor Solicitado</p>
+                        <p className="text-sm text-gray-500 mb-1">{isRessarcimento ? 'Valor Reembolso' : 'Valor Solicitado'}</p>
                         <p className="text-2xl font-bold text-gray-900 mb-2 font-mono">
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(processData.value)}
                         </p>
@@ -791,13 +830,54 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
           }
       };
 
-      const handlePrint = () => {
-          window.print();
+      const handlePrint = async () => {
+          if (viewMode === 'reading' && docRefs.current[activeDocIndex]) {
+              // Print current document
+              const el = docRefs.current[activeDocIndex];
+              if (el) {
+                  try {
+                      await printDocumentElement(el, documents[activeDocIndex]?.title || 'Documento');
+                  } catch (err) {
+                      console.error('Erro ao imprimir:', err);
+                      alert('Erro ao gerar impressão. Verifique se popups estão permitidos.');
+                  }
+              }
+          } else {
+              // Print all documents as multi-page
+              const elements = docRefs.current.filter(Boolean) as HTMLDivElement[];
+              if (elements.length > 0) {
+                  try {
+                      await exportDossierToPdf(elements, {
+                          filename: `dossie_${processData?.process_number || processId}.pdf`,
+                          processNumber: processData?.process_number,
+                          beneficiary: processData?.beneficiary,
+                          openInNewTab: true,
+                      });
+                  } catch (err) {
+                      console.error('Erro ao gerar dossiê:', err);
+                      alert('Erro ao gerar PDF do dossiê.');
+                  }
+              }
+          }
       };
 
-      const handleDownload = () => {
-          // Future: generate PDF
-          handlePrint();
+      const handleDownload = async () => {
+          const elements = docRefs.current.filter(Boolean) as HTMLDivElement[];
+          if (elements.length === 0) {
+              alert('Nenhum documento renderizado para download.');
+              return;
+          }
+          try {
+              await exportDossierToPdf(elements, {
+                  filename: `dossie_completo_${processData?.process_number || processId}.pdf`,
+                  processNumber: processData?.process_number,
+                  beneficiary: processData?.beneficiary,
+                  includePageNumbers: true,
+              });
+          } catch (err) {
+              console.error('Erro ao baixar dossiê:', err);
+              alert('Erro ao gerar PDF para download.');
+          }
       };
 
       const docDescriptions: Record<string, string> = {
@@ -1142,8 +1222,12 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                               <Wallet size={24} />
                           </div>
                           <div>
-                              <h3 className="text-xl font-black">Execução da Despesa</h3>
-                              <p className="text-blue-100 text-sm mt-0.5">Gere as minutas, anexe PDFs do SIAFE e tramite para o Ordenador.</p>
+                            <h3 className="text-xl font-black">{isRessarcimento ? 'Execução do Reembolso' : 'Execução da Despesa'}</h3>
+                              <p className="text-blue-100 text-sm mt-0.5">
+                                  {isRessarcimento
+                                      ? 'Gere a NE, DL e OB para o pagamento do ressarcimento ao servidor.'
+                                      : 'Gere as minutas, anexe PDFs do SIAFE e tramite para o Ordenador.'}
+                              </p>
                           </div>
                       </div>
                       {(currentUserRole.startsWith('SOSFU') || currentUserRole === 'ADMIN') && (
@@ -1751,9 +1835,11 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                 {[
                     { id: 'OVERVIEW', label: 'Visão Geral', icon: Eye, tooltip: 'Resumo geral do processo com dados do beneficiário e valores' },
                     { id: 'DOSSIER', label: 'Dossiê Digital', icon: FolderOpen, tooltip: 'Todos os documentos do processo organizados cronologicamente' },
+                ...(isRessarcimento ? [] : [
                     { id: 'ANALYSIS', label: 'Análise Técnica', icon: ShieldCheck, tooltip: 'Parecer técnico da SOSFU e ações de controle' },
-                    { id: 'EXECUTION', label: 'Execução', icon: Wallet, tooltip: 'Geração de Portaria SF, Nota de Empenho, DL e OB' },
-                    { id: 'ACCOUNTABILITY', label: 'Prestação de Contas', icon: Receipt, tooltip: 'Comprovação da aplicação dos recursos com notas fiscais' },
+                ]),
+                    { id: 'EXECUTION', label: isRessarcimento ? 'Pagamento' : 'Execução', icon: Wallet, tooltip: isRessarcimento ? 'Execução financeira do reembolso (NE, DL, OB)' : 'Geração de Portaria SF, Nota de Empenho, DL e OB' },
+                    { id: 'ACCOUNTABILITY', label: isRessarcimento ? 'Comprovantes / Auditoria' : 'Prestação de Contas', icon: Receipt, tooltip: isRessarcimento ? 'Comprovantes enviados e auditoria SOSFU' : 'Comprovação da aplicação dos recursos com notas fiscais' },
                     { id: 'AUDIT', label: 'Registro de Atividades', icon: ScrollText, tooltip: 'Histórico completo de todas as ações realizadas no processo' },
                     { id: 'ARCHIVE', label: 'Arquivo', icon: Archive, tooltip: 'Arquivamento e consulta do processo finalizado' },
                 ].map(t => (
