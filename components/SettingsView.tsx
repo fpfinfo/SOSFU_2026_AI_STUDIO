@@ -4,7 +4,7 @@ import { GeneralSettings } from './settings/GeneralSettings';
 import { UsersSettings } from './settings/UsersSettings';
 import { RolesSettings } from './settings/RolesSettings';
 
-export const SettingsView: React.FC = () => {
+export const SettingsView: React.FC<{ userProfile?: any }> = ({ userProfile }) => {
     const [activeSection, setActiveSection] = useState('general');
 
     const menuItems = [
@@ -52,7 +52,7 @@ export const SettingsView: React.FC = () => {
             <div className="flex-1">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 min-h-[600px]">
                     {activeSection === 'general' && <GeneralSettings />}
-                    {activeSection === 'users' && <UsersSettings />}
+                    {activeSection === 'users' && <UsersSettings userProfile={userProfile} />}
                     {activeSection === 'roles' && <RolesSettings />}
                     
                     {['sla', 'notifications'].includes(activeSection) && (

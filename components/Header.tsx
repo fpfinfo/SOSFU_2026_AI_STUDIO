@@ -142,7 +142,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
     { id: 'accountability', label: 'Prest. Contas', icon: CheckSquare, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
     { id: 'archive', label: 'Arquivo', icon: Archive, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
     { id: 'reports', label: 'Relatórios', icon: PieChart, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'PRESIDENCIA_GESTOR', 'PRESIDENCIA_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
-    { id: 'settings', label: 'Configurações', icon: Settings, roles: ['ADMIN', 'SOSFU_GESTOR', 'SODPA_GESTOR'] },
+    { id: 'settings', label: 'Configurações', icon: Settings, roles: ['ADMIN', 'SOSFU_GESTOR', 'SODPA_GESTOR', 'RESSARCIMENTO_GESTOR'] },
   ];
 
   const userRole = userProfile?.dperfil?.slug || 'SERVIDOR';
@@ -348,7 +348,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
                             <span>Meu Perfil</span>
                         </button>
                         
-                        {(userRole === 'ADMIN' || userRole === 'SOSFU') && (
+                        {(userRole === 'ADMIN' || userRole.startsWith('SOSFU') || userRole.startsWith('SODPA') || userRole.startsWith('RESSARCIMENTO')) && (
                             <button 
                                 onClick={() => { setIsMenuOpen(false); onTabChange && onTabChange('settings'); }} 
                                 className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 flex items-center gap-3 transition-colors"

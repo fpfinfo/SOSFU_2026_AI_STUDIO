@@ -7,17 +7,18 @@ import {
     Bell,
     Clock
 } from 'lucide-react';
-import { RessarcimentoUsersSettings } from './settings/RessarcimentoUsersSettings';
+import { UsersSettings } from '../settings/UsersSettings';
 import { RessarcimentoProfileSettings } from './settings/RessarcimentoProfileSettings';
 import { RessarcimentoGeneralSettings } from './settings/RessarcimentoGeneralSettings';
 
 interface RessarcimentoSettingsProps {
     darkMode?: boolean;
+    userProfile?: any;
 }
 
 type SettingsTab = 'general' | 'users' | 'roles' | 'notifications';
 
-export const RessarcimentoSettings: React.FC<RessarcimentoSettingsProps> = ({ darkMode = false }) => {
+export const RessarcimentoSettings: React.FC<RessarcimentoSettingsProps> = ({ darkMode = false, userProfile }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('general');
 
     const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
@@ -90,7 +91,7 @@ export const RessarcimentoSettings: React.FC<RessarcimentoSettingsProps> = ({ da
                         {/* TAB: USUÁRIOS */}
                         {activeTab === 'users' && (
                             <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                                <RessarcimentoUsersSettings />
+                                <UsersSettings userProfile={userProfile} />
                             </div>
                         )}
 

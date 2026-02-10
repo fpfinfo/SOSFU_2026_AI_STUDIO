@@ -1,67 +1,105 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, X, Loader2, User, Check, AlertCircle, Trash2, Edit2, Shield, RefreshCw } from 'lucide-react';
+import { Plus, Search, X, Loader2, User, Check, AlertCircle, Trash2, Shield, Briefcase } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 // Definição dos tipos
-interface Profile {
-  id: string;
+interface TeamMember {
+  id: string; // user_id
   full_name: string;
   email: string;
   matricula: string;
-  status: string;
   avatar_url: string | null;
-  perfil_id: string;
-  dperfil?: {
-    id: string;
-    slug: string;
-    name: string;
-  };
+  funcao: string; // From team_members
+  role_slug: string; // From profiles or sys_roles
 }
 
-export const UsersSettings: React.FC = () => {
-    const [teamMembers, setTeamMembers] = useState<Profile[]>([]);
+const MODULE_CONFIGS: Record<string, { label: string; roles: string[]; color: string; funcoes: string[] }> = {
+    'SOSFU': {
+        label: 'Equipe Técnica SOSFU',
+        roles: ['SOSFU_GESTOR', 'SOSFU_EQUIPE', 'ADMIN'],
+        color: 'blue',
+        funcoes: ['Analista SOSFU', 'Chefe SOSFU', 'Técnico de Contas', 'Estagiário']
+    },
+    'SODPA': {
+        label: 'Equipe SODPA',
+        roles: ['SODPA_GESTOR', 'SODPA_EQUIPE'],
+        color: 'sky',
+        funcoes: ['Analista SODPA', 'Chefe SODPA', 'Técnico de Diárias', 'Estagiário']
+    },
+    'RESSARCIMENTO': {
+        label: 'Equipe de Ressarcimento',
+        roles: ['RESSARCIMENTO_GESTOR', 'RESSARCIMENTO_EQUIPE'],
+        color: 'emerald',
+        funcoes: ['Analista de Ressarcimento', 'Chefe de Divisão', 'Técnico Financeiro', 'Estagiário']
+    }
+};
+
+export const UsersSettings: React.FC<{ userProfile?: any }> = ({ userProfile }) => {
+    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [processingId, setProcessingId] = useState<string | null>(null);
 
-    // Estados do Modal
+    // Context Determination
+    const [currentModule, setCurrentModule] = useState<string | null>(null);
+
+    // Modal State
     const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState<Profile[]>([]);
+    const [searchResults, setSearchResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
+    const [selectedUser, setSelectedUser] = useState<any | null>(null);
+    const [selectedFuncao, setSelectedFuncao] = useState<string>('');
     const [modalError, setModalError] = useState('');
     const [saving, setSaving] = useState(false);
 
-    // Cache de IDs de papéis para operações rápidas
-    const [roleIds, setRoleIds] = useState<{ SERVIDOR: string | null, SOSFU_EQUIPE: string | null }>({ SERVIDOR: null, SOSFU_EQUIPE: null });
-
-    // 1. Carregar IDs dos Papéis Críticos
-    const fetchRoleIds = async () => {
-        const { data } = await supabase.from('dperfil').select('id, slug');
-        if (data) {
-            const servidor = data.find(r => r.slug === 'SERVIDOR')?.id || null;
-            const sosfuEquipe = data.find(r => r.slug === 'SOSFU_EQUIPE')?.id || null;
-            setRoleIds({ SERVIDOR: servidor, SOSFU_EQUIPE: sosfuEquipe });
+    useEffect(() => {
+        if (userProfile) {
+            const slug = userProfile.dperfil?.slug || '';
+            if (slug.includes('SODPA')) setCurrentModule('SODPA');
+            else if (slug.includes('RESSARCIMENTO')) setCurrentModule('RESSARCIMENTO');
+            else if (slug.includes('SOSFU') || slug === 'ADMIN') setCurrentModule('SOSFU');
         }
-    };
+    }, [userProfile]);
 
-    // 2. Buscar Membros da Equipe Técnica (ESTRITAMENTE SOSFU e ADMIN)
     const fetchTeamMembers = async () => {
+        if (!currentModule) return;
         setLoading(true);
         try {
-            // A consulta agora usa !inner join para filtrar apenas os slugs desejados
-            const { data, error } = await supabase
-                .from('profiles')
-                .select(`
-                    *,
-                    dperfil!inner (id, slug, name)
-                `)
-                .in('dperfil.slug', ['SOSFU_GESTOR', 'SOSFU_EQUIPE', 'ADMIN']) 
-                .order('full_name');
-            
+            // Fetch from team_members
+            const { data: teamRows, error } = await supabase
+                .from('team_members')
+                .select('user_id, funcao')
+                .eq('module', currentModule);
+
             if (error) throw error;
-            
-            setTeamMembers(data || []);
+
+            if (!teamRows || teamRows.length === 0) {
+                setTeamMembers([]);
+                return;
+            }
+
+            const userIds = teamRows.map(r => r.user_id);
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select(`id, full_name, email, matricula, avatar_url, dperfil:perfil_id(slug)`)
+                .in('id', userIds);
+
+            const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+
+            const mapped: TeamMember[] = teamRows.map(r => {
+                const p = profileMap.get(r.user_id);
+                return {
+                    id: r.user_id,
+                    full_name: p?.full_name || 'Usuário Desconhecido',
+                    email: p?.email || '',
+                    matricula: p?.matricula || '',
+                    avatar_url: p?.avatar_url || null,
+                    funcao: r.funcao || 'Membro',
+                    role_slug: p?.dperfil?.slug || ''
+                };
+            });
+
+            setTeamMembers(mapped.sort((a, b) => a.full_name.localeCompare(b.full_name)));
         } catch (error) {
             console.error('Erro ao buscar equipe:', error);
         } finally {
@@ -70,11 +108,9 @@ export const UsersSettings: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchRoleIds();
         fetchTeamMembers();
-    }, []);
+    }, [currentModule]);
 
-    // 3. Buscar Usuários para Adicionar (Qualquer um que NÃO seja SOSFU ou ADMIN)
     const handleSearchUsers = async (query: string) => {
         setSearchQuery(query);
         setSelectedUser(null);
@@ -88,17 +124,15 @@ export const UsersSettings: React.FC = () => {
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select(`*, dperfil:perfil_id(slug, name)`)
+                .select(`id, full_name, email, matricula, avatar_url, dperfil:perfil_id(slug, name)`)
                 .or(`full_name.ilike.%${query}%,email.ilike.%${query}%,matricula.ilike.%${query}%`)
                 .limit(5);
 
             if (error) throw error;
             
-            // Filtra localmente: Remove quem já é SOSFU ou ADMIN da lista de resultados
-            const filtered = data?.filter(u => {
-                const slug = u.dperfil?.slug || '';
-                return !['SOSFU_GESTOR', 'SOSFU_EQUIPE', 'ADMIN'].includes(slug);
-            }) || [];
+            // Filter out already added members
+            const memberIds = new Set(teamMembers.map(m => m.id));
+            const filtered = (data || []).filter(u => !memberIds.has(u.id));
             
             setSearchResults(filtered);
         } catch (error) {
@@ -108,64 +142,56 @@ export const UsersSettings: React.FC = () => {
         }
     };
 
-    // 4. Adicionar à Equipe (Transforma o usuário em Analista SOSFU)
     const handleAddUserToTeam = async () => {
-        if (!selectedUser || !roleIds.SOSFU_EQUIPE) {
-            setModalError('Erro de configuração: Papel Analista SOSFU não encontrado.');
-            return;
-        }
+        if (!selectedUser || !currentModule || !selectedFuncao) return;
         
         setSaving(true);
         setModalError('');
 
         try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ perfil_id: roleIds.SOSFU_EQUIPE })
-                .eq('id', selectedUser.id);
+            // 1. Insert into team_members
+            const { data: { user } } = await supabase.auth.getUser();
+            const { error } = await supabase.from('team_members').upsert({
+                module: currentModule,
+                user_id: selectedUser.id,
+                added_by: user?.id,
+                funcao: selectedFuncao,
+            }, { onConflict: 'module,user_id' });
 
             if (error) throw error;
+
+            // 2. Optional: If SOSFU, maybe update profile role (Logic preserved if strict legacy compatibility needed, but mostly relying on team_members now)
+            // Ideally, we shouldn't touch profiles unless necessary for global permissions.
+            // Keeping it clean: managing team_members only.
 
             await fetchTeamMembers();
             closeModal();
         } catch (error: any) {
             console.error('Erro ao adicionar:', error);
-            setModalError(error.message || 'Erro ao salvar permissões.');
+            setModalError(error.message || 'Erro ao salvar membro.');
         } finally {
             setSaving(false);
         }
     };
 
-    // 5. Remover da Equipe (Rebaixa para SERVIDOR)
-    const handleRemoveUser = async (user: Profile) => {
-        if (!roleIds.SERVIDOR) {
-            console.error('Erro crítico: ID do papel SERVIDOR não encontrado. Contate o suporte.');
-            return;
-        }
+    const handleRemoveUser = async (userId: string) => {
+        if (!currentModule) return;
+        if (!confirm('Tem certeza que deseja remover este membro da equipe?')) return;
 
-        if (!confirm(`Tem certeza? ${user.full_name} será removido da Equipe Técnica SOSFU e voltará a ser um SERVIDOR comum.`)) return;
-
-        setProcessingId(user.id);
+        setProcessingId(userId);
         try {
             const { error } = await supabase
-                .from('profiles')
-                .update({ perfil_id: roleIds.SERVIDOR })
-                .eq('id', user.id);
+                .from('team_members')
+                .delete()
+                .eq('module', currentModule)
+                .eq('user_id', userId);
 
-            if (error) {
-                 if (error.code === '42501') {
-                     console.error('Permissão negada. Você precisa ser ADMIN ou SOSFU para remover membros.');
-                 } else {
-                     throw error;
-                 }
-                 return;
-            }
+            if (error) throw error;
 
-            // Remove da lista localmente
-            setTeamMembers(prev => prev.filter(p => p.id !== user.id));
+            setTeamMembers(prev => prev.filter(p => p.id !== userId));
         } catch (error: any) {
             console.error('Erro ao remover:', error);
-            console.error(`Erro ao remover usuário: ${error.message}`);
+            alert(`Erro ao remover: ${error.message}`);
         } finally {
             setProcessingId(null);
         }
@@ -176,36 +202,41 @@ export const UsersSettings: React.FC = () => {
         setSearchQuery('');
         setSearchResults([]);
         setSelectedUser(null);
+        setSelectedFuncao('');
         setModalError('');
     };
 
     const getInitials = (name: string) => (name || 'U').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+
+    if (!currentModule) return <div className="p-8 text-center text-gray-500">Módulo não identificado ou sem permissão de gestão de equipe.</div>;
+
+    const config = MODULE_CONFIGS[currentModule] || MODULE_CONFIGS['SOSFU'];
+    const themeColor = config.color;
 
     return (
         <div className="animate-in fade-in duration-300 relative font-sans">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
-                    <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                        Equipe Técnica SOSFU
+                    <h3 className={`text-xl font-bold text-${themeColor}-600 flex items-center gap-2`}>
+                        {config.label}
                     </h3>
-                    <p className="text-sm text-gray-500 mt-1">Gerencie exclusivamente os membros com acesso ao módulo SOSFU.</p>
+                    <p className="text-sm text-gray-500 mt-1">Gerencie os membros da equipe {currentModule}.</p>
                 </div>
                 <button 
                     onClick={() => setIsModalOpen(true)}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+                    className={`flex items-center gap-2 bg-${themeColor}-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-${themeColor}-700 transition-colors shadow-lg shadow-${themeColor}-200`}
                 >
                     <Plus size={18} />
-                    Adicionar Usuário
+                    Adicionar Membro
                 </button>
             </div>
 
             {/* Tabela Clean */}
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                 <div className="grid grid-cols-12 gap-4 px-6 py-4 bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                    <div className="col-span-5">Nome / Email</div>
-                    <div className="col-span-3">Função (Perfil)</div>
-                    <div className="col-span-2 text-center">Status</div>
+                    <div className="col-span-6">Nome / Email</div>
+                    <div className="col-span-4">Função (Equipe)</div>
                     <div className="col-span-2 text-right">Ações</div>
                 </div>
 
@@ -216,61 +247,49 @@ export const UsersSettings: React.FC = () => {
                         </div>
                     ) : teamMembers.length === 0 ? (
                         <div className="p-12 text-center text-gray-400 italic bg-gray-50/30">
-                            Nenhum membro técnico encontrado. Use o botão "Adicionar Usuário".
+                            Nenhum membro encontrado. Use o botão "Adicionar Membro".
                         </div>
                     ) : (
-                        teamMembers.map((user) => (
-                            <div key={user.id} className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-gray-50 transition-colors group">
+                        teamMembers.map((member) => (
+                            <div key={member.id} className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-gray-50 transition-colors group">
                                 {/* Nome */}
-                                <div className="col-span-5 flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0 border-2 border-white">
-                                        {user.avatar_url ? (
-                                            <img src={user.avatar_url} className="w-full h-full rounded-full object-cover" />
-                                        ) : getInitials(user.full_name)}
+                                <div className="col-span-6 flex items-center gap-4">
+                                    <div className={`w-10 h-10 rounded-full bg-${themeColor}-100 flex items-center justify-center text-${themeColor}-600 font-bold text-xs shadow-sm flex-shrink-0 border-2 border-white`}>
+                                        {member.avatar_url ? (
+                                            <img src={member.avatar_url} className="w-full h-full rounded-full object-cover" />
+                                        ) : getInitials(member.full_name)}
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="text-sm font-bold text-gray-800 uppercase truncate">{user.full_name}</p>
+                                        <p className="text-sm font-bold text-gray-800 uppercase truncate">{member.full_name}</p>
                                         <p className="text-xs text-gray-500 truncate flex items-center gap-1">
-                                            {user.email}
+                                            {member.email}
                                         </p>
                                     </div>
                                 </div>
 
                                 {/* Função */}
-                                <div className="col-span-3">
+                                <div className="col-span-4">
                                     <span className={`
                                         inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border
-                                        ${user.dperfil?.slug === 'ADMIN' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-blue-50 text-blue-700 border-blue-100'}
+                                        bg-${themeColor}-50 text-${themeColor}-700 border-${themeColor}-100
                                     `}>
-                                        <Shield size={12} />
-                                        {user.dperfil?.name || 'SOSFU'}
-                                    </span>
-                                </div>
-
-                                {/* Status */}
-                                <div className="col-span-2 text-center">
-                                    <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${
-                                        user.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                                    }`}>
-                                        {user.status === 'ACTIVE' ? 'ATIVO' : 'INATIVO'}
+                                        <Briefcase size={12} />
+                                        {member.funcao}
                                     </span>
                                 </div>
 
                                 {/* Ações */}
                                 <div className="col-span-2 flex justify-end gap-2">
                                     <button 
-                                        onClick={() => handleRemoveUser(user)}
-                                        disabled={processingId === user.id}
+                                        onClick={() => handleRemoveUser(member.id)}
+                                        disabled={processingId === member.id}
                                         className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors text-xs font-medium flex items-center gap-1 group-hover:opacity-100 opacity-60"
-                                        title="Remover da Equipe (Rebaixar para Servidor)"
+                                        title="Remover da Equipe"
                                     >
-                                        {processingId === user.id ? (
+                                        {processingId === member.id ? (
                                             <Loader2 size={16} className="animate-spin" />
                                         ) : (
-                                            <>
-                                                <Trash2 size={16} />
-                                                <span className="hidden md:inline">Remover</span>
-                                            </>
+                                            <Trash2 size={16} />
                                         )}
                                     </button>
                                 </div>
@@ -285,11 +304,11 @@ export const UsersSettings: React.FC = () => {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
                         
-                        {/* Header Azul */}
-                        <div className="bg-blue-600 px-6 py-4 flex items-center justify-between">
+                        {/* Header */}
+                        <div className={`bg-${themeColor}-600 px-6 py-4 flex items-center justify-between`}>
                             <div className="flex items-center gap-2 text-white">
-                                <Shield size={20} className="text-blue-100" />
-                                <h3 className="text-base font-bold">Adicionar à Equipe Técnica</h3>
+                                <Shield size={20} className={`text-${themeColor}-100`} />
+                                <h3 className="text-base font-bold">Adicionar Membro ({currentModule})</h3>
                             </div>
                             <button onClick={closeModal} className="text-white/70 hover:text-white p-1 hover:bg-white/10 rounded-full transition-colors">
                                 <X size={20} />
@@ -298,18 +317,9 @@ export const UsersSettings: React.FC = () => {
 
                         {/* Body */}
                         <div className="p-6 space-y-6">
-                            {/* Info */}
-                            <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-800 flex gap-2">
-                                <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="font-bold">Atenção!</p>
-                                    <p>O usuário selecionado terá seu perfil alterado para <strong>Analista SOSFU</strong> e terá acesso operacional a este módulo.</p>
-                                </div>
-                            </div>
-
                             {/* Busca */}
                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Buscar Usuário (Servidor/Suprido/etc)</label>
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Buscar Usuário</label>
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                     <input 
@@ -317,11 +327,11 @@ export const UsersSettings: React.FC = () => {
                                         value={searchQuery}
                                         onChange={(e) => handleSearchUsers(e.target.value)}
                                         placeholder="Nome, matrícula ou e-mail..." 
-                                        className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                        className={`w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-${themeColor}-500/20 focus:border-${themeColor}-500 transition-all`}
                                     />
                                     {isSearching && (
                                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                            <Loader2 size={16} className="animate-spin text-blue-500" />
+                                            <Loader2 size={16} className={`animate-spin text-${themeColor}-500`} />
                                         </div>
                                     )}
                                 </div>
@@ -336,17 +346,14 @@ export const UsersSettings: React.FC = () => {
                                                 <button 
                                                     key={user.id}
                                                     onClick={() => setSelectedUser(user)}
-                                                    className="w-full text-left p-3 flex items-center gap-3 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0"
+                                                    className={`w-full text-left p-3 flex items-center gap-3 hover:bg-${themeColor}-50 transition-colors border-b border-gray-50 last:border-0`}
                                                 >
                                                     <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 text-xs font-bold">
                                                         {getInitials(user.full_name)}
                                                     </div>
                                                     <div>
                                                         <p className="text-sm font-semibold text-gray-800">{user.full_name}</p>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-xs text-gray-500">{user.email}</span>
-                                                            <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 rounded text-gray-600 border border-gray-200 uppercase">{user.dperfil?.name || 'S/ Perfil'}</span>
-                                                        </div>
+                                                        <p className="text-xs text-gray-500">{user.email}</p>
                                                     </div>
                                                 </button>
                                             ))
@@ -357,21 +364,36 @@ export const UsersSettings: React.FC = () => {
 
                             {/* Selecionado */}
                             {selectedUser && (
-                                <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-100 rounded-lg animate-in fade-in slide-in-from-top-2">
+                                <div className={`flex items-center justify-between p-3 bg-${themeColor}-50 border border-${themeColor}-100 rounded-lg animate-in fade-in slide-in-from-top-2`}>
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-white text-blue-600 border border-blue-100 flex items-center justify-center font-bold text-sm overflow-hidden">
+                                        <div className={`w-10 h-10 rounded-full bg-white text-${themeColor}-600 border border-${themeColor}-100 flex items-center justify-center font-bold text-sm overflow-hidden`}>
                                             {selectedUser.avatar_url ? <img src={selectedUser.avatar_url} className="w-full h-full object-cover" /> : getInitials(selectedUser.full_name)}
                                         </div>
                                         <div>
-                                            <p className="text-sm font-bold text-blue-900 line-clamp-1">{selectedUser.full_name}</p>
-                                            <p className="text-xs text-blue-600">{selectedUser.email}</p>
+                                            <p className={`text-sm font-bold text-${themeColor}-900 line-clamp-1`}>{selectedUser.full_name}</p>
+                                            <p className={`text-xs text-${themeColor}-600`}>{selectedUser.email}</p>
                                         </div>
                                     </div>
-                                    <button onClick={() => { setSelectedUser(null); setSearchQuery(''); }} className="text-blue-400 hover:text-blue-600 p-1">
+                                    <button onClick={() => { setSelectedUser(null); setSearchQuery(''); }} className={`text-${themeColor}-400 hover:text-${themeColor}-600 p-1`}>
                                         <X size={16} />
                                     </button>
                                 </div>
                             )}
+
+                            {/* Função Selection */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Selecione a Função</label>
+                                <select 
+                                    value={selectedFuncao}
+                                    onChange={(e) => setSelectedFuncao(e.target.value)}
+                                    className={`w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-${themeColor}-500/20 focus:border-${themeColor}-500 transition-all`}
+                                >
+                                    <option value="">Selecione...</option>
+                                    {config.funcoes.map(f => (
+                                        <option key={f} value={f}>{f}</option>
+                                    ))}
+                                </select>
+                            </div>
 
                             {modalError && (
                                 <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm flex items-center gap-2 border border-red-100">
@@ -388,17 +410,17 @@ export const UsersSettings: React.FC = () => {
                             </button>
                             <button 
                                 onClick={handleAddUserToTeam}
-                                disabled={!selectedUser || saving}
+                                disabled={!selectedUser || !selectedFuncao || saving}
                                 className={`
-                                    px-6 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg shadow-sm 
-                                    hover:bg-blue-700 transition-all flex items-center gap-2
-                                    ${saving || !selectedUser ? 'opacity-70 cursor-not-allowed' : ''}
+                                    px-6 py-2 text-sm font-bold text-white bg-${themeColor}-600 rounded-lg shadow-sm 
+                                    hover:bg-${themeColor}-700 transition-all flex items-center gap-2
+                                    ${(saving || !selectedUser || !selectedFuncao) ? 'opacity-70 cursor-not-allowed' : ''}
                                 `}
                             >
                                 {saving ? <Loader2 className="animate-spin" size={16} /> : (
                                     <>
                                         <Check size={16} />
-                                        Confirmar Inclusão
+                                        Confirmar
                                     </>
                                 )}
                             </button>

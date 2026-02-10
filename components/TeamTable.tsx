@@ -27,20 +27,13 @@ const TEAM_MODULE = 'SOSFU';
 // ==================== COMPONENT ====================
 export const TeamTable: React.FC<{ isGestor?: boolean }> = ({ isGestor = false }) => {
     const [members, setMembers] = useState<SosfuTeamMember[]>([]);
-    const [showAddModal, setShowAddModal] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<any[]>([]);
-    const [searching, setSearching] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<any | null>(null);
-    const [selectedFuncao, setSelectedFuncao] = useState<string>('');
-    const [cargosFromDB, setCargosFromDB] = useState<string[]>([]);
-    const [removingId, setRemovingId] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [tableFilter, setTableFilter] = useState('');
     const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
     const [memberProcesses, setMemberProcesses] = useState<any[]>([]); // Generic array for both types
     const [loadingMemberData, setLoadingMemberData] = useState(false);
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Load team members from Supabase (two-step: team_members → profiles)
     useEffect(() => {
@@ -103,88 +96,9 @@ export const TeamTable: React.FC<{ isGestor?: boolean }> = ({ isGestor = false }
         })();
     }, []);
 
-    // Debounced search from Supabase profiles
-    useEffect(() => {
-        if (!searchQuery || searchQuery.length < 2) { setSearchResults([]); return; }
-        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
 
-        searchTimeoutRef.current = setTimeout(async () => {
-            setSearching(true);
-            try {
-                const term = `%${searchQuery}%`;
-                const { data } = await supabase.from('profiles')
-                    .select('id, full_name, email, matricula, avatar_url, cpf, cargo')
-                    .or(`full_name.ilike.${term},matricula.ilike.${term},email.ilike.${term},cpf.ilike.${term}`)
-                    .limit(10);
-                const memberIds = new Set(members.map(m => m.id));
-                setSearchResults((data || []).filter(u => !memberIds.has(u.id)));
-            } catch (err) { console.error('SOSFU search error:', err); }
-            finally { setSearching(false); }
-        }, 350);
 
-        return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
-    }, [searchQuery, members]);
 
-    // Fetch distinct cargos from profiles table
-    useEffect(() => {
-        if (!showAddModal) return;
-        (async () => {
-            try {
-                const { data } = await supabase.from('profiles')
-                    .select('cargo')
-                    .not('cargo', 'is', null)
-                    .not('cargo', 'eq', '')
-                    .order('cargo');
-                if (data) {
-                    const unique = [...new Set(data.map(d => d.cargo).filter(Boolean))] as string[];
-                    setCargosFromDB(unique.length > 0 ? unique : SOSFU_FUNCOES_FALLBACK);
-                }
-            } catch { setCargosFromDB(SOSFU_FUNCOES_FALLBACK); }
-        })();
-    }, [showAddModal]);
-
-    const handleAddMember = async () => {
-        if (!selectedUser) return;
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const { error } = await supabase.from('team_members').upsert({
-                module: TEAM_MODULE,
-                user_id: selectedUser.id,
-                added_by: user.id,
-                funcao: selectedFuncao,
-            }, { onConflict: 'module,user_id' });
-
-            if (error) {
-                console.error('Error saving SOSFU team member:', error);
-                alert(`Erro ao adicionar membro: ${error.message}`);
-                return;
-            }
-
-            const newMember: SosfuTeamMember = {
-                id: selectedUser.id, full_name: selectedUser.full_name,
-                email: selectedUser.email || '', matricula: selectedUser.matricula || '',
-                avatar_url: selectedUser.avatar_url, funcao: selectedFuncao,
-                solicitationCount: 0, accountabilityCount: 0
-            };
-            setMembers(prev => [...prev, newMember]);
-        } catch (err) { console.error('Error adding team member:', err); }
-        setShowAddModal(false); setSelectedUser(null); setSearchQuery(''); setSearchResults([]);
-        setSelectedFuncao('');
-    };
-
-    const handleRemoveMember = async (id: string) => {
-        try {
-            await supabase.from('team_members')
-                .delete()
-                .eq('module', TEAM_MODULE)
-                .eq('user_id', id);
-            setMembers(prev => prev.filter(m => m.id !== id));
-        } catch (err) { console.error('Error removing team member:', err); }
-        setRemovingId(null);
-        if (expandedMemberId === id) setExpandedMemberId(null);
-    };
 
     const getInitials = (name: string) => name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
 
@@ -253,12 +167,6 @@ export const TeamTable: React.FC<{ isGestor?: boolean }> = ({ isGestor = false }
                                 className="pl-8 pr-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-2 w-44 bg-white border-slate-200 focus:ring-blue-200 focus:border-blue-300"
                             />
                         </div>
-                    )}
-                    {isGestor && (
-                        <button onClick={() => setShowAddModal(true)}
-                            className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm bg-blue-500 hover:bg-blue-600 text-white">
-                            <UserPlus size={14} /> Adicionar Membro
-                        </button>
                     )}
                 </div>
             </div>
@@ -353,32 +261,13 @@ export const TeamTable: React.FC<{ isGestor?: boolean }> = ({ isGestor = false }
                                             {/* Col 3: Ações Updated */}
                                             <td className="text-right px-5 py-3.5">
                                                 <div className="flex items-center justify-end gap-2">
-                                                    {isGestor && removingId === member.id ? (
-                                                        <div className="flex items-center gap-1.5 animate-in fade-in">
-                                                            <button onClick={(e) => { e.stopPropagation(); handleRemoveMember(member.id); }}
-                                                                className="px-2.5 py-1 bg-red-500 text-white text-[10px] font-bold rounded-lg hover:bg-red-600">Confirma</button>
-                                                            <button onClick={(e) => { e.stopPropagation(); setRemovingId(null); }}
-                                                                className="px-2.5 py-1 text-[10px] font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200">Cancelar</button>
-                                                        </div>
-                                                    ) : (
-                                                        <>
-                                                            <button 
-                                                                onClick={(e) => { e.stopPropagation(); handleExpandMember(member.id); }}
-                                                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 text-slate-500 transition-all text-[10px] font-bold"
-                                                            >
-                                                                <Eye size={12} />
-                                                                Ver Carga
-                                                            </button>
-
-                                                            {isGestor && (
-                                                                <button onClick={(e) => { e.stopPropagation(); setRemovingId(member.id); }}
-                                                                    className="p-1.5 rounded-lg transition-all text-slate-300 hover:text-red-500 hover:bg-red-50"
-                                                                    title="Remover membro">
-                                                                    <Trash2 size={14} />
-                                                                </button>
-                                                            )}
-                                                        </>
-                                                    )}
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); handleExpandMember(member.id); }}
+                                                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 text-slate-500 transition-all text-[10px] font-bold"
+                                                    >
+                                                        <Eye size={12} />
+                                                        Ver Carga
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -480,89 +369,10 @@ export const TeamTable: React.FC<{ isGestor?: boolean }> = ({ isGestor = false }
                 <div className="rounded-2xl border-2 border-dashed border-slate-200 p-10 text-center">
                     <Users size={32} className="mx-auto mb-3 text-slate-300" />
                     <p className="font-medium text-slate-500">Nenhum membro na equipe ainda</p>
-                    <button onClick={() => setShowAddModal(true)}
-                        className="text-blue-600 text-sm font-bold mt-2 hover:underline">+ Adicionar primeiro membro</button>
                 </div>
             )}
 
-            {/* ADD MEMBER MODAL */}
-            {showAddModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
-                    onClick={(e) => e.target === e.currentTarget && setShowAddModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-black text-slate-800">Adicionar Membro</h3>
-                            <button onClick={() => { setShowAddModal(false); setSelectedUser(null); setSearchQuery(''); setSearchResults([]); }}
-                                className="p-1.5 rounded-lg transition-all text-slate-400 hover:text-slate-600 hover:bg-slate-100">
-                                <X size={18} />
-                            </button>
-                        </div>
-
-                        <div className="mb-4">
-                            <label className="text-[10px] font-bold uppercase tracking-widest mb-2 block text-slate-400">Buscar Servidor</label>
-                            <div className="relative">
-                                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input type="text" placeholder="Digite nome, matrícula, CPF ou email..."
-                                    value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setSelectedUser(null); }}
-                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300"
-                                    autoFocus />
-                            </div>
-
-                            {(searchResults.length > 0 || searching) && !selectedUser && (
-                                <div className="mt-1 bg-white border-2 border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                                    {searching ? (
-                                        <div className="p-4 text-center text-sm flex items-center justify-center gap-2 text-slate-400">
-                                            <Loader2 size={14} className="animate-spin" /> Buscando...
-                                        </div>
-                                    ) : (
-                                        searchResults.map(user => (
-                                            <button key={user.id}
-                                                onClick={() => { setSelectedUser(user); setSearchQuery(user.full_name); setSearchResults([]); if (user.cargo) setSelectedFuncao(user.cargo); }}
-                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors text-left border-b border-slate-50 last:border-0">
-                                                {user.avatar_url ? (
-                                                    <img src={user.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
-                                                ) : (
-                                                    <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">
-                                                        {getInitials(user.full_name || '')}
-                                                    </div>
-                                                )}
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-bold text-slate-800 truncate">{user.full_name}</p>
-                                                    <p className="text-[11px] text-slate-500">
-                                                        {user.matricula && <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold mr-1.5">Mat: {user.matricula}</span>}
-                                                        {user.cpf && <span className="text-slate-400">CPF: {user.cpf}</span>}
-                                                    </p>
-                                                    {user.email && <p className="text-[10px] text-slate-400 truncate">{user.email}</p>}
-                                                </div>
-                                            </button>
-                                        ))
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="mb-6">
-                            <label className="text-[10px] font-bold uppercase tracking-widest mb-2 block text-slate-400">Cargo / Função</label>
-                            <select value={selectedFuncao} onChange={e => setSelectedFuncao(e.target.value)}
-                                className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 appearance-none cursor-pointer">
-                                <option value="">Selecione o cargo...</option>
-                                {cargosFromDB.map(f => <option key={f} value={f}>{f}</option>)}
-                            </select>
-                        </div>
-
-                        <div className="flex gap-3">
-                            <button onClick={() => { setShowAddModal(false); setSelectedUser(null); setSearchQuery(''); }}
-                                className="flex-1 px-4 py-3 border-2 border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all text-sm">
-                                Cancelar
-                            </button>
-                            <button onClick={handleAddMember} disabled={!selectedUser || !selectedFuncao}
-                                className="flex-1 px-4 py-3 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed">
-                                Salvar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Modal removed */}
         </div>
     );
 };

@@ -106,7 +106,7 @@ export const SodpaCockpit: React.FC<SodpaCockpitProps> = ({ onNavigate, userProf
             case 'reports':
                 return <SodpaGeoMap darkMode={darkMode} />; // Updated to Map
             case 'settings':
-                return <SodpaSettings darkMode={darkMode} />;
+                return <SodpaSettings darkMode={darkMode} userProfile={userProfile} />;
             default:
                 return <SodpaDashboard onNavigate={onNavigate} darkMode={darkMode} userProfile={userProfile} />;
         }

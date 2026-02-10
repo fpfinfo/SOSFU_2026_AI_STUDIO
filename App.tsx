@@ -327,7 +327,7 @@ const App: React.FC = () => {
       case 'archive':
         return <ArchiveView onNavigate={handleNavigation} />;
       case 'settings':
-        return <SettingsView />;
+        return <SettingsView userProfile={userProfile} />;
       case 'profile':
         return <ProfileView />;
       case 'reports':

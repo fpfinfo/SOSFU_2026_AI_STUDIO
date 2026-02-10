@@ -7,17 +7,18 @@ import {
     Bell,
     Clock
 } from 'lucide-react';
-import { SodpaUsersSettings } from './settings/SodpaUsersSettings';
+import { UsersSettings } from '../settings/UsersSettings';
 import { SodpaProfileSettings } from './settings/SodpaProfileSettings';
 import { SodpaGeneralSettings } from './settings/SodpaGeneralSettings';
 
 interface SodpaSettingsProps {
     darkMode?: boolean;
+    userProfile?: any;
 }
 
 type SettingsTab = 'general' | 'users' | 'roles' | 'prazos' | 'notifications';
 
-export const SodpaSettings: React.FC<SodpaSettingsProps> = ({ darkMode = false }) => {
+export const SodpaSettings: React.FC<SodpaSettingsProps> = ({ darkMode = false, userProfile }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('general');
 
     const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
@@ -91,7 +92,7 @@ export const SodpaSettings: React.FC<SodpaSettingsProps> = ({ darkMode = false }
                         {/* TAB: USUÁRIOS */}
                         {activeTab === 'users' && (
                             <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                                <SodpaUsersSettings />
+                                <UsersSettings userProfile={userProfile} />
                             </div>
                         )}
 

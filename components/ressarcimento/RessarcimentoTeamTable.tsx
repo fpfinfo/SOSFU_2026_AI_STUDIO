@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
-    Users, Search, Loader2, UserPlus, Trash2,
-    ChevronRight, ChevronLeft, Eye,
+    Users, Search, Loader2,
+    Eye,
     BarChart, Receipt, AlertCircle, ShieldCheck
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -26,19 +26,13 @@ const TEAM_MODULE = 'RESSARCIMENTO'; // New module identifier
 // ==================== COMPONENT ====================
 export const RessarcimentoTeamTable: React.FC<{ isGestor?: boolean }> = ({ isGestor = false }) => {
     const [members, setMembers] = useState<RessarcimentoTeamMember[]>([]);
-    const [showAddModal, setShowAddModal] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<any[]>([]);
-    const [searching, setSearching] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<any | null>(null);
-    const [selectedFuncao, setSelectedFuncao] = useState<string>('');
-    const [removingId, setRemovingId] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [tableFilter, setTableFilter] = useState('');
     const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
     const [memberProcesses, setMemberProcesses] = useState<any[]>([]); 
     const [loadingMemberData, setLoadingMemberData] = useState(false);
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Load team members
     useEffect(() => {
@@ -100,61 +94,7 @@ export const RessarcimentoTeamTable: React.FC<{ isGestor?: boolean }> = ({ isGes
         })();
     }, []);
 
-    // Search logic
-    useEffect(() => {
-        if (!searchQuery || searchQuery.length < 2) { setSearchResults([]); return; }
-        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
 
-        searchTimeoutRef.current = setTimeout(async () => {
-            setSearching(true);
-            try {
-                const term = `%${searchQuery}%`;
-                const { data } = await supabase.from('profiles')
-                    .select('id, full_name, email, matricula, avatar_url, cpf, cargo')
-                    .or(`full_name.ilike.${term},matricula.ilike.${term},email.ilike.${term}`)
-                    .limit(10);
-                const memberIds = new Set(members.map(m => m.id));
-                setSearchResults((data || []).filter(u => !memberIds.has(u.id)));
-            } catch (err) { console.error('Search error:', err); }
-            finally { setSearching(false); }
-        }, 350);
-
-        return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
-    }, [searchQuery, members]);
-
-    const handleAddMember = async () => {
-        if (!selectedUser) return;
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const { error } = await supabase.from('team_members').upsert({
-                module: TEAM_MODULE,
-                user_id: selectedUser.id,
-                added_by: user.id,
-                funcao: selectedFuncao,
-            }, { onConflict: 'module,user_id' });
-
-            if (error) { alert(`Erro: ${error.message}`); return; }
-
-            const newMember: RessarcimentoTeamMember = {
-                id: selectedUser.id, full_name: selectedUser.full_name,
-                email: selectedUser.email || '', matricula: selectedUser.matricula || '',
-                avatar_url: selectedUser.avatar_url, funcao: selectedFuncao,
-                solicitationCount: 0, paymentCount: 0
-            };
-            setMembers(prev => [...prev, newMember]);
-        } catch (err) { console.error(err); }
-        setShowAddModal(false); setSelectedUser(null); setSearchQuery(''); setSearchResults([]); setSelectedFuncao('');
-    };
-
-    const handleRemoveMember = async (id: string) => {
-        try {
-            await supabase.from('team_members').delete().eq('module', TEAM_MODULE).eq('user_id', id);
-            setMembers(prev => prev.filter(m => m.id !== id));
-        } catch (err) { console.error(err); }
-        setRemovingId(null);
-    };
 
     const getInitials = (name: string) => name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
 
@@ -205,11 +145,6 @@ export const RessarcimentoTeamTable: React.FC<{ isGestor?: boolean }> = ({ isGes
                             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                             <input value={tableFilter} onChange={e => { setTableFilter(e.target.value); setCurrentPage(1); }} type="text" placeholder="Filtrar..." className="pl-8 pr-3 py-2 border rounded-lg text-xs w-44 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                         </div>
-                    )}
-                    {isGestor && (
-                        <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm transition-all">
-                            <UserPlus size={14} /> Adicionar Membro
-                        </button>
                     )}
                 </div>
             </div>
@@ -280,23 +215,9 @@ export const RessarcimentoTeamTable: React.FC<{ isGestor?: boolean }> = ({ isGes
                                             </td>
                                             <td className="text-right px-5 py-3.5">
                                                 <div className="flex items-center justify-end gap-2">
-                                                    {isGestor && removingId === member.id ? (
-                                                        <div className="flex items-center gap-1.5 animate-in fade-in">
-                                                            <button onClick={(e) => { e.stopPropagation(); handleRemoveMember(member.id); }} className="px-2.5 py-1 bg-red-500 text-white text-[10px] font-bold rounded-lg hover:bg-red-600">Confirma</button>
-                                                            <button onClick={(e) => { e.stopPropagation(); setRemovingId(null); }} className="px-2.5 py-1 text-[10px] font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200">Cancelar</button>
-                                                        </div>
-                                                    ) : (
-                                                        <>
-                                                            <button onClick={(e) => { e.stopPropagation(); handleExpandMember(member.id); }} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 transition-all text-[10px] font-bold">
-                                                                <Eye size={12} /> Ver Carga
-                                                            </button>
-                                                            {isGestor && (
-                                                                <button onClick={(e) => { e.stopPropagation(); setRemovingId(member.id); }} className="p-1.5 rounded-lg transition-all text-slate-300 hover:text-red-500 hover:bg-red-50" title="Remover membro">
-                                                                    <Trash2 size={14} />
-                                                                </button>
-                                                            )}
-                                                        </>
-                                                    )}
+                                                    <button onClick={(e) => { e.stopPropagation(); handleExpandMember(member.id); }} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 transition-all text-[10px] font-bold">
+                                                        <Eye size={12} /> Ver Carga
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -358,40 +279,11 @@ export const RessarcimentoTeamTable: React.FC<{ isGestor?: boolean }> = ({ isGes
                  <div className="rounded-2xl border-2 border-dashed border-slate-200 p-10 text-center">
                     <AlertCircle size={32} className="mx-auto mb-3 text-slate-300" />
                     <p className="font-medium text-slate-500">Equipe de Ressarcimento não configurada.</p>
-                    <button onClick={() => setShowAddModal(true)} className="text-emerald-600 text-sm font-bold mt-2 hover:underline">+ Iniciar equipe</button>
+
                 </div>
             )}
             
-            {showAddModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4" onClick={(e) => e.target === e.currentTarget && setShowAddModal(false)}>
-                    {/* Modal Content - Reusing structured modal from previous example */}
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">
-                        <h3 className="text-lg font-black text-slate-800 mb-4">Adicionar ao Ressarcimento</h3>
-                        <div className="mb-4">
-                            <label className="text-[10px] font-bold uppercase tracking-widest mb-2 block text-slate-400">Buscar Servidor</label>
-                            <input autoFocus type="text" placeholder="Nome..." value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setSelectedUser(null); }} className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200" />
-                        </div>
-                        {(searchResults.length > 0 || searching) && !selectedUser && (
-                            <div className="mb-4 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                                {searchResults.map(user => (
-                                    <button key={user.id} onClick={() => { setSelectedUser(user); setSearchQuery(user.full_name); setSearchResults([]); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm">{user.full_name}</button>
-                                ))}
-                            </div>
-                        )}
-                        <div className="mb-6">
-                            <label className="text-[10px] font-bold uppercase tracking-widest mb-2 block text-slate-400">Função</label>
-                            <select value={selectedFuncao} onChange={e => setSelectedFuncao(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200">
-                                <option value="">Selecione...</option>
-                                {RESSARCIMENTO_FUNCOES.map(f => <option key={f} value={f}>{f}</option>)}
-                            </select>
-                        </div>
-                        <div className="flex gap-3">
-                            <button onClick={() => setShowAddModal(false)} className="flex-1 px-4 py-2 border rounded-xl text-sm font-bold">Cancelar</button>
-                            <button onClick={handleAddMember} disabled={!selectedUser} className="flex-1 px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-bold">Salvar</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Modal removed */}
         </div>
     );
 };

@@ -92,7 +92,7 @@ export const RessarcimentoCockpit: React.FC<RessarcimentoCockpitProps> = ({ onNa
             case 'reports':
                 return <RessarcimentoReports />;
             case 'settings':
-                return <RessarcimentoSettings darkMode={darkMode} />;
+                return <RessarcimentoSettings darkMode={darkMode} userProfile={userProfile} />;
             default:
                 return <RessarcimentoDashboard onNavigate={onNavigate} darkMode={darkMode} userProfile={userProfile} />;
         }
