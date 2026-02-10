@@ -134,16 +134,21 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
   const [gestorLocationTitle, setGestorLocationTitle] = useState<string | null>(null);
   
   const allTabs = [
-    { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SEFIN_GESTOR', 'SEFIN_EQUIPE', 'PRESIDENCIA_GESTOR', 'PRESIDENCIA_EQUIPE', 'SGP_GESTOR', 'SGP_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
-    { id: 'suprido_dashboard', label: 'Portal do Usuário', icon: Briefcase, roles: ['USER', 'SERVIDOR'] }, 
-    { id: 'gestor_dashboard', label: 'Gabinete do Gestor', icon: Gavel, roles: ['GESTOR', 'ADMIN'] },
-    { id: 'sefin_dashboard', label: 'Gabinete SEFIN', icon: Scale, roles: ['SEFIN', 'ADMIN'] },
-    { id: 'ajsefin_dashboard', label: 'Gabinete AJSEFIN', icon: Scale, roles: ['AJSEFIN', 'ADMIN'] },
+    { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE'] },
     { id: 'solicitations', label: 'Solicitações SF', icon: FileText, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
     { id: 'accountability', label: 'Prest. Contas', icon: CheckSquare, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
     { id: 'archive', label: 'Arquivo', icon: Archive, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
     { id: 'reports', label: 'Relatórios', icon: PieChart, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'PRESIDENCIA_GESTOR', 'PRESIDENCIA_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
     { id: 'settings', label: 'Configurações', icon: Settings, roles: ['ADMIN', 'SOSFU_GESTOR', 'SODPA_GESTOR', 'RESSARCIMENTO_GESTOR', 'SEFIN_GESTOR', 'AJSEFIN_GESTOR'] },
+  ];
+
+  const modularDashboards = [
+    { id: 'suprido_dashboard', label: 'Portal do Usuário', icon: Briefcase, roles: ['USER', 'SERVIDOR', 'ADMIN'], color: 'indigo' },
+    { id: 'gestor_dashboard', label: 'Gabinete do Gestor', icon: Gavel, roles: ['GESTOR', 'ADMIN'], color: 'amber' },
+    { id: 'sefin_dashboard', label: 'Gabinete SEFIN', icon: Scale, roles: ['SEFIN', 'ADMIN'], color: 'indigo' },
+    { id: 'ajsefin_dashboard', label: 'Gabinete AJSEFIN', icon: Scale, roles: ['AJSEFIN', 'ADMIN'], color: 'teal' },
+    { id: 'sodpa_dashboard', label: 'Gabinete SODPA', icon: PieChart, roles: ['SODPA', 'ADMIN'], color: 'sky' },
+    { id: 'ressarcimento_dashboard', label: 'Gabinete Ressarcimento', icon: Shield, roles: ['RESSARCIMENTO', 'ADMIN'], color: 'emerald' },
   ];
 
   const handleRoleSwitch = (slug: string) => {
@@ -261,16 +266,83 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
     <>
     <header className="bg-white border-b border-gray-200 h-16 px-4 md:px-6 flex items-center justify-between sticky top-0 z-50" role="banner">
       <div className="flex items-center gap-6">
-        <Tooltip content="Voltar ao painel principal" position="bottom" delay={400}>
-        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => {
-          if (isIndependentModule && activeTab) onTabChange?.(activeTab);
-          else onTabChange?.(availableTabs[0]?.id || 'profile');
-        }}>
-            <img src="/assets/brasao-tjpa.png" alt="Brasão TJPA" className="h-9 md:h-10 w-auto opacity-90 group-hover:scale-105 transition-transform"/>
-            <div className="hidden lg:block">
-                <h1 className={`${titleColor} font-bold text-base leading-tight`}>{headerTitle}</h1>
-                <p className={`${subtitleColor} text-[9px] font-bold tracking-wider uppercase`}>{headerSubtitle}</p>
-            </div>
+        <Tooltip content="Mudar contexto de dashboard" position="bottom" delay={400}>
+        <div className="relative group/switcher">
+            <button 
+                className="flex items-center gap-2 group cursor-pointer" 
+                onClick={() => {
+                   if (isIndependentModule && activeTab) onTabChange?.(activeTab);
+                   else onTabChange?.(availableTabs[0]?.id || 'profile');
+                }}
+            >
+                <img src="/assets/brasao-tjpa.png" alt="Brasão TJPA" className="h-9 md:h-10 w-auto opacity-90 group-hover:scale-105 transition-transform"/>
+                <div className="hidden lg:block text-left">
+                    <div className="flex items-center gap-1.5">
+                        <h1 className={`${titleColor} font-black text-[15px] leading-tight tracking-tight`}>{headerTitle}</h1>
+                        {(userRole === 'ADMIN' || availableRoles.length > 1) && (
+                            <ChevronDown size={14} className="text-gray-300 group-hover:text-gray-400 group-hover:translate-y-0.5 transition-all" />
+                        )}
+                    </div>
+                    <p className={`${subtitleColor} text-[9px] font-black tracking-[0.1em] uppercase opacity-80`}>{headerSubtitle}</p>
+                </div>
+            </button>
+
+            {/* Premium Module Switcher Dropdown */}
+            {(userRole === 'ADMIN' || availableRoles.length > 1) && (
+                <div className="absolute top-full left-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 opacity-0 group-hover/switcher:opacity-100 pointer-events-none group-hover/switcher:pointer-events-auto transition-all transform scale-95 group-hover/switcher:scale-100 origin-top-left z-[70] p-3 overflow-hidden">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-3 py-2 border-b border-gray-50 mb-2">Alternar Contexto Institucional</p>
+                    <div className="grid grid-cols-1 gap-1">
+                        {/* Main SOSFU dashboard (Always available for admin/sosfu) */}
+                        {(userRole === 'ADMIN' || userRole.startsWith('SOSFU')) && (
+                            <button 
+                                onClick={() => onTabChange?.('dashboard')}
+                                className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all text-left ${activeTab === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50 text-gray-600 hover:text-gray-900'}`}
+                            >
+                                <div className={`p-2 rounded-lg ${activeTab === 'dashboard' ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                                    <LayoutDashboard size={18} />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold leading-tight">Painel de Controle SOSFU</p>
+                                    <p className="text-[10px] opacity-60">Visão operacional da gerência</p>
+                                </div>
+                            </button>
+                        )}
+
+                        {/* Modular Dashboards */}
+                        {modularDashboards.map(mod => {
+                            if (userRole !== 'ADMIN' && !mod.roles.includes(userRole)) return null;
+                            const ModIcon = mod.icon;
+                            const isCurrent = activeTab === mod.id;
+                            
+                            const colorSchemes: Record<string, { bg: string, text: string, icon: string }> = {
+                                indigo: { bg: 'bg-indigo-50', text: 'text-indigo-700', icon: 'bg-indigo-100' },
+                                amber: { bg: 'bg-amber-50', text: 'text-amber-700', icon: 'bg-amber-100' },
+                                teal: { bg: 'bg-teal-50', text: 'text-teal-700', icon: 'bg-teal-100' },
+                                sky: { bg: 'bg-sky-50', text: 'text-sky-700', icon: 'bg-sky-100' },
+                                emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: 'bg-emerald-100' }
+                            };
+                            
+                            const colors = colorSchemes[mod.color as keyof typeof colorSchemes] || colorSchemes.indigo;
+
+                            return (
+                                <button 
+                                    key={mod.id}
+                                    onClick={() => onTabChange?.(mod.id)}
+                                    className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all text-left ${isCurrent ? `${colors.bg} ${colors.text}` : 'hover:bg-gray-50 text-gray-600 hover:text-gray-900'}`}
+                                >
+                                    <div className={`p-2 rounded-lg ${isCurrent ? colors.icon : 'bg-gray-100'}`}>
+                                        <ModIcon size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold leading-tight">{mod.label}</p>
+                                        <p className="text-[10px] opacity-60">Acesso ao módulo especializado</p>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
         </Tooltip>
         
