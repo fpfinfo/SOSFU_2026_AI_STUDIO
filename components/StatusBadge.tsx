@@ -1,9 +1,5 @@
 import React from 'react';
-<<<<<<< HEAD
 import { Clock, CheckCircle2, AlertCircle, FileText, Ban, Scale, UserCheck, Wallet, Send, PenTool, Archive, Plane, ShieldCheck, CreditCard } from 'lucide-react';
-=======
-import { Clock, CheckCircle2, AlertCircle, FileText, Ban, Scale, UserCheck, Wallet, Send, PenTool, Archive } from 'lucide-react';
->>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
 import { Tooltip } from './ui/Tooltip';
 
 interface StatusBadgeProps {
@@ -96,67 +92,9 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
       tooltip: 'Processo concluído e arquivado. Disponível apenas para consulta.'
     },
 
-<<<<<<< HEAD
-    // ── SODPA (Diárias e Passagens) ──
-    'WAITING_SODPA_ANALYSIS': {
-      label: 'Em Análise (SODPA)',
-      color: 'bg-sky-50 text-sky-700 border-sky-200',
-      icon: Plane,
-      tooltip: 'O SODPA está analisando a solicitação de diárias e passagens.'
-    },
-    'WAITING_SODPA_EXECUTION': {
-      label: 'Em Execução (SODPA)',
-      color: 'bg-sky-100 text-sky-800 border-sky-300',
-      icon: FileText,
-      tooltip: 'O SODPA está gerando os documentos de concessão de diárias.'
-    },
-    'WAITING_SODPA_APPROVAL': {
-      label: 'Aguardando Aprovação (SODPA)',
-      color: 'bg-sky-50 text-sky-700 border-sky-200',
-      icon: Scale,
-      tooltip: 'Documentos aguardando aprovação do ordenador de despesa.'
-    },
-    'WAITING_SODPA_PAYMENT': {
-      label: 'Processando Pagamento (SODPA)',
-      color: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-      icon: CreditCard,
-      tooltip: 'O pagamento das diárias está sendo processado.'
-    },
-
-    // ── RESSARCIMENTO ──
-    'WAITING_RESSARCIMENTO_ANALYSIS': {
-      label: 'Em Análise (Ressarcimento)',
-      color: 'bg-purple-50 text-purple-700 border-purple-200',
-      icon: ShieldCheck,
-      tooltip: 'A equipe de Ressarcimento está analisando a documentação e comprovantes.'
-    },
-    'WAITING_RESSARCIMENTO_EXECUTION': {
-      label: 'Em Execução (Ressarcimento)',
-      color: 'bg-purple-100 text-purple-800 border-purple-300',
-      icon: FileText,
-      tooltip: 'O processo de ressarcimento está em fase de execução financeira.'
-    },
-    'WAITING_RESSARCIMENTO_APPROVAL': {
-      label: 'Aguardando Aprovação (Ressarcimento)',
-      color: 'bg-purple-50 text-purple-700 border-purple-200',
-      icon: Scale,
-      tooltip: 'Documentos de ressarcimento aguardando aprovação do ordenador.'
-    },
-    'WAITING_RESSARCIMENTO_PAYMENT': {
-      label: 'Processando Pagamento (Ressarcimento)',
-      color: 'bg-violet-50 text-violet-700 border-violet-200',
-      icon: CreditCard,
-      tooltip: 'O pagamento do ressarcimento está sendo processado.'
-    },
-
     // EXCEÇÕES
     'REJECTED': {
       label: 'Indeferido / Cancelado',
-=======
-    // EXCEÇÕES
-    'REJECTED': { 
-      label: 'Indeferido / Cancelado', 
->>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
       color: 'bg-red-50 text-red-700 border-red-200',
       icon: Ban,
       tooltip: 'Solicitação indeferida. Verifique o parecer técnico para mais detalhes.'

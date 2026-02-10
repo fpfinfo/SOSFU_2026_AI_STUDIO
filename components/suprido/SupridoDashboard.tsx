@@ -1,9 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-<<<<<<< HEAD
 import { Siren, Gavel, FileText, Clock, Search, ChevronRight, Loader2, Wallet, AlertTriangle, ArrowRight, Play, CheckCircle2, RotateCcw, Plus, UserCheck, Shield, Banknote, Receipt, TrendingUp, Plane, ShieldCheck } from 'lucide-react';
-=======
-import { Siren, Gavel, FileText, Clock, Search, ChevronRight, Loader2, Wallet, AlertTriangle, ArrowRight, Play, CheckCircle2, RotateCcw, Plus, UserCheck, Shield, Banknote, Receipt, TrendingUp } from 'lucide-react';
->>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
 import { supabase } from '../../lib/supabase';
 import { StatusBadge } from '../StatusBadge';
 import { Tooltip } from '../ui/Tooltip';
@@ -216,18 +212,7 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12 font-sans">
             
-<<<<<<< HEAD
 
-=======
-            <div className="bg-[#1e293b] rounded-2xl p-8 mb-8 shadow-sm relative overflow-hidden text-white border border-slate-700">
-                <div className="relative z-10">
-                    <h1 className="text-3xl font-bold mb-2 tracking-tight">Portal do Suprido</h1>
-                    <p className="text-slate-300 max-w-2xl text-sm leading-relaxed">
-                        Gerencie suas solicitações de suprimento de fundos, acompanhe aprovações e realize prestações de contas de forma digital.
-                    </p>
-                </div>
-            </div>
->>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
 
             {/* ═══ Banner: Pagamento Recebido — Confirmar Recebimento ═══ */}
             {stats.awaitingConfirmation > 0 && (
@@ -303,7 +288,6 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                         <span className="text-xs font-bold text-blue-600 flex items-center gap-1 group-hover:gap-2 transition-all">Iniciar Solicitação <ArrowRight size={14} /></span>
                     </div>
                 </div>
-<<<<<<< HEAD
                 <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all group cursor-pointer relative overflow-hidden" onClick={() => onNavigate('solicitation_diarias')}>
                     <div className="relative z-10">
                         <div className="flex justify-between items-start">
@@ -326,8 +310,6 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                         <span className="text-xs font-bold text-purple-600 flex items-center gap-1 group-hover:gap-2 transition-all">Iniciar Solicitação <ArrowRight size={14} /></span>
                     </div>
                 </div>
-=======
->>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
             </div>
 
             {/* Painel de Processos Unificado */}
