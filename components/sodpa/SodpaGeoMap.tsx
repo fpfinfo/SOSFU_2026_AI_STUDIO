@@ -565,7 +565,7 @@ export const SodpaGeoMap: React.FC<SodpaGeoMapProps> = ({ darkMode = false }) =>
     }
 
     return (
-        <div className={`flex flex-col h-[calc(100vh-140px)] animate-in fade-in duration-500 gap-4 p-4 ${darkMode ? 'bg-slate-900' : ''}`}>
+        <div className={`flex flex-col h-full animate-in fade-in duration-500 gap-4 ${darkMode ? 'bg-slate-900 text-white' : ''}`}>
             {/* Header */}
             <div className={`flex flex-col md:flex-row justify-between items-center gap-4 p-4 rounded-2xl border shadow-sm shrink-0 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
                 <div className="flex items-center gap-3">

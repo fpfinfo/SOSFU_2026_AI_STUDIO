@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
     Receipt, Plus, Trash2, Send, AlertTriangle, 
-    FileCheck, CheckCircle2, Wallet, Loader2, ScanLine, X, Sparkles, FileText, CloudLightning, PenTool, Ticket, ScrollText, AlertCircle, Plane
+    FileCheck, CheckCircle2, Wallet, Loader2, ScanLine, X, Sparkles, FileText, CloudLightning, PenTool, Ticket, ScrollText, AlertCircle, Plane, UserCheck
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { generateWithParts } from '../../lib/gemini';
@@ -33,6 +33,16 @@ interface ExpenseItem {
     doc_type: DocumentType;
     receipt_url?: string;
     ai_metadata?: any;
+    prestador_pf_dados?: {
+        cpf_cnpj: string;
+        rg?: string;
+        pis_nit?: string;
+        endereco?: string;
+        tipo_servico?: string;
+    };
+    inss_retido?: number;
+    iss_retido?: number;
+    valor_liquido?: number;
 }
 
 // --- COMPONENTES AUXILIARES PARA SUBSTITUIR ALERT/CONFIRM ---
@@ -80,6 +90,7 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
     const [items, setItems] = useState<ExpenseItem[]>([]);
     const [grantedValue, setGrantedValue] = useState(0);
     const [isSodpa, setIsSodpa] = useState(false);
+    const [itemFile, setItemFile] = useState<File | null>(null);
     
     // UI States (Substituem alerts nativos)
     const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
@@ -95,7 +106,17 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
         doc_number: '',
         element_code: '3.3.90.30.01',
         value: 0,
-        doc_type: 'NFE'
+        doc_type: 'NFE',
+        prestador_pf_dados: {
+            cpf_cnpj: '',
+            rg: '',
+            pis_nit: '',
+            endereco: '',
+            tipo_servico: ''
+        },
+        inss_retido: 0,
+        iss_retido: 0,
+        valor_liquido: 0
     });
 
     useEffect(() => {
@@ -162,6 +183,7 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
     // Smart Capture handler
     const handleSmartCapture = async (file: File) => {
         setIsAnalyzing(true);
+        setItemFile(file);
         try {
             const base64Data = await convertFileToBase64(file);
             const base64Content = base64Data.split(',')[1]; 
@@ -268,8 +290,31 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
             showToast('error', "Preencha Data, Valor e Fornecedor.");
             return;
         }
+
+        if (newItem.element_code.includes('3.3.90.36') && !itemFile) {
+            showToast('error', "Anexe a Nota Fiscal de Serviço (NFS-e) obrigatória para Prestador PF.");
+            return;
+        }
         
+        setSubmitting(true);
         try {
+            let receiptUrl = newItem.receipt_url;
+
+            if (itemFile) {
+                const fileName = `item_${accountabilityId}_${Date.now()}.${itemFile.name.split('.').pop()}`;
+                const { error: uploadError } = await supabase.storage
+                    .from('process-documents')
+                    .upload(`${processId}/${fileName}`, itemFile);
+                
+                if (uploadError) throw uploadError;
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('process-documents')
+                    .getPublicUrl(`${processId}/${fileName}`);
+                
+                receiptUrl = publicUrl;
+            }
+
             const { data, error } = await supabase.from('accountability_items').insert({
                 accountability_id: accountabilityId,
                 item_date: newItem.item_date,
@@ -278,7 +323,12 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                 doc_number: newItem.doc_number,
                 element_code: newItem.element_code,
                 value: newItem.value,
-                doc_type: newItem.doc_type 
+                doc_type: newItem.doc_type,
+                receipt_url: receiptUrl,
+                prestador_pf_dados: newItem.element_code.includes('3.3.90.36') ? newItem.prestador_pf_dados : null,
+                inss_retido: newItem.element_code.includes('3.3.90.36') ? newItem.inss_retido : 0,
+                iss_retido: newItem.element_code.includes('3.3.90.36') ? newItem.iss_retido : 0,
+                valor_liquido: newItem.element_code.includes('3.3.90.36') ? newItem.valor_liquido : newItem.value
             }).select().single();
 
             if (error) throw error;
@@ -289,10 +339,13 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                     item_date: '', description: '', supplier: '', doc_number: '', 
                     element_code: '3.3.90.30.01', value: 0, doc_type: 'NFE' 
                 });
+                setItemFile(null);
                 showToast('success', 'Comprovante adicionado!');
             }
         } catch (err: any) {
             showToast('error', "Erro ao salvar: " + err.message);
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -316,9 +369,109 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
         });
     };
 
+    const [showGdrModal, setShowGdrModal] = useState(false);
+    const [gdrData, setGdrData] = useState({
+        numero: '',
+        valor: 0,
+        data_pagamento: new Date().toISOString().split('T')[0],
+        file: null as File | null
+    });
+
+    const handleGdrUpload = async () => {
+        if (!gdrData.numero || !gdrData.file) {
+            showToast('error', "Informe o número da GDR e anexe o comprovante.");
+            return;
+        }
+        setSubmitting(true);
+        try {
+            // Upload file
+            const fileName = `gdr_${accountabilityId}_${Date.now()}.pdf`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('process-documents')
+                .upload(`${processId}/${fileName}`, gdrData.file);
+            
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('process-documents')
+                .getPublicUrl(`${processId}/${fileName}`);
+
+            const total = items.reduce((acc, i) => acc + i.value, 0);
+            const totalInss = items.reduce((acc, i) => acc + (i.inss_retido || 0), 0);
+            const totalInssPatronal = items.reduce((acc, i) => acc + (i.element_code.includes('3.3.90.36') ? i.value * 0.20 : 0), 0);
+            const totalIss = items.reduce((acc, i) => acc + (i.iss_retido || 0), 0);
+
+            const { error } = await supabase.from('prestacao_contas').update({ 
+                status: 'WAITING_MANAGER', 
+                valor_gasto: total,
+                valor_devolvido: grantedValue - total,
+                total_inss_retido: totalInss,
+                total_inss_patronal: totalInssPatronal,
+                total_iss_retido: totalIss,
+                gdr_saldo_numero: gdrData.numero,
+                gdr_saldo_valor: grantedValue - total,
+                gdr_saldo_data_pagamento: gdrData.data_pagamento,
+                gdr_saldo_arquivo_url: publicUrl,
+                updated_at: new Date().toISOString()
+            }).eq('id', accountabilityId);
+
+            if (error) throw error;
+            
+            // Sync with gestao_devolucoes
+            await supabase.from('gestao_devolucoes').insert({
+                solicitacao_id: processId,
+                prestacao_contas_id: accountabilityId,
+                data_referencia: new Date().toISOString(),
+                suprido_nome: pcData?.solicitation?.user_id, // Profile will be handled by trigger normally, but let's be explicit
+                numero_gdr: gdrData.numero,
+                valor_concedido: grantedValue,
+                valor_gasto: total,
+                valor_devolvucao: grantedValue - total,
+                status_gdr: 'PENDENTE'
+            });
+
+            // Also sync INSS items to gestao_inss
+            const inssItems = items.filter(i => i.element_code.includes('3.3.90.36'));
+            if (inssItems.length > 0) {
+                const inssEntries = inssItems.map(item => ({
+                    solicitacao_id: processId,
+                    prestacao_contas_id: accountabilityId,
+                    comprovante_id: item.id,
+                    cpf: item.prestador_pf_dados?.cpf_cnpj,
+                    nome: item.supplier,
+                    pis_nit: item.prestador_pf_dados?.pis_nit,
+                    valor_bruto: item.value,
+                    inss_retido_11: item.inss_retido || 0,
+                    inss_patronal_20: item.value * 0.20,
+                    iss_retido_5: item.iss_retido || 0,
+                    nup: pcData?.solicitation?.nup,
+                    comarca: pcData?.solicitation?.unit,
+                    atividade: item.description,
+                    data_prestacao: item.item_date
+                }));
+                await supabase.from('gestao_inss').insert(inssEntries);
+            }
+
+            onSuccess();
+        } catch (e: any) {
+            showToast('error', 'Erro ao processar GDR: ' + e.message);
+        } finally {
+            setSubmitting(false);
+            setShowGdrModal(false);
+        }
+    };
+
     const requestSubmitPC = () => {
         if (items.length === 0) {
             showToast('error', "Adicione pelo menos um comprovante antes de enviar.");
+            return;
+        }
+
+        const total = items.reduce((acc, i) => acc + i.value, 0);
+        const currentBalance = grantedValue - total;
+
+        if (currentBalance > 0.01) {
+            setShowGdrModal(true);
             return;
         }
 
@@ -333,15 +486,43 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                 setConfirmModal(prev => ({...prev, isOpen: false}));
                 setSubmitting(true);
                 try {
-                    const total = items.reduce((acc, i) => acc + i.value, 0);
-                    
-                    const { error } = await supabase.from('accountabilities').update({ 
+                    const totalInss = items.reduce((acc, i) => acc + (i.inss_retido || 0), 0);
+                    const totalInssPatronal = items.reduce((acc, i) => acc + (i.element_code.includes('3.3.90.36') ? i.value * 0.20 : 0), 0);
+                    const totalIss = items.reduce((acc, i) => acc + (i.iss_retido || 0), 0);
+
+                    const { error } = await supabase.from('prestacao_contas').update({ 
                         status: 'WAITING_MANAGER', 
-                        total_spent: total,
-                        balance: grantedValue - total
+                        valor_gasto: total,
+                        valor_devolvido: 0,
+                        total_inss_retido: totalInss,
+                        total_inss_patronal: totalInssPatronal,
+                        total_iss_retido: totalIss,
+                        updated_at: new Date().toISOString()
                     }).eq('id', accountabilityId);
 
                     if (error) throw error;
+
+                    // Sync INSS items to gestao_inss if any
+                    const inssItems = items.filter(i => i.element_code.includes('3.3.90.36'));
+                    if (inssItems.length > 0) {
+                        const inssEntries = inssItems.map(item => ({
+                            solicitacao_id: processId,
+                            prestacao_contas_id: accountabilityId,
+                            comprovante_id: item.id,
+                            cpf: item.prestador_pf_dados?.cpf_cnpj,
+                            nome: item.supplier,
+                            pis_nit: item.prestador_pf_dados?.pis_nit,
+                            valor_bruto: item.value,
+                            inss_retido_11: item.inss_retido || 0,
+                            inss_patronal_20: item.value * 0.20,
+                            nup: pcData?.solicitation?.nup,
+                            comarca: pcData?.solicitation?.unit,
+                            atividade: item.description,
+                            data_prestacao: item.item_date
+                        }));
+                        await supabase.from('gestao_inss').insert(inssEntries);
+                    }
+
                     onSuccess();
                 } catch (e: any) { 
                     showToast('error', 'Erro ao enviar: ' + e.message);
@@ -504,7 +685,19 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                                 type="number" 
                                                 step="0.01" 
                                                 value={newItem.value} 
-                                                onChange={e => setNewItem({...newItem, value: parseFloat(e.target.value)})} 
+                                                onChange={e => {
+                                                    const val = parseFloat(e.target.value) || 0;
+                                                    const isPF = newItem.element_code.includes('3.3.90.36');
+                                                    const inss = isPF ? val * 0.11 : 0;
+                                                    const iss = isPF ? val * 0.05 : 0;
+                                                    setNewItem({
+                                                        ...newItem, 
+                                                        value: val,
+                                                        inss_retido: inss,
+                                                        iss_retido: iss,
+                                                        valor_liquido: val - inss - iss
+                                                    });
+                                                }} 
                                                 className="w-full px-3 py-2 pl-8 border border-gray-300 rounded-lg text-sm font-bold text-gray-900 bg-white outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all" 
                                             />
                                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">R$</span>
@@ -536,6 +729,133 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                             placeholder="Ex: Almoço, Passagem, Material..." 
                                         />
                                     </div>
+
+                                    <div className="col-span-12 md:col-span-6">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Elemento de Despesa</label>
+                                        <select 
+                                            value={newItem.element_code}
+                                            onChange={e => {
+                                                const code = e.target.value;
+                                                const isPF = code.includes('3.3.90.36');
+                                                const grossValue = newItem.value || 0;
+                                                const inss = isPF ? grossValue * 0.11 : 0;
+                                                const iss = isPF ? grossValue * 0.05 : 0;
+                                                setNewItem({
+                                                    ...newItem, 
+                                                    element_code: code,
+                                                    inss_retido: inss,
+                                                    iss_retido: iss,
+                                                    valor_liquido: grossValue - inss - iss
+                                                });
+                                            }}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all font-medium"
+                                        >
+                                            <option value="3.3.90.30.01">3.3.90.30.01 - Combustíveis</option>
+                                            <option value="3.3.90.30.07">3.3.90.30.07 - Alimentação</option>
+                                            <option value="3.3.90.30.16">3.3.90.30.16 - Mat. Expediente</option>
+                                            <option value="3.3.90.33.01">3.3.90.33.01 - Passagens</option>
+                                            <option value="3.3.90.36.01">3.3.90.36.01 - Serviços PF (INSS/ISS)</option>
+                                            <option value="3.3.90.39.05">3.3.90.39.05 - Serviços Técnicos PJ</option>
+                                            <option value="3.3.90.39.99">3.3.90.39.99 - Outros Serviços PJ</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Campos Extras para Pessoa Física (3.3.90.36) */}
+                                    {newItem.element_code.includes('3.3.90.36') && (
+                                        <div className="col-span-12 grid grid-cols-12 gap-4 bg-amber-50/50 p-4 rounded-xl border border-amber-100 animate-in fade-in slide-in-from-top-2">
+                                            <div className="col-span-12 flex items-center gap-2 mb-2">
+                                                <UserCheck size={16} className="text-amber-600" />
+                                                <h4 className="text-xs font-black text-amber-800 uppercase tracking-wider">Dados do Prestador PF</h4>
+                                                <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">Retenção na Fonte</span>
+                                            </div>
+                                            
+                                            <div className="col-span-12 md:col-span-4">
+                                                <label className="text-[10px] font-bold text-amber-700 uppercase mb-1 block">CPF do Prestador</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={newItem.prestador_pf_dados?.cpf_cnpj}
+                                                    onChange={e => setNewItem({...newItem, prestador_pf_dados: {...newItem.prestador_pf_dados!, cpf_cnpj: e.target.value}})}
+                                                    className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-amber-200"
+                                                    placeholder="000.000.000-00"
+                                                />
+                                            </div>
+                                            <div className="col-span-12 md:col-span-4">
+                                                <label className="text-[10px] font-bold text-amber-700 uppercase mb-1 block">RG / CNH</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={newItem.prestador_pf_dados?.rg}
+                                                    onChange={e => setNewItem({...newItem, prestador_pf_dados: {...newItem.prestador_pf_dados!, rg: e.target.value}})}
+                                                    className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-amber-200"
+                                                />
+                                            </div>
+                                            <div className="col-span-12 md:col-span-4">
+                                                <label className="text-[10px] font-bold text-amber-700 uppercase mb-1 block">PIS / NIT</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={newItem.prestador_pf_dados?.pis_nit}
+                                                    onChange={e => setNewItem({...newItem, prestador_pf_dados: {...newItem.prestador_pf_dados!, pis_nit: e.target.value}})}
+                                                    className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-amber-200"
+                                                    placeholder="000.00000.00-0"
+                                                />
+                                            </div>
+                                            
+                                            <div className="col-span-12 md:col-span-8">
+                                                <label className="text-[10px] font-bold text-amber-700 uppercase mb-1 block">Endereço Completo</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={newItem.prestador_pf_dados?.endereco}
+                                                    onChange={e => setNewItem({...newItem, prestador_pf_dados: {...newItem.prestador_pf_dados!, endereco: e.target.value}})}
+                                                    className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-amber-200"
+                                                    placeholder="Rua, Número, Bairro, Cidade - UF"
+                                                />
+                                            </div>
+
+                                            <div className="col-span-12 md:col-span-4">
+                                                <label className="text-[10px] font-bold text-amber-700 uppercase mb-1 block">Anexar NFS-e (PDF/IMG)</label>
+                                                <input 
+                                                    type="file" 
+                                                    accept=".pdf,image/*"
+                                                    onChange={e => setItemFile(e.target.files?.[0] || null)}
+                                                    className="w-full text-[10px] text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200 cursor-pointer"
+                                                />
+                                                {itemFile && (
+                                                    <p className="text-[9px] text-emerald-600 mt-1 font-bold flex items-center gap-1">
+                                                        <CheckCircle2 size={10} /> {itemFile.name}
+                                                    </p>
+                                                )}
+                                                <p className="text-[9px] text-amber-600/70 mt-1 font-medium italic">Obrigatório para comprovação do recolhimento do ISS.</p>
+                                            </div>
+
+                                            <div className="col-span-12 pt-2 mt-2 border-t border-amber-100">
+                                                <div className="grid grid-cols-4 gap-4">
+                                                    <div className="bg-white p-2.5 rounded-lg border border-amber-100">
+                                                        <span className="text-[9px] font-bold text-amber-600 block mb-1">INSS Prestador (11%)</span>
+                                                        <span className="text-sm font-black text-amber-900">
+                                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(newItem.inss_retido || 0)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="bg-white p-2.5 rounded-lg border border-amber-100">
+                                                        <span className="text-[9px] font-bold text-amber-600 block mb-1">ISS Retido (5%)</span>
+                                                        <span className="text-sm font-black text-amber-900">
+                                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(newItem.iss_retido || 0)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="bg-emerald-50 p-2.5 rounded-lg border border-emerald-100">
+                                                        <span className="text-[9px] font-bold text-emerald-600 block mb-1">Valor Líquido</span>
+                                                        <span className="text-sm font-black text-emerald-700">
+                                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(newItem.valor_liquido || 0)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
+                                                        <span className="text-[9px] font-bold text-indigo-600 block mb-1">Cota Patronal (20%)</span>
+                                                        <span className="text-sm font-black text-indigo-700">
+                                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(newItem.value * 0.20)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="col-span-12 pt-2">
                                         <button 
@@ -656,7 +976,114 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                         </div>
                     </div>
                 </div>
+                </div>
+
+                {/* Modal de GDR (Devolução de Saldo) */}
+                {showGdrModal && (
+                    <div className="fixed inset-0 z-[110] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
+                        <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-white/20 animate-in zoom-in-95 duration-300">
+                            <div className="bg-gradient-to-br from-emerald-600 to-teal-700 p-6 text-white relative">
+                                <button 
+                                    onClick={() => setShowGdrModal(false)}
+                                    className="absolute right-4 top-4 p-2 hover:bg-white/10 rounded-full transition-colors"
+                                >
+                                    <X size={20} />
+                                </button>
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
+                                        <CloudLightning size={24} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-black">Guia de Devolução (GDR)</h3>
+                                        <p className="text-emerald-100 text-sm mt-0.5 font-medium">
+                                            Identificamos um saldo residual de <b>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(balance)}</b>.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-8 space-y-6">
+                                <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex gap-4">
+                                    <AlertCircle className="text-amber-600 shrink-0" size={20} />
+                                    <p className="text-xs text-amber-800 leading-relaxed font-medium">
+                                        Conforme a Resolução CNJ 169/2013, o saldo não utilizado deve ser devolvido ao erário via GDR antes do envio da prestação de contas definitiva.
+                                    </p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Número da GDR / Autenticação</label>
+                                        <input 
+                                            type="text" 
+                                            placeholder="Ex: 2026.0401.001"
+                                            value={gdrData.numero}
+                                            onChange={e => setGdrData({...gdrData, numero: e.target.value})}
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Data de Pagamento</label>
+                                            <input 
+                                                type="date" 
+                                                value={gdrData.data_pagamento}
+                                                onChange={e => setGdrData({...gdrData, data_pagamento: e.target.value})}
+                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Valor Devolvido</label>
+                                            <div className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-2xl text-sm font-black text-slate-500">
+                                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(balance)}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Comprovante de Depósito (PDF)</label>
+                                        <div className="relative group">
+                                            <input 
+                                                type="file" 
+                                                accept=".pdf,image/*"
+                                                onChange={e => setGdrData({...gdrData, file: e.target.files?.[0] || null})}
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                            />
+                                            <div className={`w-full p-6 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center gap-2 transition-all ${gdrData.file ? 'bg-emerald-50 border-emerald-500' : 'bg-slate-50 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/30'}`}>
+                                                {gdrData.file ? (
+                                                    <>
+                                                        <FileCheck size={32} className="text-emerald-500" />
+                                                        <span className="text-xs font-bold text-emerald-700">{gdrData.file.name}</span>
+                                                        <span className="text-[10px] text-emerald-600/60 uppercase font-black">Clique para alterar</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="p-3 bg-white rounded-2xl shadow-sm">
+                                                            <Plus size={24} className="text-slate-400" />
+                                                        </div>
+                                                        <span className="text-xs font-bold text-slate-500 mt-2">Selecionar Arquivo</span>
+                                                        <span className="text-[10px] text-slate-400 uppercase tracking-tighter">Guia ou Comprovante Pago</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-6 bg-slate-50 border-t border-slate-100">
+                                <button 
+                                    onClick={handleGdrUpload}
+                                    disabled={submitting || !gdrData.numero || !gdrData.file}
+                                    className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale"
+                                >
+                                    {submitting ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
+                                    Confirmar e Enviar para o Gestor
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
-        </div>
     );
 };

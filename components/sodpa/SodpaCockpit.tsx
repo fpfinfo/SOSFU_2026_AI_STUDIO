@@ -5,7 +5,7 @@ import { SodpaDashboard } from './SodpaDashboard';
 import { SodpaProcessManagement } from './SodpaProcessManagement';
 import { SodpaAccountability } from './SodpaAccountability';
 import { SodpaSettings } from './SodpaSettings';
-import { SodpaGeoMap } from './SodpaGeoMap'; // Imported Map
+import { SodpaReportsView } from './SodpaReportsView';
 import { SodpaArchiveView } from './SodpaArchiveView';
 import { supabase } from '../../lib/supabase';
 
@@ -104,7 +104,7 @@ export const SodpaCockpit: React.FC<SodpaCockpitProps> = ({ onNavigate, userProf
             case 'archive':
                 return <SodpaArchiveView onNavigate={onNavigate} />;
             case 'reports':
-                return <SodpaGeoMap darkMode={darkMode} />; // Updated to Map
+                return <SodpaReportsView darkMode={darkMode} />;
             case 'settings':
                 return <SodpaSettings darkMode={darkMode} userProfile={userProfile} />;
             default:
