@@ -28,6 +28,7 @@ export enum TabCategory {
   MANAGEMENT = 'MANAGEMENT'
 }
 
+<<<<<<< HEAD
 // Status compartilhados entre todos os módulos
 export type SharedStatus = 'PENDING' | 'WAITING_MANAGER' | 'WAITING_CORRECTION' | 'APPROVED' | 'REJECTED' | 'PAID' | 'ARCHIVED';
 
@@ -44,11 +45,21 @@ export interface Solicitation {
   id: string;
   process_number: string;
   type?: SolicitationType;
+=======
+export interface Solicitation {
+  id: string;
+  process_number: string;
+  type?: 'EMERGENCY' | 'JURY' | 'ORDINARY';
+>>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
   beneficiary: string;
   unit: string;
   value: number;
   date: string;
+<<<<<<< HEAD
   status: SolicitationStatus;
+=======
+  status: 'PENDING' | 'WAITING_MANAGER' | 'WAITING_SOSFU_ANALYSIS' | 'WAITING_SEFIN_SIGNATURE' | 'WAITING_SOSFU_PAYMENT' | 'WAITING_SUPRIDO_CONFIRMATION' | 'WAITING_CORRECTION' | 'APPROVED' | 'REJECTED' | 'PAID' | 'ARCHIVED';
+>>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
   manager_name?: string;
   manager_email?: string;
 }
@@ -109,9 +120,13 @@ export enum AppRole {
 
   // PRESIDENCIA
   PRESIDENCIA_GESTOR = 'PRESIDENCIA_GESTOR',
+<<<<<<< HEAD
   PRESIDENCIA_EQUIPE = 'PRESIDENCIA_EQUIPE',
 
   // RESSARCIMENTO
   RESSARCIMENTO_GESTOR = 'RESSARCIMENTO_GESTOR',
   RESSARCIMENTO_EQUIPE = 'RESSARCIMENTO_EQUIPE'
+=======
+  PRESIDENCIA_EQUIPE = 'PRESIDENCIA_EQUIPE'
+>>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
 }

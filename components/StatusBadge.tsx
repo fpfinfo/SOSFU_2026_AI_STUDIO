@@ -1,5 +1,9 @@
 import React from 'react';
+<<<<<<< HEAD
 import { Clock, CheckCircle2, AlertCircle, FileText, Ban, Scale, UserCheck, Wallet, Send, PenTool, Archive, Plane, ShieldCheck, CreditCard } from 'lucide-react';
+=======
+import { Clock, CheckCircle2, AlertCircle, FileText, Ban, Scale, UserCheck, Wallet, Send, PenTool, Archive } from 'lucide-react';
+>>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
 import { Tooltip } from './ui/Tooltip';
 
 interface StatusBadgeProps {
@@ -92,6 +96,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
       tooltip: 'Processo concluído e arquivado. Disponível apenas para consulta.'
     },
 
+<<<<<<< HEAD
     // ── SODPA (Diárias e Passagens) ──
     'WAITING_SODPA_ANALYSIS': {
       label: 'Em Análise (SODPA)',
@@ -147,6 +152,11 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
     // EXCEÇÕES
     'REJECTED': {
       label: 'Indeferido / Cancelado',
+=======
+    // EXCEÇÕES
+    'REJECTED': { 
+      label: 'Indeferido / Cancelado', 
+>>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
       color: 'bg-red-50 text-red-700 border-red-200',
       icon: Ban,
       tooltip: 'Solicitação indeferida. Verifique o parecer técnico para mais detalhes.'

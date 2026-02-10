@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+<<<<<<< HEAD
 import {
     Lock, Mail, ArrowRight, AlertCircle, CheckCircle2, User,
     Wallet, Plane, FileText, Receipt, ShieldCheck, ChevronRight
@@ -10,6 +11,15 @@ interface LoginViewProps {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onPostLoginNavigate }) => {
+=======
+import { 
+    Lock, Mail, ArrowRight, AlertCircle, CheckCircle2, User, 
+    Wallet, Plane, FileText, Receipt, ShieldCheck 
+} from 'lucide-react';
+import { supabase } from '../lib/supabase';
+
+export const LoginView: React.FC = () => {
+>>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
     const [isSignUp, setIsSignUp] = useState(false);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -17,7 +27,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onPostLoginNavigate }) => 
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
     const [loading, setLoading] = useState(false);
+<<<<<<< HEAD
     const [selectedModule, setSelectedModule] = useState<string | null>(null);
+=======
+>>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -58,6 +71,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onPostLoginNavigate }) => 
                 });
 
                 if (authError) throw authError;
+<<<<<<< HEAD
 
                 // If user selected a module card, store navigation intent
                 if (selectedModule && onPostLoginNavigate) {
@@ -69,6 +83,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onPostLoginNavigate }) => 
                     const targetTab = moduleMap[selectedModule];
                     if (targetTab) onPostLoginNavigate(targetTab);
                 }
+=======
+>>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
             }
         } catch (err: any) {
             setError(err.message || 'Ocorreu um erro inesperado.');
@@ -115,6 +131,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onPostLoginNavigate }) => 
 
                         {/* Modules Grid */}
                         <div className="grid grid-cols-1 gap-4">
+<<<<<<< HEAD
                             {[
                                 { id: 'suprimento', tab: 'solicitation_emergency', icon: Wallet, label: 'Suprimento de Fundos', desc: 'Gestão de adiantamentos e prestação de contas', color: 'blue' },
                                 { id: 'diarias', tab: 'solicitation_diarias', icon: Receipt, label: 'Diárias e Passagens', desc: 'Controle de deslocamentos e indenizações', color: 'emerald' },
@@ -145,6 +162,37 @@ export const LoginView: React.FC<LoginViewProps> = ({ onPostLoginNavigate }) => 
                                     Faça login para acessar o módulo selecionado
                                 </p>
                             )}
+=======
+                            <div className="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
+                                <div className="p-2.5 bg-blue-500/20 rounded-lg text-blue-300">
+                                    <Wallet size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-white">Suprimento de Fundos</h3>
+                                    <p className="text-xs text-gray-400">Gestão de adiantamentos e prestação de contas</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
+                                <div className="p-2.5 bg-emerald-500/20 rounded-lg text-emerald-300">
+                                    <Receipt size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-white">Diárias e Passagens</h3>
+                                    <p className="text-xs text-gray-400">Controle de deslocamentos e indenizações</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
+                                <div className="p-2.5 bg-purple-500/20 rounded-lg text-purple-300">
+                                    <ShieldCheck size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-white">Ressarcimentos</h3>
+                                    <p className="text-xs text-gray-400">Solicitação e acompanhamento de reembolsos</p>
+                                </div>
+                            </div>
+>>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
                         </div>
                     </div>
 

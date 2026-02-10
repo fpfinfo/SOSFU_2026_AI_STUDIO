@@ -21,8 +21,11 @@ import { RessarcimentoCockpit } from './components/ressarcimento/RessarcimentoCo
 import { SosfuInbox } from './components/sosfu/SosfuInbox';
 import { EmergencySolicitation } from './components/suprido/EmergencySolicitation';
 import { JurySolicitation } from './components/suprido/JurySolicitation';
+<<<<<<< HEAD
 import { DiariasSolicitation } from './components/suprido/DiariasSolicitation';
 import { RessarcimentoSolicitation } from './components/suprido/RessarcimentoSolicitation';
+=======
+>>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
 import { ProcessDetailView } from './components/process/ProcessDetailView';
 import { AccountabilityWizard } from './components/accountability/AccountabilityWizard';
 import { LoginView } from './components/LoginView';
@@ -248,7 +251,11 @@ const App: React.FC = () => {
   }
 
   if (!session) {
+<<<<<<< HEAD
     return <LoginView onPostLoginNavigate={(tab) => setActiveTab(tab)} />;
+=======
+    return <LoginView />;
+>>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
   }
 
   const renderContent = () => {
@@ -287,11 +294,15 @@ const App: React.FC = () => {
         return <EmergencySolicitation onNavigate={handleNavigation} />;
       case 'solicitation_jury':
         return <JurySolicitation onNavigate={handleNavigation} />;
+<<<<<<< HEAD
       case 'solicitation_diarias':
         return <DiariasSolicitation onNavigate={handleNavigation} />;
       case 'solicitation_ressarcimento':
         return <RessarcimentoSolicitation onNavigate={handleNavigation} />;
 
+=======
+      
+>>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
       // DEPRECATED: accountability_wizard agora é embutido no process_detail
       
       case 'process_detail':

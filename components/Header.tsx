@@ -153,6 +153,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
   
   let moduleConfig = MODULE_CONFIGS[activeTab || ''];
 
+<<<<<<< HEAD
   // 🆕 Context Persistence (Profile, Settings, Forms, Details)
   // 1. For Standard Users/Servidores -> Always "Portal do Usuário"
   if (userRole === 'USER' || userRole === 'SERVIDOR') {
@@ -160,12 +161,22 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
   }
   // 2. For Shared Pages (Profile/Settings) for other roles -> Context based on Role
   else if (['profile', 'settings'].includes(activeTab || '')) {
+=======
+  // 🆕 Fix for Shared Pages (Profile, Settings)
+  // Inherit branding from user's primary role to avoid incorrectly showing "SODPA" fallback
+  if (['profile', 'settings'].includes(activeTab || '')) {
+>>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
       if (userRole.startsWith('SOSFU') || userRole === 'ADMIN') {
           moduleConfig = MODULE_CONFIGS['dashboard']; // SOSFU Branding
       } else if (userRole.startsWith('SODPA')) {
           moduleConfig = MODULE_CONFIGS['sodpa_dashboard']; // SODPA Branding
       } else if (userRole.startsWith('RESSARCIMENTO')) {
           moduleConfig = MODULE_CONFIGS['ressarcimento_dashboard']; // Ressarcimento Branding
+<<<<<<< HEAD
+=======
+      } else if (userRole === 'USER' || userRole === 'SERVIDOR') {
+          moduleConfig = MODULE_CONFIGS['suprido_dashboard']; // Portal do Usuário
+>>>>>>> 337e63ae355d447079153573de4840f1a3b3b199
       }
   }
 
