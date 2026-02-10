@@ -189,42 +189,43 @@ export const DiariasSolicitation: React.FC<DiariasSolicitationProps> = ({ onNavi
     const handleGenerateAI = async () => {
         setIsGeneratingAI(true);
         try {
-            const apiKey = process.env.API_KEY;
-            if (!apiKey) {
-                setJustification('Chave da API Gemini nao configurada.');
-                return;
-            }
+            const apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY || (import.meta as any).env.VITE_API_KEY || (process as any).env.GEMINI_API_KEY;
+            if (!apiKey) throw new Error('API Key não configurada');
 
-            const ai = new GoogleGenAI({ apiKey });
+            const ai = new GoogleGenAI({ apiKey } as any);
 
             const trechosDesc = trechos.map((t, i) =>
-                `Trecho ${i + 1}: ${t.origem} -> ${t.destino} (${t.dataIda} a ${t.dataVolta}) via ${t.meioTransporte}${t.necessitaPassagem ? ' [com passagem aerea]' : ''}`
+                `Trecho ${i + 1}: ${t.origem} -> ${t.destino} (${t.dataIda} a ${t.dataVolta}) via ${t.meioTransporte}${t.necessitaPassagem ? ' [com passagem aérea]' : ''}`
             ).join('\n');
 
             const prompt = `
-                Atue como um servidor publico do Tribunal de Justica do Estado do Para.
-                Escreva uma justificativa formal, tecnica e concisa (maximo 600 caracteres) para uma Solicitacao de Diarias e Passagens Aereas.
+                Como Assessor Técnico da Secretaria de Finanças (Sentinela TJPA), redija uma JUSTIFICATIVA INSTITUCIONAL para uma solicitação de Diárias e Passagens Aéreas.
+                O texto deve ser extremamente formal, técnico e focado na necessidade do serviço judiciário.
 
-                Dados da Viagem:
-                - Motivo: ${motivoViagem || 'Atividade jurisdicional'}
-                - Tipo: ${VALORES_DIARIA[tipoDeslocamento]?.descricao || 'Interior'}
-                - Trechos:
+                DADOS DO DESLOCAMENTO:
+                - Motivo: ${motivoViagem || 'Atividade jurisdicional deliberada'}
+                - Trechos e Período:
                 ${trechosDesc}
-                - Total de dias: ${totalDiasViagem}
-                - Total de participantes: ${totalParticipantes}
-                - Valor total estimado: R$ ${valorTotal.toFixed(2)}
+                - Complementos: Viagem para ${totalParticipantes} servidor(es) pelo período de ${totalDiasViagem} dias.
 
-                A justificativa deve explicar a necessidade do deslocamento para o bom andamento das atividades jurisdicionais.
-                Nao use saudacoes. Texto corrido e direto. Sem formatacao markdown.
+                REGRAS DE REDAÇÃO:
+                1. Comece com "A presente solicitação fundamenta-se na imperiosa necessidade de deslocamento para..."
+                2. Mencione que a atividade visa garantir o bom andamento da prestação jurisdicional na comarca de destino.
+                3. Evite termos genéricos. Use vocabulário administrativo (ex: "em atendimento ao cronograma", "diligência indispensável").
+                4. Sem saudações. Texto direto. Máximo 600 caracteres.
             `;
 
-            const response = await ai.models.generateContent({
+            const result = await (ai as any).models.generateContent({
                 model: 'gemini-2.0-flash',
-                contents: prompt,
+                contents: {
+                    role: 'user',
+                    parts: [{ text: prompt }]
+                }
             });
 
-            if (response.text) {
-                setJustification(response.text.trim());
+            const text = result.text || result.response?.text?.() || result.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+                setJustification(text.trim());
             }
         } catch (error: any) {
             console.error("Erro ao gerar IA:", error);

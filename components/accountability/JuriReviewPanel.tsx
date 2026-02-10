@@ -2,10 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
     Scale, Users, DollarSign, Calculator, CheckCircle2, Save,
     Loader2, X, AlertTriangle, ArrowRight, ChevronDown, ChevronUp,
-    Shield, Send, FileText
+    Shield, Send, FileText, Sparkles, Wand2
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { JuriExceptionInlineAlert } from '../ui/JuriExceptionInlineAlert';
+import { GoogleGenAI } from "@google/genai";
 
 // ==================== TYPES ====================
 
@@ -43,6 +44,8 @@ interface SolicitationData {
     status: string;
     event_start_date: string;
     event_end_date: string;
+    justification?: string;
+    analysis_justification?: string;
 }
 
 // ==================== HELPERS ====================
@@ -65,6 +68,8 @@ export const JuriReviewPanel: React.FC<JuriReviewPanelProps> = ({
     const [showExpenses, setShowExpenses] = useState(true);
     const [showParticipants, setShowParticipants] = useState(true);
     const [actionType, setActionType] = useState<'save' | 'diligenciar' | 'aprovar' | null>(null);
+    const [aiJustification, setAiJustification] = useState('');
+    const [generatingAI, setGeneratingAI] = useState(false);
 
     // Fetch data
     useEffect(() => {
@@ -80,6 +85,12 @@ export const JuriReviewPanel: React.FC<JuriReviewPanelProps> = ({
 
                 if (solError) throw solError;
                 setSolicitacao(sol);
+                if (sol.analysis_justification) {
+                    setAiJustification(sol.analysis_justification);
+                } else if (sol.justification) {
+                    // Fallback to requester justification if no analysis exists yet
+                    // but usually we want it empty for the analyst to generate
+                }
 
                 // 2. Fetch items (participants + expenses)
                 const { data: items, error: itemsError } = await supabase
@@ -200,6 +211,55 @@ export const JuriReviewPanel: React.FC<JuriReviewPanelProps> = ({
         );
     };
 
+    const handleGenerateAIJustification = async () => {
+        if (!solicitacao) return;
+        setGeneratingAI(true);
+        try {
+            const apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY || (import.meta as any).env.VITE_API_KEY || (process as any).env.GEMINI_API_KEY;
+            if (!apiKey) throw new Error("API Key não configurada.");
+
+            const ai = new GoogleGenAI({ apiKey } as any);
+
+            const prompt = `
+                Como Analista Jurídico de Suprimento de Fundos do TJPA (Sentinela Jurídico), gere uma justificativa técnica FORMAL e CONCISA para o despacho de análise deste processo Extra-Júri.
+
+                DADOS DO PROCESSO:
+                - NUP: ${solicitacao.process_number}
+                - Beneficiário: ${solicitacao.beneficiary}
+                - Unidade: ${solicitacao.unit}
+                - Período: ${solicitacao.event_start_date} a ${solicitacao.event_end_date}
+                - Participantes Aprovados: ${totalParticipantsApproved}
+                - Itens Aprovados:
+                ${participants.filter(p => p.qty_approved > 0).map(p => `- ${p.item_name}: ${p.qty_approved} pessoas`).join('\n')}
+                ${expenses.filter(e => e.qty_approved > 0).map(e => `- ${e.item_name}: ${formatCurrency(e.total_approved)} (Elemento: ${e.element_code})`).join('\n')}
+                - Valor Total Aprovado: ${formatCurrency(totalApproved)}
+
+                ORIENTAÇÃO:
+                1. Se o valor aprovado (${totalApproved}) for IGUAL ao solicitado (${totalRequested}), foque na plena conformidade dos itens e quantitativos com a Resolução de Suprimento de Fundos.
+                2. Se o valor for DIFERENTE, mencione o ajuste técnico realizado para adequação aos limites normativos ou necessidades reais do evento.
+                3. Se houver muitos policiais (${policeCount} pessoas), mencione a observância aos critérios de escolta e segurança.
+                4. Mantenha um tom institucional, formal e jurídico. 
+                5. NÃO use formatação markdown excessiva. Retorne apenas o texto da justificativa.
+                6. Máximo 4 frases.
+            `;
+
+            const result = await (ai as any).models.generateContent({
+                model: 'gemini-2.0-flash',
+                contents: {
+                    role: 'user',
+                    parts: [{ text: prompt }]
+                }
+            });
+
+            const text = result.response.text().trim();
+            setAiJustification(text);
+        } catch (err) {
+            console.error('[JuriReviewPanel] Error generating AI justification:', err);
+        } finally {
+            setGeneratingAI(false);
+        }
+    };
+
     const handleSave = async (type: 'save' | 'diligenciar' | 'aprovar') => {
         setSaving(true);
         setActionType(type);
@@ -228,7 +288,8 @@ export const JuriReviewPanel: React.FC<JuriReviewPanelProps> = ({
 
             // 3. Update solicitation header
             const updates: any = {
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
+                analysis_justification: aiJustification
             };
 
             if (type === 'aprovar') {
@@ -499,6 +560,43 @@ export const JuriReviewPanel: React.FC<JuriReviewPanelProps> = ({
                                 </table>
                             </div>
                         )}
+                    </div>
+
+                    {/* ===== ANALYSIS JUSTIFICATION SECTION ===== */}
+                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                        <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <FileText size={18} className="text-slate-600" />
+                                <h3 className="text-sm font-bold text-slate-800">Parecer Técnico de Análise</h3>
+                            </div>
+                            <button
+                                onClick={handleGenerateAIJustification}
+                                disabled={generatingAI}
+                                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center gap-2 disabled:opacity-50"
+                            >
+                                {generatingAI ? (
+                                    <>
+                                        <Loader2 size={12} className="animate-spin" /> Gerando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Wand2 size={12} /> Gerar com IA
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                        <div className="p-4">
+                            <textarea
+                                value={aiJustification}
+                                onChange={e => setAiJustification(e.target.value)}
+                                placeholder="Descreva aqui a análise técnica ou clique no botão acima para gerar automaticamente com a Sentinela Jurídica..."
+                                className="w-full min-h-[120px] p-4 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none font-sans leading-relaxed"
+                            />
+                            <div className="mt-2 flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+                                <Sparkles size={12} className="text-blue-400" />
+                                O parecer gerado pela IA deve ser sempre revisado e validado pelo analista responsável.
+                            </div>
+                        </div>
                     </div>
 
                     {/* Variance indicator */}

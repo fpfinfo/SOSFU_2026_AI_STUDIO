@@ -5,6 +5,7 @@ import { StatusBadge } from '../StatusBadge';
 import { AccountabilityWizard } from '../accountability/AccountabilityWizard';
 import { JuriReviewPanel } from '../accountability/JuriReviewPanel';
 import { SosfuAuditPanel } from '../accountability/SosfuAuditPanel';
+import { SodpaAuditPanel } from '../sodpa/SodpaAuditPanel';
 import { WorkflowTracker } from '../ui/WorkflowTracker';
 import { NewDocumentModal } from './NewDocumentModal';
 import { ExpenseExecutionWizard } from '../execution/ExpenseExecutionWizard';
@@ -1793,16 +1794,26 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                 {activeTab === 'ACCOUNTABILITY' && (
                     <div className="animate-in fade-in bg-white rounded-xl shadow-sm border border-gray-200 min-h-[600px]">
                         
-                        {/* CONDICIONAL APRIMORADA: SOSFU/ADMIN VÊ O PAINEL DE AUDITORIA SEMPRE */}
-                        {(currentUserRole.startsWith('SOSFU') || currentUserRole === 'ADMIN') ? (
-                            <SosfuAuditPanel 
-                                isGestor={currentUserRole === 'SOSFU_GESTOR' || currentUserRole === 'SOSFU_ADM' || currentUserRole === 'ADMIN'}
-                                processData={processData}
-                                accountabilityData={accountabilityData}
-                                pcItems={pcItems}
-                                onRefresh={fetchProcessData}
-                                processId={processId}
-                            />
+                        {/* CONDICIONAL APRIMORADA: EXIBE PAINEL DE AUDITORIA ESPECÍFICO (SOSFU OU SODPA) */}
+                        {(currentUserRole.startsWith('SOSFU') || currentUserRole.startsWith('SODPA') || currentUserRole === 'ADMIN') ? (
+                            processData?.process_number?.includes('DPA') || processData?.unit?.includes('DIARIAS') ? (
+                                <SodpaAuditPanel 
+                                    processData={processData}
+                                    accountabilityData={accountabilityData}
+                                    pcItems={pcItems}
+                                    onRefresh={fetchProcessData}
+                                    processId={processId}
+                                />
+                            ) : (
+                                <SosfuAuditPanel 
+                                    isGestor={currentUserRole === 'SOSFU_GESTOR' || currentUserRole === 'SOSFU_ADM' || currentUserRole === 'ADMIN'}
+                                    processData={processData}
+                                    accountabilityData={accountabilityData}
+                                    pcItems={pcItems}
+                                    onRefresh={fetchProcessData}
+                                    processId={processId}
+                                />
+                            )
                         ) : currentUserRole === 'GESTOR' && (accountabilityData?.status === 'WAITING_MANAGER' || processData?.status === 'WAITING_MANAGER') ? (
                             <ManagerReviewPanel />
                         ) : accountabilityData ? (

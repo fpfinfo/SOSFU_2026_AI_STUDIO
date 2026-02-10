@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
     Receipt, Plus, Trash2, Send, AlertTriangle, 
-    FileCheck, CheckCircle2, Wallet, Loader2, ScanLine, X, Sparkles, FileText, CloudLightning, PenTool, Ticket, ScrollText, AlertCircle
+    FileCheck, CheckCircle2, Wallet, Loader2, ScanLine, X, Sparkles, FileText, CloudLightning, PenTool, Ticket, ScrollText, AlertCircle, Plane
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { GoogleGenAI } from "@google/genai";
@@ -20,7 +20,7 @@ interface AccountabilityWizardProps {
     isEmbedded?: boolean;
 }
 
-type DocumentType = 'NFE' | 'NFS' | 'CUPOM' | 'RECIBO' | 'BILHETE' | 'OUTROS';
+type DocumentType = 'NFE' | 'NFS' | 'CUPOM' | 'RECIBO' | 'BILHETE' | 'BOARDING_PASS' | 'REPORT' | 'OUTROS';
 
 interface ExpenseItem {
     id?: string;
@@ -79,6 +79,7 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
     const [pcData, setPcData] = useState<any>(null);
     const [items, setItems] = useState<ExpenseItem[]>([]);
     const [grantedValue, setGrantedValue] = useState(0);
+    const [isSodpa, setIsSodpa] = useState(false);
     
     // UI States (Substituem alerts nativos)
     const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
@@ -100,6 +101,14 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
     useEffect(() => {
         fetchData();
     }, [accountabilityId]);
+
+    useEffect(() => {
+        if (pcData?.solicitation?.process_number) {
+            setIsSodpa(pcData.solicitation.process_number.includes('DPA') || 
+                       pcData.solicitation.process_number.includes('SDP') ||
+                       pcData.solicitation.process_number.includes('DIARIA'));
+        }
+    }, [pcData]);
 
     // Auto-fechar notificações
     useEffect(() => {
@@ -150,46 +159,86 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
         });
     };
 
-    // Smart Capture handler (replaces old handleFileUpload)
+    // Smart Capture handler
     const handleSmartCapture = async (file: File) => {
         setIsAnalyzing(true);
         try {
             const base64Data = await convertFileToBase64(file);
             const base64Content = base64Data.split(',')[1]; 
 
-            const apiKey = process.env.API_KEY;
+            const apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY || (import.meta as any).env.VITE_API_KEY || (process as any).env.GEMINI_API_KEY;
             if (!apiKey) {
-                showToast('error', 'Chave da API Gemini não configurada. Adicione GEMINI_API_KEY ao .env.');
+                showToast('error', 'Chave da AI não encontrada. Verifique o ambiente.');
                 return;
             }
 
-            const ai = new GoogleGenAI({ apiKey });
+            const ai = new GoogleGenAI({ apiKey } as any);
             
-            const systemPrompt = `
-                Analise o comprovante. Retorne JSON estrito:
+            const systemPrompt = isSodpa ? `
+                Como Auditor Fiscal Virtual do TJPA (Sentinela SODPA), analise este comprovante de VIAGEM (Diárias e Passagens).
+                Extraia os dados técnicos e avalie a CONFORMIDADE com as regras de deslocamento institucional.
+                
+                REGRAS DE CONFORMIDADE SODPA:
+                1. Tipos aceitos: Bilhetes aéreos, Cartões de Embarque (Boarding Pass), Canhotos de Táxi/Uber, Recibos de Hospedagem, Relatórios de Viagem.
+                2. Verificação crucial: A data do bilhete/embarque deve estar dentro do período da portaria (solicitação).
+                3. Identificar se é um Cartão de Embarque (confirmação de voo).
+
+                Retorne APENAS um JSON estrito:
                 {
-                    "doc_type": "NFE" | "NFS" | "CUPOM" | "RECIBO" | "BILHETE" | "OUTROS",
+                    "doc_type": "BILHETE" | "BOARDING_PASS" | "REPORT" | "RECIBO" | "OTHER",
                     "date": "YYYY-MM-DD",
-                    "supplier_name": "Nome",
-                    "doc_number": "Numero",
+                    "supplier_name": "CIA AÉREA / HOTEL / EMPRESA",
+                    "cnpj": "CNPJ SE IDENTIFICADO",
+                    "doc_number": "LOCALIZADOR OU NÚMERO",
                     "total_value": 0.00,
-                    "description": "Descricao breve"
+                    "description": "DETALHES DO TRECHO OU SERVIÇO",
+                    "suggested_element": "N/A",
+                    "is_compliant": true/false,
+                    "compliance_issue": "EXPLICAÇÃO CASO NÃO SEJA COMPATÍVEL"
+                }
+            ` : `
+                Como Auditor Fiscal Virtual do TJPA (Sentinela SOSFU), analise este comprovante de despesa.
+                Extraia os dados técnicos e avalie a CONFORMIDADE com as regras de Suprimento de Fundos.
+                
+                REGRAS DE CONFORMIDADE SOSFU:
+                1. Proibido: Bebidas alcoólicas, cigarros, itens de uso pessoal, multas/juros.
+                2. Limite: R$ 15.000,00 por documento.
+                3. Elementos sugeridos: 3.3.90.30.01 (Combustíveis), 3.3.90.30.16 (Material de Expediente), 3.3.90.39.05 (Serviços Técnicos), 3.3.90.30.07 (Gêneros de Alimentação).
+
+                Retorne APENAS um JSON estrito:
+                {
+                    "doc_type": "NFE" | "NFS" | "CUPOM" | "RECIBO" | "OUTROS",
+                    "date": "YYYY-MM-DD",
+                    "supplier_name": "RAZÃO SOCIAL DO ESTABELECIMENTO",
+                    "cnpj": "00.000.000/0000-00",
+                    "doc_number": "NÚMERO DA NOTA OU CFO",
+                    "total_value": 0.00,
+                    "description": "DESCRIÇÃO DOS ITENS COMPRADOS",
+                    "suggested_element": "CÓDIGO DO ELEMENTO SUGERIDO",
+                    "is_compliant": true/false,
+                    "compliance_issue": "DESCRIÇÃO DO PROBLEMA CASO is_compliant SEJA FALSE"
                 }
             `;
 
-            const response = await ai.models.generateContent({
+            const result = await (ai as any).models.generateContent({
                 model: 'gemini-2.0-flash', 
                 contents: {
                     parts: [
                         { inlineData: { mimeType: file.type, data: base64Content } },
                         { text: systemPrompt }
                     ]
-                },
-                config: { responseMimeType: 'application/json' }
+                }
             });
 
-            if (response.text) {
-                const data = JSON.parse(response.text);
+            const text = result.text || result.response?.text?.() || result.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+                const cleanedJson = text.replace(/```json|```/g, '').trim();
+                const data = JSON.parse(cleanedJson);
+
+                if (data.is_compliant === false) {
+                    showToast('error', `ATENÇÃO: Este documento pode não ser aceito.`);
+                }
+
                 setNewItem({
                     ...newItem,
                     doc_type: data.doc_type || 'OUTROS',
@@ -198,24 +247,25 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                     doc_number: data.doc_number || '',
                     value: parseFloat(data.total_value) || 0,
                     description: data.description || '',
-                    ai_metadata: { analyzed: true }
+                    element_code: data.suggested_element || newItem.element_code,
+                    ai_metadata: { 
+                        analyzed: true, 
+                        cnpj: data.cnpj,
+                        is_compliant: data.is_compliant,
+                        compliance_issue: data.compliance_issue
+                    }
                 });
-                showToast('success', 'Documento lido com sucesso!');
+
+                if (data.is_compliant) {
+                    showToast('success', 'Documento validado e dados extraídos!');
+                }
             }
         } catch (error: any) {
-            console.error("Erro IA:", error);
-            showToast('error', `Erro ao ler documento: ${error?.message || 'Erro desconhecido'}. Preencha manualmente.`);
+            console.error("Erro Sentinela IA:", error);
+            showToast('error', `Falha na análise inteligente: ${error?.message || 'Erro de leitura'}.`);
         } finally {
             setIsAnalyzing(false);
         }
-    };
-
-    // Legacy file input handler (for backwards compat)
-    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        await handleSmartCapture(file);
-        if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     // Auto-save drafts offline
@@ -319,6 +369,9 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
             case 'NFS': return { label: 'Nota Serviço', icon: FileText, color: 'text-indigo-600', bg: 'bg-indigo-50' };
             case 'CUPOM': return { label: 'Cupom Fiscal', icon: ScrollText, color: 'text-orange-600', bg: 'bg-orange-50' };
             case 'RECIBO': return { label: 'Recibo', icon: PenTool, color: 'text-gray-600', bg: 'bg-gray-100' };
+            case 'BILHETE': return { label: 'Passagem', icon: Ticket, color: 'text-sky-600', bg: 'bg-sky-50' };
+            case 'BOARDING_PASS': return { label: 'Emb.', icon: Plane, color: 'text-emerald-600', bg: 'bg-emerald-50' };
+            case 'REPORT': return { label: 'Relatório', icon: FileText, color: 'text-purple-600', bg: 'bg-purple-50' };
             default: return { label: 'Outros', icon: Receipt, color: 'text-slate-600', bg: 'bg-slate-50' };
         }
     };
@@ -351,7 +404,7 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                     <div>
                         <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                             <Sparkles className="text-blue-600" size={24} /> 
-                            Prestação de Contas
+                            Prestação de Contas {isSodpa && '(SODPA)'}
                         </h2>
                     </div>
                     {onClose && <button onClick={onClose}><X size={20}/></button>}
@@ -370,7 +423,6 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                     {(() => {
                         const grantDate = pcData?.created_at ? new Date(pcData.created_at) : null;
                         const diasDesdeConcessao = grantDate ? Math.floor((Date.now() - grantDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
-                        const isJuri = pcData?.solicitation?.process_number?.includes('TJPA-JUR');
                         if (diasDesdeConcessao !== null && diasDesdeConcessao > 30) {
                             return (
                                 <JuriExceptionInlineAlert
@@ -393,9 +445,29 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
 
                             {/* Editor de Lançamento */}
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden p-5">
-                                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                    <FileText size={14} /> Dados do Lançamento
+                                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-4 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <FileText size={14} /> Dados do Lançamento
+                                    </div>
+                                    {newItem.ai_metadata?.analyzed && (
+                                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] border border-blue-100 animate-pulse">
+                                            <CloudLightning size={10} /> Extração Sentinela IA
+                                        </div>
+                                    )}
                                 </h3>
+
+                                {/* Sentinela Compliance Alert */}
+                                {newItem.ai_metadata?.analyzed && newItem.ai_metadata?.is_compliant === false && (
+                                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                                        <AlertTriangle className="text-red-600 shrink-0 mt-0.5" size={18} />
+                                        <div>
+                                            <p className="text-xs font-bold text-red-800">Alerta de Não-Conformidade</p>
+                                            <p className="text-[11px] text-red-600 mt-0.5 leading-relaxed">
+                                                {newItem.ai_metadata.compliance_issue || "Este documento pode violar as regras de prestação de contas do TJPA."}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                                 
                                 <div className="grid grid-cols-12 gap-4 items-end">
                                     <div className="col-span-12 md:col-span-4">
@@ -406,12 +478,23 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                                 onChange={e => setNewItem({...newItem, doc_type: e.target.value as DocumentType})}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 font-medium outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all appearance-none cursor-pointer"
                                             >
-                                                <option value="NFE">Nota Fiscal (NF-e)</option>
-                                                <option value="NFS">Nota de Serviço (NFS-e)</option>
-                                                <option value="CUPOM">Cupom Fiscal</option>
-                                                <option value="RECIBO">Recibo Manual</option>
-                                                <option value="BILHETE">Bilhete de Passagem</option>
-                                                <option value="OUTROS">Outros</option>
+                                                {!isSodpa ? (
+                                                    <>
+                                                        <option value="NFE">Nota Fiscal (NF-e)</option>
+                                                        <option value="NFS">Nota de Serviço (NFS-e)</option>
+                                                        <option value="CUPOM">Cupom Fiscal</option>
+                                                        <option value="RECIBO">Recibo Manual</option>
+                                                        <option value="OUTROS">Outros</option>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <option value="BILHETE">Bilhete de Passagem</option>
+                                                        <option value="BOARDING_PASS">Cartão de Embarque</option>
+                                                        <option value="REPORT">Relatório de Viagem</option>
+                                                        <option value="RECIBO">Recibo (Táxi/Uber/Hotel)</option>
+                                                        <option value="OUTROS">Outros</option>
+                                                    </>
+                                                )}
                                             </select>
                                             <SelectedDocIcon size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-blue-500" />
                                         </div>
@@ -441,7 +524,12 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                     </div>
 
                                     <div className="col-span-12 md:col-span-6">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Fornecedor / Razão Social</label>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase block">Fornecedor / Razão Social</label>
+                                            {newItem.ai_metadata?.cnpj && (
+                                                <span className="text-[9px] font-mono text-slate-400 bg-slate-50 px-1.5 rounded">{newItem.ai_metadata.cnpj}</span>
+                                            )}
+                                        </div>
                                         <input 
                                             type="text" 
                                             value={newItem.supplier} 

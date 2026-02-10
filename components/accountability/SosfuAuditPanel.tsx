@@ -741,37 +741,51 @@ export const SosfuAuditPanel: React.FC<SosfuAuditPanelProps> = ({
             const rejectedItems = auditItems.filter(i => i.auditStatus === 'REJECTED');
 
             const prompt = `
-Você é um auditor técnico do TJPA (Tribunal de Justiça do Pará), setor SOSFU (Suprimento de Fundos).
-Gere um parecer técnico CONCISO (máximo 4 frases) sobre a Prestação de Contas abaixo.
+Você é o Coordenador da SOSFU (Suprimento de Fundos) do TJPA.
+Sua missão é emitir um PARECER TÉCNICO CONCLUSIVO sobre a conformidade desta Prestação de Contas.
 
-DADOS:
+DADOS DA AUDITORIA:
 - NUP: ${processData?.process_number}
 - Suprido: ${processData?.beneficiary}
-- Valor liberado: ${formatCurrency(valorLiberado)}
-- Total comprovado: ${formatCurrency(valorComprovadoOriginal)}
-- Itens glosados: ${rejectedItems.length} (total glosado: ${formatCurrency(totalGlosado)})
-- Valor homologado: ${formatCurrency(valorHomologado)}
-- Saldo a devolver: ${formatCurrency(valorDevolver)}
-- Total de notas fiscais: ${auditItems.length}
-- Anomalias no checklist: ${anomalies.length > 0 ? anomalies.map(a => a.label + ' (' + a.detail + ')').join('; ') : 'Nenhuma'}
-- Score de conformidade: ${aiScore}%
+- Comarca/Unidade: ${processData?.unit}
+- Limite Concedido: ${formatCurrency(valorLiberado)}
+- Total Comprovado: ${formatCurrency(valorComprovadoOriginal)}
+- Itens Glosados (Rejeitados): ${rejectedItems.length} -> Valor Rejeitado: ${formatCurrency(totalGlosado)}
+- Valor Homologado (Aprovado): ${formatCurrency(valorHomologado)}
+- Saldo a Recolher/Devolver: ${formatCurrency(valorDevolver)}
+- Score de Conformidade IA: ${aiScore}%
 
-Responda apenas com o texto do parecer em português formal, sem markdown. Comece com "Foram analisados...".
-            `;
+ANOMALIAS DETECTADAS:
+${anomalies.length > 0 ? anomalies.map(a => `- ${a.label}: ${a.detail}`).join('\n') : '- Nenhuma anomalia crítica detectada.'}
 
-            const apiKey = process.env.API_KEY;
+ITENS COM GLOSA (MOTIVOS):
+${rejectedItems.map(i => `- ${i.description}: ${i.glosaReason || 'Motivo técnico não especificado'}`).join('\n')}
+
+INSTRUÇÕES:
+1. Comece com "Foram analisados os comprovantes fiscais...".
+2. Se houver glosas, mencione que a homologação foi PARCIAL devido às desconformidades apontadas.
+3. Se não houver glosas, recomende a HOMOLOGAÇÃO INTEGRAL e o arquivamento.
+4. Mencione expressamente o valor a ser devolvido ao erário, se houver (${formatCurrency(valorDevolver)}).
+5. Mantenha tom extremamente formal, técnico e impessoal. Máximo 5 frases. Não use markdown.
+`;
+
+            const apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY || (import.meta as any).env.VITE_API_KEY || (process as any).env.GEMINI_API_KEY;
             if (!apiKey) {
                 throw new Error('GEMINI_API_KEY não configurada');
             }
 
-            const ai = new GoogleGenAI({ apiKey });
-            const response = await ai.models.generateContent({
+            const ai = new GoogleGenAI({ apiKey } as any);
+            const result = await (ai as any).models.generateContent({
                 model: 'gemini-2.0-flash',
-                contents: prompt,
+                contents: {
+                    role: 'user',
+                    parts: [{ text: prompt }]
+                }
             });
 
-            if (response.text) {
-                setAiParecer(response.text.trim());
+            const text = result.response.text().trim();
+            if (text) {
+                setAiParecer(text);
                 setParecerEdited(false);
             }
         } catch (error) {
