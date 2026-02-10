@@ -5,9 +5,11 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
  * All components should use this instead of instantiating GoogleGenerativeAI directly.
  */
 
-// Use 1.5-flash as primary for OCR/Document tasks as it has higher free tier limits (15 RPM)
+// Use 1.5-flash as primary for OCR/Document tasks - highly stable
 const GEMINI_MODEL = 'gemini-1.5-flash';
-const FALLBACK_MODEL = 'gemini-1.5-pro'; // Try Pro if Flash fails or for higher quality
+// 1.5-flash-8b is even faster and has higher limits, perfect for simple OCR
+const RESILIENT_MODEL = 'gemini-1.5-flash-8b';
+const FALLBACK_MODEL = 'gemini-2.0-flash'; 
 
 /** Get the API key from Vite environment */
 const getApiKey = (): string => {
@@ -32,23 +34,39 @@ export const getGeminiClient = (): GoogleGenerativeAI => {
  */
 const callWithRetry = async (fn: (modelName: string) => Promise<any>, retries = 2): Promise<any> => {
   let lastError: any;
-  const models = [GEMINI_MODEL, 'gemini-2.0-flash', FALLBACK_MODEL];
+  // Ordered sequence for maximum resilience: Standard Flash -> High-Quota Flash -> New Flash
+  const models = [GEMINI_MODEL, RESILIENT_MODEL, FALLBACK_MODEL];
   
   for (const modelName of models) {
     for (let i = 0; i < retries; i++) {
         try {
+          console.log(`[Gemini] Attempting ${modelName} (Try ${i + 1})...`);
           return await fn(modelName);
         } catch (error: any) {
           lastError = error;
-          const isQuotaError = error?.message?.includes('429') || error?.status === 'RESOURCE_EXHAUSTED';
+          const errorMsg = error?.message || '';
+          const isQuotaError = errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED');
+          const isNotFoundError = errorMsg.includes('404') || errorMsg.includes('not found');
           
           if (isQuotaError && i < retries - 1) {
-            // Wait 2 seconds before retry on the same model
+            console.warn(`[Gemini] Quota hit for ${modelName}, retrying in 2s...`);
             await new Promise(resolve => setTimeout(resolve, 2000));
             continue;
           }
-          // If it's not a quota error or we're out of retries for this model, try next model
-          break;
+
+          if (isNotFoundError) {
+              console.warn(`[Gemini] Model ${modelName} not found or unsupported. Trying next...`);
+              break; // Try next model immediately
+          }
+
+          if (isQuotaError) {
+              console.warn(`[Gemini] Quota exhausted for ${modelName}. Trying next model...`);
+              break; // Try next model
+          }
+
+          // Other errors (400, 500 etc) - try next model
+          console.error(`[Gemini] Error with ${modelName}:`, errorMsg);
+          break; 
         }
     }
   }
