@@ -130,7 +130,9 @@ const INDEPENDENT_MODULES = ['sefin_dashboard', 'gestor_dashboard', 'suprido_das
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNavigate, userProfile, availableRoles = [] }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const switcherRef = useRef<HTMLDivElement>(null);
   const [gestorLocationTitle, setGestorLocationTitle] = useState<string | null>(null);
   
   const allTabs = [
@@ -194,6 +196,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) setIsMenuOpen(false);
+      if (switcherRef.current && !switcherRef.current.contains(event.target as Node)) setIsSwitcherOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -266,85 +269,107 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
     <>
     <header className="bg-white border-b border-gray-200 h-16 px-4 md:px-6 flex items-center justify-between sticky top-0 z-50" role="banner">
       <div className="flex items-center gap-6">
-        <Tooltip content="Mudar contexto de dashboard" position="bottom" delay={400}>
-        <div className="relative group/switcher">
+        <div className="relative" ref={switcherRef}>
             <button 
-                className="flex items-center gap-2 group cursor-pointer" 
-                onClick={() => {
-                   if (isIndependentModule && activeTab) onTabChange?.(activeTab);
-                   else onTabChange?.(availableTabs[0]?.id || 'profile');
-                }}
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-all duration-300 ${isSwitcherOpen ? 'bg-blue-50 border-blue-200 shadow-inner' : 'bg-white border-transparent hover:bg-gray-50'}`}
+                onClick={() => setIsSwitcherOpen(!isSwitcherOpen)}
             >
-                <img src="/assets/brasao-tjpa.png" alt="Brasão TJPA" className="h-9 md:h-10 w-auto opacity-90 group-hover:scale-105 transition-transform"/>
+                <div className="relative">
+                    <img src="/assets/brasao-tjpa.png" alt="Brasão TJPA" className={`h-9 md:h-10 w-auto transition-transform duration-500 ${isSwitcherOpen ? 'scale-110 rotate-3' : 'group-hover:scale-105'}`}/>
+                    {isSwitcherOpen && <span className="absolute -top-1 -right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span></span>}
+                </div>
                 <div className="hidden lg:block text-left">
                     <div className="flex items-center gap-1.5">
                         <h1 className={`${titleColor} font-black text-[15px] leading-tight tracking-tight`}>{headerTitle}</h1>
-                        {(userRole === 'ADMIN' || availableRoles.length > 1) && (
-                            <ChevronDown size={14} className="text-gray-300 group-hover:text-gray-400 group-hover:translate-y-0.5 transition-all" />
-                        )}
+                        <ChevronDown size={14} className={`text-gray-300 transition-transform duration-300 ${isSwitcherOpen ? 'rotate-180 text-blue-500' : ''}`} />
                     </div>
-                    <p className={`${subtitleColor} text-[9px] font-black tracking-[0.1em] uppercase opacity-80`}>{headerSubtitle}</p>
+                    <p className={`${subtitleColor} text-[9px] font-black tracking-[0.1em] uppercase opacity-80 flex items-center gap-1`}>
+                        {headerSubtitle}
+                    </p>
                 </div>
             </button>
 
-            {/* Premium Module Switcher Dropdown */}
-            {(userRole === 'ADMIN' || availableRoles.length > 1) && (
-                <div className="absolute top-full left-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 opacity-0 group-hover/switcher:opacity-100 pointer-events-none group-hover/switcher:pointer-events-auto transition-all transform scale-95 group-hover/switcher:scale-100 origin-top-left z-[70] p-3 overflow-hidden">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-3 py-2 border-b border-gray-50 mb-2">Alternar Contexto Institucional</p>
-                    <div className="grid grid-cols-1 gap-1">
-                        {/* Main SOSFU dashboard (Always available for admin/sosfu) */}
-                        {(userRole === 'ADMIN' || userRole.startsWith('SOSFU')) && (
-                            <button 
-                                onClick={() => onTabChange?.('dashboard')}
-                                className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all text-left ${activeTab === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50 text-gray-600 hover:text-gray-900'}`}
-                            >
-                                <div className={`p-2 rounded-lg ${activeTab === 'dashboard' ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                                    <LayoutDashboard size={18} />
-                                </div>
-                                <div>
-                                    <p className="text-xs font-bold leading-tight">Painel de Controle SOSFU</p>
-                                    <p className="text-[10px] opacity-60">Visão operacional da gerência</p>
-                                </div>
-                            </button>
-                        )}
+            {/* Master Switcher Dropdown (Modules + Roles) */}
+            {isSwitcherOpen && (
+                <div className="absolute top-full left-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col animate-in zoom-in-95 fade-in duration-200 z-[70] overflow-hidden">
+                    
+                    {/* Role Simulation Section (Profiles) - Only for multi-role/admin */}
+                    {availableRoles.length > 1 && (
+                        <div className="p-3 bg-slate-50 border-b border-slate-100">
+                             <div className="flex items-center justify-between mb-2 px-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Simular Perfil de Acesso</p>
+                                <Shield size={12} className="text-slate-300" />
+                             </div>
+                             <div className="grid grid-cols-2 gap-2">
+                                {availableRoles.map(r => (
+                                    <button
+                                        key={r.slug}
+                                        onClick={() => handleRoleSwitch(r.slug)}
+                                        className={`px-3 py-2 rounded-lg text-[11px] font-bold uppercase transition-all flex items-center justify-center border text-center ${userRole === r.slug 
+                                            ? 'bg-blue-600 text-white border-blue-600 shadow-md scale-[1.02]' 
+                                            : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-sm'}`}
+                                    >
+                                        {(r.name || r.slug).split(' ')[0]}
+                                    </button>
+                                ))}
+                             </div>
+                        </div>
+                    )}
 
-                        {/* Modular Dashboards */}
-                        {modularDashboards.map(mod => {
-                            if (userRole !== 'ADMIN' && !mod.roles.includes(userRole)) return null;
-                            const ModIcon = mod.icon;
-                            const isCurrent = activeTab === mod.id;
-                            
-                            const colorSchemes: Record<string, { bg: string, text: string, icon: string }> = {
-                                indigo: { bg: 'bg-indigo-50', text: 'text-indigo-700', icon: 'bg-indigo-100' },
-                                amber: { bg: 'bg-amber-50', text: 'text-amber-700', icon: 'bg-amber-100' },
-                                teal: { bg: 'bg-teal-50', text: 'text-teal-700', icon: 'bg-teal-100' },
-                                sky: { bg: 'bg-sky-50', text: 'text-sky-700', icon: 'bg-sky-100' },
-                                emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: 'bg-emerald-100' }
-                            };
-                            
-                            const colors = colorSchemes[mod.color as keyof typeof colorSchemes] || colorSchemes.indigo;
-
-                            return (
+                    <div className="p-3 max-h-[60vh] overflow-y-auto">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2 mb-2">Dashboards Oficiais</p>
+                        <div className="grid grid-cols-1 gap-1">
+                            {/* Main SOSFU dashboard */}
+                            {(userRole === 'ADMIN' || userRole.startsWith('SOSFU')) && (
                                 <button 
-                                    key={mod.id}
-                                    onClick={() => onTabChange?.(mod.id)}
-                                    className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all text-left ${isCurrent ? `${colors.bg} ${colors.text}` : 'hover:bg-gray-50 text-gray-600 hover:text-gray-900'}`}
+                                    onClick={() => { onTabChange?.('dashboard'); setIsSwitcherOpen(false); }}
+                                    className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all text-left ${activeTab === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50 text-gray-600 hover:text-gray-900'}`}
                                 >
-                                    <div className={`p-2 rounded-lg ${isCurrent ? colors.icon : 'bg-gray-100'}`}>
-                                        <ModIcon size={18} />
+                                    <div className={`p-2 rounded-lg ${activeTab === 'dashboard' ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                                        <LayoutDashboard size={18} />
                                     </div>
                                     <div>
-                                        <p className="text-xs font-bold leading-tight">{mod.label}</p>
-                                        <p className="text-[10px] opacity-60">Acesso ao módulo especializado</p>
+                                        <p className="text-xs font-bold leading-tight">Painel de Controle SOSFU</p>
+                                        <p className="text-[10px] opacity-60">Visão operacional da gerência</p>
                                     </div>
                                 </button>
-                            );
-                        })}
+                            )}
+
+                            {/* Modular Dashboards */}
+                            {modularDashboards.map(mod => {
+                                if (userRole !== 'ADMIN' && !mod.roles.includes(userRole)) return null;
+                                const ModIcon = mod.icon;
+                                const isCurrent = activeTab === mod.id;
+                                const colorSchemes: Record<string, { bg: string, text: string, icon: string }> = {
+                                    indigo: { bg: 'bg-indigo-50', text: 'text-indigo-700', icon: 'bg-indigo-100' },
+                                    amber: { bg: 'bg-amber-50', text: 'text-amber-700', icon: 'bg-amber-100' },
+                                    teal: { bg: 'bg-teal-50', text: 'text-teal-700', icon: 'bg-teal-100' },
+                                    sky: { bg: 'bg-sky-50', text: 'text-sky-700', icon: 'bg-sky-100' },
+                                    emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: 'bg-emerald-100' }
+                                };
+                                const colors = colorSchemes[mod.color as keyof typeof colorSchemes] || colorSchemes.indigo;
+
+                                return (
+                                    <button 
+                                        key={mod.id}
+                                        onClick={() => { onTabChange?.(mod.id); setIsSwitcherOpen(false); }}
+                                        className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all text-left ${isCurrent ? `${colors.bg} ${colors.text}` : 'hover:bg-gray-50 text-gray-600 hover:text-gray-900'}`}
+                                    >
+                                        <div className={`p-2 rounded-lg ${isCurrent ? colors.icon : 'bg-gray-100'}`}>
+                                            <ModIcon size={18} />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold leading-tight">{mod.label}</p>
+                                            <p className="text-[10px] opacity-60">Acesso ao módulo especializado</p>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             )}
         </div>
-        </Tooltip>
         
         {visibleTabs.length > 0 && <div className="h-8 w-px bg-gray-200 hidden md:block"></div>}
         
@@ -419,26 +444,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
                     </div>
 
                     <div className="py-1">
-                        {/* Seletor de Perfil (Multi-role) */}
-                        {availableRoles.length > 1 && (
-                            <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Alterar Perfil Ativo</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {availableRoles.map(r => (
-                                        <button
-                                            key={r.slug}
-                                            onClick={() => handleRoleSwitch(r.slug)}
-                                            className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-all border ${userRole === r.slug 
-                                                ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
-                                                : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-600'}`}
-                                        >
-                                            {(r.name || r.slug).split(' ')[0]}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
                         <button 
                             onClick={() => { setIsMenuOpen(false); onTabChange && onTabChange('profile'); }} 
                             className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 flex items-center gap-3 transition-colors"
