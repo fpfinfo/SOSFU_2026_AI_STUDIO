@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <meta name="theme-color" content="#1e40af" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta
+      name="description"
+      content="Sistema de Suprimento de Fundos - Tribunal de Justiça do Pará"
+    />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/assets/logo-tjpa.png" />
+    <title>SOSFU TJPA</title>
+    <!-- Font Optimization: preconnect + swap -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #f8fafc;
+      }
+      /* Accessibility: Respect reduced motion preferences */
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+      /* Skip to Content link for keyboard users */
+      .skip-link {
+        position: absolute;
+        top: -100%;
+        left: 16px;
+        z-index: 9999;
+        padding: 8px 16px;
+        background: #1e40af;
+        color: white;
+        font-weight: 700;
+        font-size: 14px;
+        border-radius: 0 0 8px 8px;
+        text-decoration: none;
+      }
+      .skip-link:focus {
+        top: 0;
+      }
+    </style>
+    <script>
+      // Polyfill para process.env
+      window.process = {
+        env: {
+          NODE_ENV: "development",
+          ...window.process?.env,
+        },
+      };
+    </script>
+    <script type="importmap">
+      {
+        "imports": {
+          "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+          "react-dom": "https://esm.sh/react-dom@18.2.0",
+          "react/": "https://esm.sh/react@18.2.0/",
+          "react": "https://esm.sh/react@18.2.0",
+          "lucide-react": "https://esm.sh/lucide-react@0.263.1",
+          "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.7",
+          "@google/genai": "https://esm.sh/@google/genai@^1.39.0",
+          "html2canvas": "https://esm.sh/html2canvas@1.4.1",
+          "jspdf": "https://esm.sh/jspdf@2.5.1"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <a href="#main-content" class="skip-link">Ir para o conteúdo principal</a>
+    <div id="root"></div>
+    <script type="module" crossorigin="anonymous" src="./index.tsx"></script>
+    <script>
+      // Service Worker Registration (PWA)
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js").catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>
