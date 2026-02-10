@@ -5,6 +5,8 @@ import { StatusBadge } from '../StatusBadge';
 import { Tooltip } from '../ui/Tooltip';
 import { SlaCountdown } from '../ui/SlaCountdown';
 import { useRealtimeInbox } from '../../hooks/useRealtimeInbox';
+import { TimelineCard } from './active-timeline/TimelineCard';
+import { SentinelaNudge } from './active-timeline/SentinelaNudge';
 
 interface SupridoDashboardProps {
     onNavigate: (page: string, processId?: string, accountabilityId?: string) => void;
@@ -62,7 +64,9 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                         id,
                         status,
                         balance,
-                        deadline
+                        deadline,
+                        sentinela_risk,
+                        sentinela_alerts
                     )
                 `)
                 .eq('user_id', user.id)
@@ -202,10 +206,30 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
 
     const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-    const filteredProcesses = processes.filter(p => 
-        p.process_number.toLowerCase().includes(filterTerm.toLowerCase()) ||
-        p.unit?.toLowerCase().includes(filterTerm.toLowerCase())
+    const activeProcesses = processes.filter(p => p.status !== 'ARCHIVED' && p.accountabilities?.[0]?.status !== 'APPROVED');
+    const historyProcesses = processes.filter(p => 
+        (p.status === 'ARCHIVED' || p.accountabilities?.[0]?.status === 'APPROVED') &&
+        (p.process_number.toLowerCase().includes(filterTerm.toLowerCase()) || 
+         p.unit?.toLowerCase().includes(filterTerm.toLowerCase()))
     );
+
+    const handleAction = (processId: string, action: string) => {
+        const proc = processes.find(p => p.id === processId);
+        if (!proc) return;
+        const pc = proc.accountabilities?.[0];
+
+        switch(action) {
+            case 'CONFIRM_RECEIPT':
+                handleInlineConfirmReceipt(processId, proc.value);
+                break;
+            case 'START_ACCOUNTABILITY':
+            case 'FIX_ACCOUNTABILITY':
+                handleStartAccountability(processId, proc.value, pc);
+                break;
+            default:
+                onNavigate('process_detail', processId);
+        }
+    };
 
     if (loading) return <div className="flex h-96 items-center justify-center"><Loader2 className="animate-spin text-slate-800" /></div>;
 
@@ -214,53 +238,78 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
             
 
 
-            {/* ═══ Banner: Pagamento Recebido — Confirmar Recebimento ═══ */}
-            {stats.awaitingConfirmation > 0 && (
-                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 rounded-2xl p-5 mb-8 animate-in fade-in slide-in-from-top-4">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-emerald-100 rounded-full text-emerald-600 animate-pulse shrink-0">
-                            <Banknote size={24} />
-                        </div>
-                        <div className="flex-1">
-                            <h3 className="text-lg font-black text-emerald-900">💰 Pagamento Realizado!</h3>
-                            <p className="text-sm text-emerald-700 mt-0.5">
-                                Você tem <strong>{stats.awaitingConfirmation} processo{stats.awaitingConfirmation > 1 ? 's' : ''}</strong> aguardando confirmação de recebimento. 
-                                Confirme para iniciar a Prestação de Contas.
-                            </p>
-                        </div>
+            {/* ═══ Processos Ativos (Timeline Cockpit) ═══ */}
+            <div className="mb-12 space-y-6">
+                <div className="flex items-center justify-between px-2">
+                    <div>
+                        <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+                            <Clock className="text-sky-600" size={20} /> Processos em Andamento
+                        </h3>
+                        <p className="text-sm text-slate-500">Ações recomendadas pelo Sentinela IA para agilizar seu fluxo</p>
                     </div>
                 </div>
-            )}
 
-            {/* ═══ Cards de Resumo Financeiro ═══ */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1.5 bg-emerald-50 rounded-lg text-emerald-600"><TrendingUp size={14} /></div>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Recebido</span>
+                {activeProcesses.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-6">
+                        {activeProcesses.map(proc => (
+                            <div key={proc.id} className="space-y-4">
+                                <TimelineCard 
+                                    process={proc}
+                                    onAction={handleAction}
+                                />
+                                {proc.accountabilities?.[0]?.sentinela_risk && (
+                                    <SentinelaNudge 
+                                        risk={proc.accountabilities[0].sentinela_risk} 
+                                        alerts={proc.accountabilities[0].sentinela_alerts} 
+                                    />
+                                )}
+                            </div>
+                        ))}
                     </div>
-                    <p className="text-lg font-black text-gray-900">{formatCurrency(stats.receivedYear)}</p>
+                ) : (
+                    <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl p-12 text-center">
+                        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-300 shadow-sm">
+                            <CheckCircle2 size={32} />
+                        </div>
+                        <h4 className="text-lg font-bold text-slate-800">Tudo em dia!</h4>
+                        <p className="text-sm text-slate-500 max-w-xs mx-auto">Você não possui processos com ações pendentes neste momento.</p>
+                    </div>
+                )}
+            </div>
+
+            {/* ═══ Cards de Resumo Financeiro (Premium) ═══ */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+                <div className="bg-white/70 backdrop-blur-md p-5 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all group">
+                    <div className="flex items-center gap-2 mb-3">
+                        <div className="p-2 bg-emerald-50 rounded-xl text-emerald-600 group-hover:scale-110 transition-transform"><TrendingUp size={16} /></div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Executado</span>
+                    </div>
+                    <p className="text-2xl font-black text-slate-900 leading-none tracking-tighter">{formatCurrency(stats.receivedYear)}</p>
+                    <p className="text-[10px] text-slate-500 mt-2 font-medium">Total recebido no ano</p>
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1.5 bg-blue-50 rounded-lg text-blue-600"><Clock size={14} /></div>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Em Análise</span>
+                <div className="bg-white/70 backdrop-blur-md p-5 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all group">
+                    <div className="flex items-center gap-2 mb-3">
+                        <div className="p-2 bg-sky-50 rounded-xl text-sky-600 group-hover:scale-110 transition-transform"><Clock size={16} /></div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ativos</span>
                     </div>
-                    <p className="text-lg font-black text-gray-900">{stats.inAnalysis}</p>
+                    <p className="text-2xl font-black text-slate-900 leading-none tracking-tighter">{stats.inAnalysis}</p>
+                    <p className="text-[10px] text-slate-500 mt-2 font-medium">Em análise institucional</p>
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1.5 bg-amber-50 rounded-lg text-amber-600"><Banknote size={14} /></div>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmar</span>
+                <div className="bg-white/70 backdrop-blur-md p-5 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all group">
+                    <div className="flex items-center gap-2 mb-3">
+                        <div className="p-2 bg-amber-50 rounded-xl text-amber-600 group-hover:scale-110 transition-transform"><Banknote size={16} /></div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Prazos</span>
                     </div>
-                    <p className="text-lg font-black text-amber-600">{stats.awaitingConfirmation}</p>
+                    <p className="text-2xl font-black text-amber-600 leading-none tracking-tighter">{stats.awaitingConfirmation}</p>
+                    <p className="text-[10px] text-slate-500 mt-2 font-medium">Confirmação de depósito</p>
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1.5 bg-red-50 rounded-lg text-red-600"><Receipt size={14} /></div>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">PC Pendente</span>
+                <div className="bg-white/70 backdrop-blur-md p-5 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all group">
+                    <div className="flex items-center gap-2 mb-3">
+                        <div className="p-2 bg-red-50 rounded-xl text-red-600 group-hover:scale-110 transition-transform"><Receipt size={16} /></div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Alertas</span>
                     </div>
-                    <p className="text-lg font-black text-red-600">{stats.pendingAccountability}</p>
+                    <p className="text-2xl font-black text-red-600 leading-none tracking-tighter">{stats.pendingAccountability}</p>
+                    <p className="text-[10px] text-slate-500 mt-2 font-medium">Prestações com pendência</p>
                 </div>
             </div>
 
@@ -312,148 +361,54 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                 </div>
             </div>
 
-            {/* Painel de Processos Unificado */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-gray-50/50">
+            {/* Histórico de Processos */}
+            <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50/50">
                     <div>
-                        <h3 className="text-lg font-bold text-gray-800">Meus Processos</h3>
-                        <p className="text-xs text-gray-500">Histórico de solicitações e status das contas</p>
+                        <h3 className="text-lg font-black text-slate-800">Histórico de Processos</h3>
+                        <p className="text-xs text-slate-500 tracking-wide">Busca avançada de solicitações anteriores</p>
                     </div>
                     <div className="relative w-full md:w-80">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                        <input type="text" placeholder="Buscar por número ou objeto..." className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:border-blue-500 outline-none transition-all" value={filterTerm} onChange={(e) => setFilterTerm(e.target.value)} />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input 
+                            type="text" 
+                            placeholder="Buscar NUP ou Unidade..." 
+                            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 outline-none transition-all" 
+                            value={filterTerm} 
+                            onChange={(e) => setFilterTerm(e.target.value)} 
+                        />
                     </div>
                 </div>
                 
-                <div className="divide-y divide-gray-100">
-                    {filteredProcesses.length === 0 ? (
-                        <div className="p-12 text-center text-gray-400 italic">Nenhum processo encontrado.</div>
+                <div className="divide-y divide-slate-50">
+                    {historyProcesses.length === 0 ? (
+                        <div className="p-12 text-center text-slate-400 italic font-medium">Nenhum processo no histórico.</div>
                     ) : (
-                        filteredProcesses.map((proc) => {
+                        historyProcesses.map((proc) => {
                             const typeInfo = getProcessType(proc.unit);
-                            const isPaid = proc.status === 'PAID';
-                            const isAwaitingConfirmation = proc.status === 'WAITING_SUPRIDO_CONFIRMATION';
-                            const pc = proc.accountabilities?.[0]; // Pega a PC associada (se houver)
-                            
                             return (
-                                <div key={proc.id} className={`p-5 transition-colors group flex flex-col gap-4 ${
-                                    isAwaitingConfirmation ? 'bg-emerald-50/50 border-l-4 border-l-emerald-500' : 'hover:bg-slate-50'
-                                }`}>
-                                    {/* ═══ Inline Confirmation Banner ═══ */}
-                                    {isAwaitingConfirmation && (
-                                        <div className="flex items-center justify-between bg-gradient-to-r from-emerald-100 to-teal-100 rounded-xl p-4 border border-emerald-200">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-emerald-200 rounded-full text-emerald-700 animate-pulse">
-                                                    <Banknote size={18} />
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-black text-emerald-900">Pagamento realizado pela SOSFU</p>
-                                                    <p className="text-[11px] text-emerald-700">Confirme o recebimento para iniciar a Prestação de Contas (prazo: 30 dias)</p>
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={() => handleInlineConfirmReceipt(proc.id, proc.value)}
-                                                disabled={confirmingReceipt === proc.id}
-                                                className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black shadow-lg hover:bg-emerald-700 transition-all flex items-center gap-2 disabled:opacity-50 whitespace-nowrap"
-                                            >
-                                                {confirmingReceipt === proc.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                                                Confirmar Recebimento
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                                    {/* Info Principal */}
-                                    <div className="flex items-start gap-4 flex-1 cursor-pointer" onClick={() => onNavigate('process_detail', proc.id)}>
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                                            isAwaitingConfirmation ? 'bg-emerald-200 text-emerald-700' : isPaid ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'
-                                        }`}>
-                                            {isAwaitingConfirmation ? <Banknote size={20} /> : isPaid ? <Wallet size={20} /> : <FileText size={20} />}
+                                <div key={proc.id} className="p-5 hover:bg-slate-50 transition-colors flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center">
+                                            <FileText size={20} />
                                         </div>
                                         <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <h4 className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{proc.process_number}</h4>
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${typeInfo.color}`}>{typeInfo.label}</span>
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <h4 className="text-sm font-bold text-slate-700">{proc.process_number}</h4>
+                                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${typeInfo.color}`}>{typeInfo.label}</span>
                                             </div>
-                                            <div className="text-xs text-gray-500 flex items-center gap-4">
-                                                <span>Data: {new Date(proc.created_at).toLocaleDateString()}</span>
-                                                <span className="font-semibold text-gray-700">{formatCurrency(proc.value)}</span>
+                                            <div className="text-[11px] text-slate-500 flex items-center gap-3">
+                                                <span>Finalizado em {new Date(proc.created_at).toLocaleDateString()}</span>
+                                                <span className="font-bold text-slate-600">{formatCurrency(proc.value)}</span>
                                             </div>
                                         </div>
                                     </div>
-
-                                    {/* Status e Ações */}
-                                    <div className="flex items-center gap-4 justify-end min-w-[200px]">
-                                        {isAwaitingConfirmation ? (
-                                            <span className="flex items-center gap-1 text-emerald-700 text-xs font-bold bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-200">
-                                                <Banknote size={14} /> Aguardando Confirmação
-                                            </span>
-                                        ) : !isPaid ? (
-                                            <StatusBadge status={proc.status} size="sm" />
-                                        ) : (
-                                            // Lógica de Botão de Ação para PC
-                                            <div className="flex items-center gap-3">
-                                                {/* Status da PC - Visual Melhorado */}
-                                                {pc ? (
-                                                    pc.status === 'APPROVED' ? (
-                                                        <span className="flex items-center gap-1 text-green-600 text-xs font-bold bg-green-50 px-2 py-1 rounded">
-                                                            <CheckCircle2 size={14}/> Contas Aprovadas
-                                                        </span>
-                                                    ) : pc.status === 'WAITING_MANAGER' ? (
-                                                        <span className="flex items-center gap-1 text-amber-700 text-xs font-bold bg-amber-50 px-2 py-1 rounded border border-amber-100">
-                                                            <UserCheck size={14}/> Aguardando Gestor
-                                                        </span>
-                                                    ) : pc.status === 'WAITING_SOSFU' ? (
-                                                        <span className="flex items-center gap-1 text-blue-600 text-xs font-bold bg-blue-50 px-2 py-1 rounded">
-                                                            <Shield size={14}/> Análise SOSFU
-                                                        </span>
-                                                    ) : (
-                                                        <span className="flex items-center gap-1 text-orange-600 text-xs font-bold bg-orange-50 px-2 py-1 rounded">
-                                                            {pc.status === 'CORRECTION' ? <RotateCcw size={14}/> : <FileText size={14}/>}
-                                                            {pc.status === 'CORRECTION' ? 'Correção Solicitada' : 'Rascunho'}
-                                                        </span>
-                                                    )
-                                                ) : (
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="flex items-center gap-1 text-red-500 text-xs font-bold bg-red-50 px-2 py-1 rounded animate-pulse">
-                                                            <AlertTriangle size={14}/> Prestação Pendente
-                                                        </span>
-                                                        <SlaCountdown
-                                                            createdAt={proc.created_at}
-                                                            daysLimit={90}
-                                                            compact
-                                                        />
-                                                    </div>
-                                                )}
-
-                                                {/* Botão de Ação */}
-                                                {(!pc || pc.status === 'DRAFT' || pc.status === 'CORRECTION') && (
-                                                    <Tooltip content={pc ? 'Continuar a prestação de contas em andamento' : 'Criar prestação de contas para comprovar uso dos recursos'} position="top">
-                                                    <button 
-                                                        onClick={() => handleStartAccountability(proc.id, proc.value, pc)}
-                                                        disabled={creatingPC === proc.id}
-                                                        className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold shadow-md hover:bg-black transition-all flex items-center gap-2 transform hover:-translate-y-0.5 active:scale-95 disabled:opacity-50"
-                                                    >
-                                                        {creatingPC === proc.id ? <Loader2 className="animate-spin" size={14}/> : (pc ? <Play size={14} fill="currentColor" /> : <Plus size={14}/>)}
-                                                        {pc ? 'Continuar PC' : 'Iniciar PC'}
-                                                    </button>
-                                                    </Tooltip>
-                                                )}
-                                                
-                                                {(pc && (pc.status === 'WAITING_SOSFU' || pc.status === 'APPROVED' || pc.status === 'WAITING_MANAGER')) && (
-                                                    <Tooltip content="Ver detalhes completos deste processo" position="top">
-                                                    <button 
-                                                        onClick={() => onNavigate('process_detail', proc.id)}
-                                                        className="px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-50 transition-colors"
-                                                    >
-                                                        Detalhes
-                                                    </button>
-                                                    </Tooltip>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                    </div>
+                                    <button 
+                                        onClick={() => onNavigate('process_detail', proc.id)}
+                                        className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-all"
+                                    >
+                                        <ChevronRight size={20} />
+                                    </button>
                                 </div>
                             );
                         })
