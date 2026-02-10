@@ -145,7 +145,38 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
     { id: 'settings', label: 'Configurações', icon: Settings, roles: ['ADMIN', 'SOSFU_GESTOR', 'SODPA_GESTOR', 'RESSARCIMENTO_GESTOR', 'SEFIN_GESTOR', 'AJSEFIN_GESTOR'] },
   ];
 
-  const userRole = userProfile?.dperfil?.slug || 'SERVIDOR';
+  // Multi-role handling
+  const [availableRoles, setAvailableRoles] = useState<{slug: string, name: string}[]>([]);
+  const [simulatedRole, setSimulatedRole] = useState<string | null>(localStorage.getItem('simulated_role'));
+
+  useEffect(() => {
+    if (userProfile?.id) {
+        (async () => {
+            const { data } = await supabase
+                .from('sys_user_roles')
+                .select('sys_roles(slug, name)')
+                .eq('user_id', userProfile.id)
+                .eq('is_active', true);
+            
+            if (data) {
+                const roles = data.map((d: any) => ({
+                    slug: d.sys_roles.slug,
+                    name: d.sys_roles.name
+                }));
+                setAvailableRoles(roles);
+            }
+        })();
+    }
+  }, [userProfile?.id]);
+
+  const handleRoleSwitch = (slug: string) => {
+    localStorage.setItem('simulated_role', slug);
+    setSimulatedRole(slug);
+    setIsMenuOpen(false);
+    window.location.reload(); // Re-render everything with new role context
+  };
+
+  const userRole = simulatedRole || userProfile?.dperfil?.slug || 'SERVIDOR';
   const availableTabs = allTabs.filter(tab => tab.roles.includes(userRole));
 
   // Determine if current module is independent (has its own internal navigation)
@@ -340,6 +371,26 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
                     </div>
 
                     <div className="py-1">
+                        {/* Seletor de Perfil (Multi-role) */}
+                        {availableRoles.length > 1 && (
+                            <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Alterar Perfil Ativo</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {availableRoles.map(r => (
+                                        <button
+                                            key={r.slug}
+                                            onClick={() => handleRoleSwitch(r.slug)}
+                                            className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-all border ${userRole === r.slug 
+                                                ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
+                                                : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-600'}`}
+                                        >
+                                            {r.name.split(' ')[0]}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <button 
                             onClick={() => { setIsMenuOpen(false); onTabChange && onTabChange('profile'); }} 
                             className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 flex items-center gap-3 transition-colors"
