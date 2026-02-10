@@ -153,19 +153,25 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
   
   let moduleConfig = MODULE_CONFIGS[activeTab || ''];
 
-  // 🆕 Context Persistence (Profile, Settings, Forms, Details)
-  // 1. For Standard Users/Servidores -> Always "Portal do Usuário"
-  if (userRole === 'USER' || userRole === 'SERVIDOR') {
-      moduleConfig = MODULE_CONFIGS['suprido_dashboard'];
-  }
-  // 2. For Shared Pages (Profile/Settings) for other roles -> Context based on Role
-  else if (['profile', 'settings'].includes(activeTab || '')) {
-      if (userRole.startsWith('SOSFU') || userRole === 'ADMIN') {
-          moduleConfig = MODULE_CONFIGS['dashboard']; // SOSFU Branding
+  // 🆕 Global Context Persistence (Profile, Settings, Forms, Details)
+  // Ensures branding persists when navigating to shared views
+  const sharedViews = ['process_accountability', 'process_detail', 'profile', 'settings', 'solicitation_emergency', 'solicitation_jury', 'solicitation_diarias', 'solicitation_ressarcimento'];
+  
+  if (sharedViews.includes(activeTab || '') || !moduleConfig) {
+      if (userRole === 'USER' || userRole === 'SERVIDOR') {
+          moduleConfig = MODULE_CONFIGS['suprido_dashboard'];
+      } else if (userRole.startsWith('GESTOR')) {
+          moduleConfig = MODULE_CONFIGS['gestor_dashboard'];
+      } else if (userRole.startsWith('SEFIN')) {
+          moduleConfig = MODULE_CONFIGS['sefin_dashboard'];
+      } else if (userRole.startsWith('AJSEFIN')) {
+          moduleConfig = MODULE_CONFIGS['ajsefin_dashboard'];
+      } else if (userRole.startsWith('SOSFU') || userRole === 'ADMIN' || userRole.startsWith('SGP') || userRole.startsWith('PRESIDENCIA') || userRole.startsWith('SEAD')) {
+          moduleConfig = MODULE_CONFIGS['dashboard']; // SOSFU Branding (Default for Admin/Central Roles)
       } else if (userRole.startsWith('SODPA')) {
-          moduleConfig = MODULE_CONFIGS['sodpa_dashboard']; // SODPA Branding
+          moduleConfig = MODULE_CONFIGS['sodpa_dashboard'];
       } else if (userRole.startsWith('RESSARCIMENTO')) {
-          moduleConfig = MODULE_CONFIGS['ressarcimento_dashboard']; // Ressarcimento Branding
+          moduleConfig = MODULE_CONFIGS['ressarcimento_dashboard'];
       }
   }
 
@@ -182,8 +188,13 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
   }, []);
 
   // Fetch gestor's comarca/unidade for dynamic header title
+  // Fetch gestor's comarca/unidade for dynamic header title
   useEffect(() => {
-    if (activeTab !== 'gestor_dashboard') { setGestorLocationTitle(null); return; }
+    // Also fetch if on shared views to maintain context
+    if (activeTab !== 'gestor_dashboard' && !sharedViews.includes(activeTab || '')) { 
+        setGestorLocationTitle(null); 
+        return; 
+    }
 
     const EXCLUDED_SIGLAS = ['SOSFU', 'AJSEFIN', 'SEFIN', 'SGP', 'SEAD', 'SODPA', 'GABPRES', 'GABVICE', 'GABCOR'];
 
@@ -230,7 +241,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
   const getInitials = (name: string) => (name || 'U').substring(0, 2).toUpperCase();
 
   // Dynamic branding based on active module
-  const headerTitle = (activeTab === 'gestor_dashboard' && gestorLocationTitle)
+  const headerTitle = ((activeTab === 'gestor_dashboard' || sharedViews.includes(activeTab || '')) && gestorLocationTitle && userRole.startsWith('GESTOR'))
     ? gestorLocationTitle
     : (moduleConfig?.title || 'SODPA TJPA');
   const headerSubtitle = moduleConfig?.subtitle || '• Serviço de Diárias e Passagens';
