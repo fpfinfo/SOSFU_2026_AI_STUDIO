@@ -628,22 +628,32 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                         </div>
                     </div>
 
-                    <div className="mt-auto space-y-2">
+                    <div className="mt-auto space-y-3">
                         {canEdit && (
-                            <Tooltip content="Enviar a prestação de contas para análise. Ao enviar, você declara veracidade legal dos comprovantes." position="top">
-                            <button 
-                                onClick={requestSubmitPC} 
-                                disabled={submitting}
-                                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-md transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-70 disabled:cursor-not-allowed"
-                            >
-                                {submitting ? <Loader2 className="animate-spin" size={16}/> : <Send size={16}/>} 
-                                Finalizar e Enviar
-                            </button>
-                            </Tooltip>
+                            <>
+                                <button 
+                                    onClick={onClose}
+                                    className="w-full py-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-50 transition-all flex items-center justify-center gap-2 text-sm"
+                                >
+                                    Continuar Depois
+                                </button>
+                                
+                                <Tooltip content="Enviar a prestação de contas para análise. Ao enviar, você declara veracidade legal dos comprovantes." position="top">
+                                <button 
+                                    onClick={requestSubmitPC} 
+                                    disabled={submitting}
+                                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-md transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-70 disabled:cursor-not-allowed"
+                                >
+                                    {submitting ? <Loader2 className="animate-spin" size={16}/> : <Send size={16}/>} 
+                                    Finalizar e Enviar
+                                </button>
+                                </Tooltip>
+                            </>
                         )}
-                        <p className="text-center text-[9px] text-gray-400">
-                            Ao enviar, você declara veracidade legal.
-                        </p>
+                        <div className="flex items-center justify-center gap-1.5 py-1">
+                            <CheckCircle2 size={10} className="text-emerald-500" />
+                            <p className="text-[9px] text-gray-400">Progresso sincronizado em tempo real</p>
+                        </div>
                     </div>
                 </div>
             </div>
