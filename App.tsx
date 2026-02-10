@@ -347,6 +347,27 @@ const App: React.FC = () => {
     }
   };
 
+  // Seletor de Perfil reativo
+  const [simulatedRole, setSimulatedRole] = useState<string | null>(localStorage.getItem('simulated_role'));
+
+  useEffect(() => {
+    // Escuta mudanças no localStorage para alternar abas reativamente
+    const handleStorageChange = () => {
+      const role = localStorage.getItem('simulated_role');
+      if (role !== simulatedRole) {
+        setSimulatedRole(role);
+        setActiveTab('dashboard'); // Força redirecionamento via useEffect reativo
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    // Polling opcional para o mesmo contexto de aba
+    const interval = setInterval(handleStorageChange, 1000);
+    return () => {
+        window.removeEventListener('storage', handleStorageChange);
+        clearInterval(interval);
+    };
+  }, [simulatedRole]);
+
   return (
     <ErrorBoundary fallbackTitle="Erro no Sistema SOSFU">
     <div className="min-h-screen bg-[#F8FAFC]">
@@ -354,7 +375,7 @@ const App: React.FC = () => {
         activeTab={activeTab} 
         onTabChange={(tab) => handleNavigation(tab)}
         onNavigate={handleNavigation}
-        userProfile={userProfile}
+        userProfile={userProfile ? { ...userProfile, dperfil: simulatedRole ? { slug: simulatedRole, name: simulatedRole } : userProfile.dperfil } : null}
       />
       
       {activeTab === 'sefin_dashboard' || activeTab === 'ajsefin_dashboard' || activeTab === 'sodpa_dashboard' || activeTab === 'ressarcimento_dashboard' ? (
