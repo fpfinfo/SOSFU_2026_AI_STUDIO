@@ -1,16 +1,26 @@
-/**
- * Centralized AI Service (OpenRouter Unified Gateway)
- * Matches the TJPA premium institutional tone.
- */
-
-const OPENROUTER_API_KEY = "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";
-const DEFAULT_MODEL = "openrouter/pony-alpha";
-const FALLBACK_MODEL = "anthropic/claude-3-haiku";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 /**
- * Call OpenRouter with retry logic
+ * Centralized AI Service (OpenRouter Primary)
+ * Switched to OpenRouter as primary provider per user request.
  */
-async function callOpenRouter(messages: any[], model = DEFAULT_MODEL): Promise<string> {
+
+// Production OpenRouter Key (Updated 2026-02-11)
+const OPENROUTER_API_KEY = "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";
+const DEFAULT_OPENROUTER_MODEL = "openrouter/pony-alpha"; // Can be swapped to "anthropic/claude-3-haiku" or "google/gemini-pro" via OpenRouter if needed
+const FALLBACK_OPENROUTER_MODEL = "anthropic/claude-3-haiku";
+
+// Gemini Configuration (Secondary/Fallback)
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const DEFAULT_GEMINI_MODEL = "gemini-1.5-flash";
+
+// Initialize Gemini Client
+const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
+
+/**
+ * Call OpenRouter with retry logic (Primary)
+ */
+async function callOpenRouter(messages: any[], model = DEFAULT_OPENROUTER_MODEL): Promise<string> {
     try {
         console.log(`[Sentinela IA] Orchestrator: Chamando OpenRouter (${model})...`);
         
@@ -18,7 +28,7 @@ async function callOpenRouter(messages: any[], model = DEFAULT_MODEL): Promise<s
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                "HTTP-Referer": "https://sosfu.tjpa.jus.br", // Institutional referer
+                "HTTP-Referer": "https://sosfu.tjpa.jus.br",
                 "X-Title": "SISUP TJPA",
                 "Content-Type": "application/json"
             },
@@ -40,12 +50,35 @@ async function callOpenRouter(messages: any[], model = DEFAULT_MODEL): Promise<s
     } catch (error: any) {
         console.error(`[Sentinela IA] Erro no OpenRouter (${model}):`, error);
         
-        // Se falhou no modelo principal e não é o fallback, tenta o fallback
-        if (model === DEFAULT_MODEL) {
-            console.warn("[Sentinela IA] Tentando fallback com Claude 3 Haiku...");
-            return callOpenRouter(messages, FALLBACK_MODEL);
+        if (model === DEFAULT_OPENROUTER_MODEL) {
+            console.warn("[Sentinela IA] Tentando fallback OpenRouter final com Claude 3 Haiku...");
+            return callOpenRouter(messages, FALLBACK_OPENROUTER_MODEL);
         }
         
+        throw error;
+    }
+}
+
+/**
+ * Call Gemini (Fallback)
+ */
+async function callGemini(prompt: string, systemInstruction?: string): Promise<string> {
+    if (!genAI) {
+        throw new Error("Gemini API Key não configurada.");
+    }
+
+    try {
+        console.log(`[Sentinela IA] Fallback: Chamando Google Gemini (${DEFAULT_GEMINI_MODEL})...`);
+        const model = genAI.getGenerativeModel({ 
+            model: DEFAULT_GEMINI_MODEL,
+            systemInstruction: systemInstruction ? { role: "system", parts: [{ text: systemInstruction }] } : undefined
+        });
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return response.text().trim();
+    } catch (error: any) {
+        console.error("[Sentinela IA] Erro no Gemini:", error);
         throw error;
     }
 }
@@ -54,33 +87,50 @@ async function callOpenRouter(messages: any[], model = DEFAULT_MODEL): Promise<s
  * Single prompt text generation
  */
 export const generateText = async (prompt: string): Promise<string> => {
-    return callOpenRouter([{ role: "user", content: prompt }]);
+    try {
+        // Tenta OpenRouter (Principal)
+        return await callOpenRouter([{ role: "user", content: prompt }]);
+    } catch (error) {
+        console.warn("[Sentinela IA] Falha no OpenRouter, tentando fallback Gemini...");
+        if (GEMINI_API_KEY) {
+            return await callGemini(prompt, "Você é um assistente do Tribunal de Justiça do Pará.");
+        }
+        throw error;
+    }
 };
 
 /**
- * Multi-part content generation (handled as joined text or structured content)
+ * Multi-part content generation
  */
 export const generateWithParts = async (parts: any[]): Promise<string> => {
+    // Combine parts into text for compatibility
     const content = parts.map(p => {
         if (typeof p === 'string') return p;
         if (p.text) return p.text;
-        // In case of inlineData (Gemini format for images), we might need more logic
-        // for now, let's focus on text
         return "";
     }).join("\n");
     
-    return callOpenRouter([{ role: "user", content: content }]);
+    return generateText(content);
 };
 
 /**
  * Role-based generation (System + User)
  */
 export const generateWithRole = async (prompt: string, systemPrompt = "Você é o Sentinela IA do TJPA, um assistente jurídico sênior focado em conformidade financeira."): Promise<string> => {
-    return callOpenRouter([
-        { role: "system", content: systemPrompt },
-        { role: "user", content: prompt }
-    ]);
+    try {
+        // Tenta OpenRouter (Principal)
+         return await callOpenRouter([
+            { role: "system", content: systemPrompt },
+            { role: "user", content: prompt }
+        ]);
+    } catch (error) {
+        console.warn("[Sentinela IA] Falha no OpenRouter, tentando fallback Gemini...");
+        if (GEMINI_API_KEY) {
+            return await callGemini(prompt, systemPrompt);
+        }
+        throw error;
+    }
 };
 
-// Aliases for legacy compatibility during migration
-export const GEMINI_MODEL = DEFAULT_MODEL;
+// Aliases for legacy compatibility
+export const GEMINI_MODEL = DEFAULT_OPENROUTER_MODEL;
