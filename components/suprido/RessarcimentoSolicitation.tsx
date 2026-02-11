@@ -27,8 +27,6 @@ interface ItemRessarcimento {
     isAnalyzing?: boolean;
     sentinelaAlerts?: string[];
     sentinelaRisk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-    odometroInicial?: string;
-    odometroFinal?: string;
     placaVeiculo?: string;
     origemCoords?: [number, number];
     destinoCoords?: [number, number];
@@ -43,6 +41,8 @@ interface ItemRessarcimento {
     showPreview?: boolean;
     // AI-extracted description from receipt
     aiDescription?: string;
+    // Original receipt value for comparison
+    valorComprovanteOriginal?: string;
 }
 
 const CATEGORIAS_RESSARCIMENTO = [
@@ -94,6 +94,9 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
     // Justification
     const [justification, setJustification] = useState('');
     const [urgency, setUrgency] = useState('NORMAL');
+
+    // Digital Signature
+    const [isSigned, setIsSigned] = useState(false);
 
     // Total
     const totalValue = useMemo(() => {
@@ -268,6 +271,7 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                 setItems(prev => prev.map(i => i.id === itemId ? {
                     ...i,
                     valor: data.valor?.toString() || i.valor,
+                    valorComprovanteOriginal: data.valor?.toString() || i.valor,
                     dataOcorrencia: data.data || i.dataOcorrencia,
                     notaFiscal: data.numero || i.notaFiscal,
                     descricao: data.descricao || i.descricao,
@@ -407,7 +411,7 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                 total_spent: totalValue,
                 balance: 0,
                 deadline: deadline.toISOString(),
-                status: 'WAITING_SOSFU'
+                status: 'DRAFT'
             }).select('id').single();
 
             if (accError) throw accError;
@@ -764,9 +768,9 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                                         </h4>
 
                                         {/* Vehicle Info + Fuel Calculator */}
-                                        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                             <div className="space-y-1.5">
-                                                <label className="text-[10px] font-bold text-teal-700 uppercase">Placa</label>
+                                                <label className="text-[10px] font-bold text-teal-700 uppercase">Placa do Veiculo</label>
                                                 <input
                                                     type="text"
                                                     value={item.placaVeiculo || ''}
@@ -776,27 +780,7 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
-                                                <label className="text-[10px] font-bold text-teal-700 uppercase">Odometro Inicial</label>
-                                                <input
-                                                    type="number"
-                                                    value={item.odometroInicial || ''}
-                                                    onChange={e => updateItem(item.id, 'odometroInicial', e.target.value)}
-                                                    className="w-full px-3 py-2.5 border border-teal-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-teal-200"
-                                                    placeholder="0"
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-bold text-teal-700 uppercase">Odometro Final</label>
-                                                <input
-                                                    type="number"
-                                                    value={item.odometroFinal || ''}
-                                                    onChange={e => updateItem(item.id, 'odometroFinal', e.target.value)}
-                                                    className="w-full px-3 py-2.5 border border-teal-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-teal-200"
-                                                    placeholder="0"
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-bold text-teal-700 uppercase flex items-center gap-1"><Fuel size={10} /> R$/Litro</label>
+                                                <label className="text-[10px] font-bold text-teal-700 uppercase flex items-center gap-1"><Fuel size={10} /> Preco do Litro (R$)</label>
                                                 <input
                                                     type="text"
                                                     value={item.precoLitro || ''}
@@ -806,7 +790,7 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
-                                                <label className="text-[10px] font-bold text-teal-700 uppercase flex items-center gap-1"><Car size={10} /> Km/L</label>
+                                                <label className="text-[10px] font-bold text-teal-700 uppercase flex items-center gap-1"><Car size={10} /> Consumo do Veiculo (Km/L)</label>
                                                 <input
                                                     type="text"
                                                     value={item.consumoKmL || ''}
@@ -818,33 +802,98 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                                         </div>
 
                                         {/* Fuel Cost Calculator Result */}
-                                        {item.kmCalculado && item.precoLitro && item.consumoKmL && (
-                                            <div className="bg-gradient-to-r from-teal-900 to-emerald-800 rounded-2xl p-5 text-white animate-in fade-in zoom-in-95 duration-300">
-                                                <div className="flex items-center gap-2 mb-3">
-                                                    <Calculator size={16} className="text-teal-300" />
-                                                    <span className="text-[10px] font-black text-teal-300 uppercase tracking-widest">Calculo Automatico de Combustivel</span>
+                                        {item.kmCalculado && item.precoLitro && item.consumoKmL && (() => {
+                                            const valorCalc = item.valorCombustivelCalculado || 0;
+                                            const valorComprovante = parseFloat(String(item.valorComprovanteOriginal || '0').replace(',', '.'));
+                                            const hasComprovante = valorComprovante > 0;
+                                            const diferenca = hasComprovante ? Math.abs(valorCalc - valorComprovante) : 0;
+                                            const percentDif = hasComprovante && valorCalc > 0 ? (diferenca / valorCalc) * 100 : 0;
+                                            const hasDiscrepancia = hasComprovante && percentDif > 10;
+
+                                            return (
+                                                <div className="space-y-3 animate-in fade-in zoom-in-95 duration-300">
+                                                    {/* Calculator Panel */}
+                                                    <div className="bg-gradient-to-r from-teal-900 to-emerald-800 rounded-2xl p-5 text-white">
+                                                        <div className="flex items-center gap-2 mb-3">
+                                                            <Calculator size={16} className="text-teal-300" />
+                                                            <span className="text-[10px] font-black text-teal-300 uppercase tracking-widest">Calculo Automatico de Combustivel</span>
+                                                        </div>
+                                                        <div className="grid grid-cols-4 gap-4">
+                                                            <div>
+                                                                <p className="text-[10px] text-teal-400 font-bold">Distancia</p>
+                                                                <p className="text-xl font-black">{item.kmCalculado} <span className="text-sm opacity-70">km</span></p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[10px] text-teal-400 font-bold">Preco/Litro</p>
+                                                                <p className="text-xl font-black">R$ {parseFloat(String(item.precoLitro).replace(',', '.')).toFixed(2)}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[10px] text-teal-400 font-bold">Consumo</p>
+                                                                <p className="text-xl font-black">{item.consumoKmL} <span className="text-sm opacity-70">km/L</span></p>
+                                                            </div>
+                                                            <div className="bg-white/10 rounded-xl p-3 text-center">
+                                                                <p className="text-[10px] text-teal-300 font-bold">VALOR CALCULADO</p>
+                                                                <p className="text-2xl font-black text-emerald-300">R$ {valorCalc.toFixed(2)}</p>
+                                                                <p className="text-[9px] text-teal-400 mt-1">({item.kmCalculado} / {item.consumoKmL}) x R$ {parseFloat(String(item.precoLitro).replace(',', '.')).toFixed(2)}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Comparativo: Comprovante vs Calculo */}
+                                                    {hasComprovante && (
+                                                        <div className={`rounded-2xl p-5 border-2 ${hasDiscrepancia ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                                                            <div className="flex items-center gap-2 mb-4">
+                                                                {hasDiscrepancia ? <AlertTriangle size={16} className="text-amber-600" /> : <CheckCircle2 size={16} className="text-emerald-600" />}
+                                                                <span className={`text-xs font-black uppercase ${hasDiscrepancia ? 'text-amber-700' : 'text-emerald-700'}`}>
+                                                                    Comparativo: Comprovante vs Calculo de Rota
+                                                                </span>
+                                                            </div>
+                                                            <div className="grid grid-cols-3 gap-4 mb-4">
+                                                                <div className="bg-white rounded-xl p-3 border border-gray-200 text-center">
+                                                                    <p className="text-[10px] text-gray-500 font-bold uppercase">Comprovante</p>
+                                                                    <p className="text-lg font-black text-gray-800">R$ {valorComprovante.toFixed(2)}</p>
+                                                                    <p className="text-[9px] text-gray-400">Valor do recibo apresentado</p>
+                                                                </div>
+                                                                <div className="bg-white rounded-xl p-3 border border-gray-200 text-center">
+                                                                    <p className="text-[10px] text-gray-500 font-bold uppercase">Calculo Rota</p>
+                                                                    <p className="text-lg font-black text-teal-700">R$ {valorCalc.toFixed(2)}</p>
+                                                                    <p className="text-[9px] text-gray-400">Distancia x Preco x Consumo</p>
+                                                                </div>
+                                                                <div className={`rounded-xl p-3 border text-center ${hasDiscrepancia ? 'bg-amber-100 border-amber-300' : 'bg-emerald-100 border-emerald-300'}`}>
+                                                                    <p className={`text-[10px] font-bold uppercase ${hasDiscrepancia ? 'text-amber-600' : 'text-emerald-600'}`}>Diferenca</p>
+                                                                    <p className={`text-lg font-black ${hasDiscrepancia ? 'text-amber-700' : 'text-emerald-700'}`}>
+                                                                        {percentDif.toFixed(1)}%
+                                                                    </p>
+                                                                    <p className={`text-[9px] ${hasDiscrepancia ? 'text-amber-500' : 'text-emerald-500'}`}>R$ {diferenca.toFixed(2)}</p>
+                                                                </div>
+                                                            </div>
+                                                            {hasDiscrepancia ? (
+                                                                <div className="bg-amber-100/80 rounded-xl p-4 border border-amber-200">
+                                                                    <div className="flex items-start gap-3">
+                                                                        <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                                                                        <div>
+                                                                            <p className="text-sm font-bold text-amber-800">Divergencia de valores identificada</p>
+                                                                            <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                                                                                O valor informado no comprovante (R$ {valorComprovante.toFixed(2)}) apresenta uma diferenca de {percentDif.toFixed(1)}% em relacao ao calculo estimado de rota (R$ {valorCalc.toFixed(2)}).
+                                                                                Essa divergencia sera analisada pelo <span className="font-bold">Ordenador de Despesa</span> durante a fase de aprovacao.
+                                                                                Voce pode prosseguir com o envio normalmente.
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="bg-emerald-100/80 rounded-xl p-3 border border-emerald-200 flex items-center gap-2">
+                                                                    <CheckCircle2 size={14} className="text-emerald-600" />
+                                                                    <p className="text-xs text-emerald-700 font-medium">
+                                                                        Valores compativeis. Diferenca dentro da margem aceitavel (ate 10%).
+                                                                    </p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div className="grid grid-cols-4 gap-4">
-                                                    <div>
-                                                        <p className="text-[10px] text-teal-400 font-bold">Distancia</p>
-                                                        <p className="text-xl font-black">{item.kmCalculado} <span className="text-sm opacity-70">km</span></p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[10px] text-teal-400 font-bold">Preco/Litro</p>
-                                                        <p className="text-xl font-black">R$ {parseFloat(String(item.precoLitro).replace(',', '.')).toFixed(2)}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[10px] text-teal-400 font-bold">Consumo</p>
-                                                        <p className="text-xl font-black">{item.consumoKmL} <span className="text-sm opacity-70">km/L</span></p>
-                                                    </div>
-                                                    <div className="bg-white/10 rounded-xl p-3 text-center">
-                                                        <p className="text-[10px] text-teal-300 font-bold">VALOR CALCULADO</p>
-                                                        <p className="text-2xl font-black text-emerald-300">R$ {item.valorCombustivelCalculado?.toFixed(2) || '0.00'}</p>
-                                                        <p className="text-[9px] text-teal-400 mt-1">({item.kmCalculado} km / {item.consumoKmL} km/L) x R$ {parseFloat(String(item.precoLitro).replace(',', '.')).toFixed(2)}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
+                                            );
+                                        })()}
 
                                         {/* Origin / Destination Search */}
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1066,30 +1115,70 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                     <p className="text-[10px] text-gray-400 mt-1 text-right">{justification.length} / 800 caracteres</p>
                 </div>
 
-                {/* Submit */}
+                {/* Assinatura + Submit */}
                 <div className="bg-gradient-to-br from-teal-50 to-emerald-50 p-8 rounded-2xl border border-teal-200 shadow-sm">
                     <div className="flex flex-col items-center">
-                        <h4 className="text-base font-bold text-teal-800 mb-4">Assinatura Digital</h4>
-                        <div className="w-full max-w-md bg-white p-4 rounded-xl border border-teal-200 mb-6 flex items-center gap-3 shadow-sm">
-                            <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center text-teal-700 font-black text-lg">{userName.charAt(0)}</div>
+                        <h4 className="text-base font-bold text-teal-800 mb-2">Assinatura Digital</h4>
+                        <p className="text-xs text-gray-500 mb-5 text-center max-w-md">
+                            Para enviar sua solicitacao, voce deve primeiro assinar digitalmente o documento clicando no botao abaixo.
+                        </p>
+
+                        {/* Card do Assinante */}
+                        <div className={`w-full max-w-md p-4 rounded-xl border-2 mb-4 flex items-center gap-3 shadow-sm transition-all ${
+                            isSigned ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-gray-200'
+                        }`}>
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg ${
+                                isSigned ? 'bg-emerald-200 text-emerald-700' : 'bg-teal-100 text-teal-700'
+                            }`}>{userName.charAt(0)}</div>
                             <div className="flex-1">
                                 <p className="font-bold text-sm text-gray-800">{userName}</p>
                                 <p className="text-[10px] text-gray-500">{userMatricula} | {userCargo}</p>
                             </div>
-                            <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                <BadgeCheck size={14} />
-                                <span className="text-[10px] font-bold">Validado</span>
-                            </div>
+                            {isSigned && (
+                                <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300 animate-in fade-in zoom-in-95">
+                                    <BadgeCheck size={14} />
+                                    <span className="text-[10px] font-bold">Assinado</span>
+                                </div>
+                            )}
                         </div>
-                        <button
-                            onClick={handleSubmit}
-                            disabled={isSubmitting || !justification || totalValue <= 0}
-                            className="w-full max-w-md py-4 bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold rounded-xl shadow-lg flex justify-center items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-xl transition-all active:scale-[0.98] text-base"
-                        >
-                            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-                            {isSubmitting ? 'Enviando...' : 'Enviar Solicitacao de Ressarcimento'}
-                        </button>
-                        <p className="text-[10px] text-teal-600 mt-3 text-center">
+
+                        {/* Botao Assinar */}
+                        {!isSigned ? (
+                            <button
+                                onClick={() => setIsSigned(true)}
+                                disabled={!justification || totalValue <= 0}
+                                className="w-full max-w-md py-4 bg-gradient-to-r from-slate-800 to-slate-700 text-white font-bold rounded-xl shadow-lg flex justify-center items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-xl transition-all active:scale-[0.98] text-base mb-3"
+                            >
+                                <BadgeCheck size={20} /> Assinar Solicitacao
+                            </button>
+                        ) : (
+                            <>
+                                {/* Confirmacao de Assinatura */}
+                                <div className="w-full max-w-md bg-emerald-100 rounded-xl p-3 border border-emerald-200 flex items-center gap-2 mb-4 animate-in fade-in slide-in-from-bottom-2">
+                                    <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                                    <p className="text-xs text-emerald-700 font-medium">
+                                        Documento assinado digitalmente em {new Date().toLocaleString('pt-BR')}. Agora voce pode enviar a solicitacao.
+                                    </p>
+                                </div>
+
+                                {/* Botao Enviar (so aparece depois de assinar) */}
+                                <button
+                                    onClick={handleSubmit}
+                                    disabled={isSubmitting}
+                                    className="w-full max-w-md py-4 bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold rounded-xl shadow-lg flex justify-center items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-xl transition-all active:scale-[0.98] text-base animate-in fade-in slide-in-from-bottom-4 duration-500"
+                                >
+                                    {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+                                    {isSubmitting ? 'Enviando...' : 'Enviar Solicitacao de Ressarcimento'}
+                                </button>
+
+                                {/* Desfazer assinatura */}
+                                <button onClick={() => setIsSigned(false)} className="mt-2 text-[10px] text-gray-400 hover:text-gray-600 underline transition-colors">
+                                    Desfazer assinatura
+                                </button>
+                            </>
+                        )}
+
+                        <p className="text-[10px] text-teal-600 mt-4 text-center">
                             Ao enviar, a solicitacao sera encaminhada para a Caixa de Entrada do modulo de Ressarcimento.
                         </p>
                     </div>
