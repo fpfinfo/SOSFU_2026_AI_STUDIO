@@ -1,42 +1,12 @@
 import React, { useEffect, useState, useMemo, useCallback, memo } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, ZoomControl, useMap, Tooltip as LeafletTooltip } from 'react-leaflet';
 import { supabase } from '../../lib/supabase';
 import {
     Loader2, Map as MapIcon, DollarSign, Search, Navigation,
     BarChart3, Mail, Scale, TrendingUp, Building2, MapPin
 } from 'lucide-react';
-import 'leaflet/dist/leaflet.css';
+import { GoogleMapPremium } from '../ui/Map/GoogleMapPremium';
 
-// Responsive Leaflet popup overrides
-const popupStyles = document.createElement('style');
-popupStyles.textContent = `
-  .comarca-popup .leaflet-popup-content-wrapper {
-    border-radius: 16px !important;
-    padding: 0 !important;
-    box-shadow: 0 10px 40px rgba(0,0,0,.15) !important;
-    max-height: 80vh;
-    overflow-y: auto;
-  }
-  .comarca-popup .leaflet-popup-content {
-    margin: 12px !important;
-    width: clamp(240px, 75vw, 380px) !important;
-    max-width: calc(100vw - 60px) !important;
-  }
-  .comarca-popup .leaflet-popup-close-button {
-    top: 8px !important; right: 8px !important;
-    font-size: 20px !important; color: #94a3b8 !important;
-  }
-  @media (max-width: 640px) {
-    .comarca-popup .leaflet-popup-content {
-      width: clamp(200px, 85vw, 320px) !important;
-      margin: 8px !important;
-    }
-  }
-`;
-if (!document.getElementById('comarca-popup-styles')) {
-  popupStyles.id = 'comarca-popup-styles';
-  document.head.appendChild(popupStyles);
-}
+// Remoção dos estilos Leaflet e componentes auxiliares de mapa antigos
 
 // ==================== TYPES ====================
 interface ElementoDespesa {
@@ -115,14 +85,7 @@ function seededRandom(seed: number): number {
     return x - Math.floor(x);
 }
 
-// ==================== MAP CONTROLLER ====================
-const MapController = memo(({ center, zoom }: { center: [number, number] | null; zoom: number }) => {
-    const map = useMap();
-    useEffect(() => {
-        if (center) map.flyTo(center, zoom, { duration: 1.0 });
-    }, [center, zoom, map]);
-    return null;
-});
+// Remoção do MapController Leaflet
 
 // ==================== POPUP CONTENT ====================
 const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
@@ -280,100 +243,7 @@ const SidebarItem = memo(({ stat, isSelected, onClick }: {
     </button>
 ));
 
-// ==================== COMARCA MARKER ====================
-const ComarcaMarker = memo(({ stat, isSelected, radius, color, onClick }: {
-    stat: ComarcaStats; isSelected: boolean; radius: number; color: string; onClick: () => void;
-}) => (
-    <CircleMarker
-        center={[stat.lat, stat.lng]}
-        eventHandlers={{ click: onClick }}
-        pathOptions={{
-            color: isSelected ? '#312e81' : color,
-            fillColor: color,
-            fillOpacity: isSelected ? 0.95 : 0.7,
-            weight: isSelected ? 3.5 : 2,
-        }}
-        radius={radius}
-    >
-        <LeafletTooltip direction="top" offset={[0, -12]} opacity={0.95}>
-            <div className="text-center px-2 py-0.5">
-                <span className="font-black text-xs uppercase block text-slate-800">{stat.comarca}</span>
-                <span className="text-[10px] font-mono font-bold text-emerald-600 block mt-0.5">
-                    {CURRENCY_COMPACT.format(stat.totalConcedido)}
-                </span>
-                <span className="text-[9px] text-slate-400">{stat.processCount} processos</span>
-            </div>
-        </LeafletTooltip>
-        <Popup minWidth={220} maxWidth={420} className="comarca-popup">
-            <ComarcaPopupContent stat={stat} />
-        </Popup>
-    </CircleMarker>
-));
-
-// ==================== UNIDADE ADMIN MARKER ====================
-const UnidadeAdminMarker = memo(({ unidade }: { unidade: UnidadeAdmin }) => {
-    const markerColor = TIPO_MARKER_COLORS[unidade.tipo] || TIPO_MARKER_COLORS['Outro'];
-    return (
-        <CircleMarker
-            center={[unidade.lat, unidade.lng]}
-            pathOptions={{
-                color: '#1e293b',
-                fillColor: markerColor,
-                fillOpacity: 0.85,
-                weight: 2.5,
-                dashArray: '4 2',
-            }}
-            radius={10}
-        >
-            <LeafletTooltip direction="top" offset={[0, -12]} opacity={0.95}>
-                <div className="text-center px-2 py-0.5">
-                    <span className="font-black text-xs block text-slate-800">
-                        {unidade.sigla || unidade.nome}
-                    </span>
-                    <span className="text-[9px] text-slate-400 block">{unidade.tipo}</span>
-                </div>
-            </LeafletTooltip>
-            <Popup minWidth={200} maxWidth={320} className="comarca-popup">
-                <div className="w-full">
-                    <div className="pb-2 mb-2 border-b border-slate-200">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[10px] font-black"
-                                 style={{ backgroundColor: markerColor }}>
-                                {unidade.sigla?.slice(0, 2) || unidade.nome.slice(0, 2).toUpperCase()}
-                            </div>
-                            <div>
-                                <h3 className="font-black text-slate-800 text-sm leading-tight">{unidade.nome}</h3>
-                                {unidade.sigla && (
-                                    <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">{unidade.sigla}</span>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="space-y-1.5 text-[11px]">
-                        <div className="flex items-center gap-2">
-                            <span className="text-slate-400 font-bold w-20">Tipo:</span>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{
-                                backgroundColor: markerColor + '20', color: markerColor
-                            }}>{unidade.tipo}</span>
-                        </div>
-                        {unidade.vinculacao && (
-                            <div className="flex items-center gap-2">
-                                <span className="text-slate-400 font-bold w-20">Vinculação:</span>
-                                <span className="text-slate-700 font-medium">{unidade.vinculacao}</span>
-                            </div>
-                        )}
-                        {unidade.responsavel && (
-                            <div className="flex items-center gap-2">
-                                <span className="text-slate-400 font-bold w-20">Titular:</span>
-                                <span className="text-slate-700 font-medium">{unidade.responsavel}</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </Popup>
-        </CircleMarker>
-    );
-});
+// Remoção dos componentes de marcador do Leaflet
 
 // ==================== MAIN COMPONENT ====================
 export const SefinMapView: React.FC<SefinMapViewProps> = ({ darkMode = false }) => {
@@ -613,33 +483,42 @@ export const SefinMapView: React.FC<SefinMapViewProps> = ({ darkMode = false }) 
 
                 {/* MAP */}
                 <div className="flex-1 bg-slate-100 rounded-2xl shadow-lg border border-gray-200 overflow-hidden relative z-0">
-                    <MapContainer
-                        center={INITIAL_CENTER}
-                        zoom={6}
-                        scrollWheelZoom={true}
-                        zoomControl={false}
-                        style={{ height: '100%', width: '100%', background: '#e2e8f0' }}
-                    >
-                        {mapFocus && <MapController center={mapFocus.center} zoom={mapFocus.zoom} />}
-                        <TileLayer
-                            attribution='&copy; CARTO'
-                            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                        />
-                        <ZoomControl position="bottomright" />
-                        {showComarcas && stats.map(stat => (
-                            <ComarcaMarker
-                                key={stat.comarca}
-                                stat={stat}
-                                isSelected={selectedComarca === stat.comarca}
-                                radius={calculateRadius(stat.totalConcedido)}
-                                color={getColor(stat)}
-                                onClick={() => handleComarcaClick(stat)}
-                            />
-                        ))}
-                        {showUnidades && unidadesAdmin.map(u => (
-                            <UnidadeAdminMarker key={`ua-${u.id}`} unidade={u} />
-                        ))}
-                    </MapContainer>
+                    <GoogleMapPremium
+                        center={mapFocus?.center || INITIAL_CENTER}
+                        zoom={mapFocus?.zoom || 6}
+                        className="h-full w-full"
+                        mapType={darkMode ? 'hybrid' : 'roadmap'}
+                        markers={[
+                            ...(showComarcas ? stats.map(s => ({
+                                id: `comarca-${s.comarca}`,
+                                lat: s.lat,
+                                lng: s.lng,
+                                title: s.comarca,
+                                tooltip: `${CURRENCY_COMPACT.format(s.totalConcedido)} · ${s.processCount} processos`,
+                                color: getColor(s),
+                                radius: calculateRadius(s.totalConcedido) / 2,
+                                data: s
+                            })) : []),
+                            ...(showUnidades ? unidadesAdmin.map(u => ({
+                                id: `unidade-${u.id}`,
+                                lat: u.lat,
+                                lng: u.lng,
+                                title: u.sigla || u.nome,
+                                tooltip: u.tipo,
+                                color: TIPO_MARKER_COLORS[u.tipo] || TIPO_MARKER_COLORS['Outro'],
+                                radius: 5,
+                                data: u
+                            })) : [])
+                        ]}
+                        onMarkerClick={(marker) => {
+                            if (typeof marker.id === 'string' && marker.id.startsWith('comarca-')) {
+                                setSelectedComarca(marker.data.comarca);
+                                setMapFocus({ center: [marker.lat, marker.lng], zoom: 10 });
+                            } else {
+                                setMapFocus({ center: [marker.lat, marker.lng], zoom: 12 });
+                            }
+                        }}
+                    />
 
                     {/* Legend */}
                     <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm p-3 rounded-xl shadow-lg border border-gray-200 z-[1000] text-xs">

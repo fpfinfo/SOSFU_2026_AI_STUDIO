@@ -3,11 +3,12 @@ import {
     ArrowLeft, ShieldCheck, Calendar, DollarSign, FileText,
     CheckCircle2, ChevronRight, ChevronLeft, AlertCircle, AlertTriangle,
     Save, Sparkles, Loader2, UserCheck, Plus, Trash2, Upload,
-    Briefcase, Receipt, Image, Clock
+    Briefcase, Receipt, Image, Clock, Navigation, Search
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { generateText, generateWithParts } from '../../lib/aiService';
 import { Tooltip } from '../ui/Tooltip';
+import { GoogleMapPremium } from '../ui/Map/GoogleMapPremium';
 
 interface RessarcimentoSolicitationProps {
     onNavigate: (page: string, processId?: string) => void;
@@ -26,6 +27,14 @@ interface ItemRessarcimento {
     isAnalyzing?: boolean;
     sentinelaAlerts?: string[];
     sentinelaRisk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+    odometroInicial?: string;
+    odometroFinal?: string;
+    placaVeiculo?: string;
+    origemCoords?: [number, number];
+    destinoCoords?: [number, number];
+    origemLabel?: string;
+    destinoLabel?: string;
+    kmCalculado?: number;
 }
 
 const CATEGORIAS_RESSARCIMENTO = [
@@ -45,6 +54,7 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+    const [policies, setPolicies] = useState<any[]>([]);
 
     // Dados do Solicitante
     const [userName, setUserName] = useState('');
@@ -89,13 +99,13 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
             if (user) {
                 const { data: profile } = await supabase
                     .from('profiles')
-                    .select('full_name, email, matricula, cargo, lotacao, gestor_nome, gestor_email, municipio, banco, agencia, conta')
+                    .select('full_name, email, matricula, cargo, lotacao, gestor_nome, gestor_email, municipio, banco, agencia, conta_corrente')
                     .eq('id', user.id)
                     .single();
 
                 if (profile) {
-                    setUserName(profile.full_name || '');
-                    setUserMatricula(profile.matricula || '');
+                    setUserName(profile.full_name || user.user_metadata?.full_name || user.user_metadata?.name || '');
+                    setUserMatricula(profile.matricula || user.user_metadata?.matricula || '');
                     setUserCargo(profile.cargo || '');
                     setUserLotacao(profile.lotacao || profile.municipio || '');
                     if (profile.gestor_nome && profile.gestor_email) {
@@ -105,9 +115,18 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                     }
                     if (profile.banco) setBanco(profile.banco);
                     if (profile.agencia) setAgencia(profile.agencia);
-                    if (profile.conta) setConta(profile.conta);
+                    if (profile.conta_corrente) setConta(profile.conta_corrente);
+                } else if (user.user_metadata) {
+                    // Fallback para metadata se o perfil não for encontrado
+                    setUserName(user.user_metadata.full_name || user.user_metadata.name || '');
+                    setUserMatricula(user.user_metadata.matricula || '');
                 }
             }
+
+            // Carregar políticas
+            const { data: polData } = await supabase.from('ressarcimento_policies').select('*').eq('ativo', true);
+            if (polData) setPolicies(polData);
+
         } catch (error) {
             console.error("Erro ao carregar dados:", error);
         } finally {
@@ -126,8 +145,38 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
         setItems(prev => prev.filter(i => i.id !== id));
     };
 
-    const updateItem = (id: string, field: keyof ItemRessarcimento, value: string) => {
+    const updateItem = (id: string, field: keyof ItemRessarcimento, value: any) => {
         setItems(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i));
+    };
+
+    const handleSearchAddress = async (id: string, text: string, type: 'origem' | 'destino') => {
+        if (!text || text.length < 3) return;
+        
+        const fieldPrefix = type === 'origem' ? 'origem' : 'destino';
+        updateItem(id, 'isAnalyzing', true);
+        
+        try {
+            console.log(`Buscando ${type} no Google: ${text}`);
+            const { data, error } = await supabase.functions.invoke('google-maps-proxy', {
+                body: { action: 'geocode', text }
+            });
+
+            if (error) throw error;
+            if (data?.error) throw new Error(data.message || "Erro desconhecido na API de mapas.");
+
+            if (data?.features?.[0]) {
+                const coords = data.features[0].geometry.coordinates;
+                console.log(`Coordenadas encontradas para ${type}:`, coords);
+                updateItem(id, `${fieldPrefix}Coords` as any, coords);
+            } else {
+                alert(`Endereço de ${type} não encontrado.`);
+            }
+        } catch (err: any) {
+            console.error(`Erro ao buscar ${type}:`, err);
+            alert(`Erro ao buscar endereço: ${err.message || 'Verifique sua conexão.'}`);
+        } finally {
+            updateItem(id, 'isAnalyzing', false);
+        }
     };
 
     const handleSmartCapture = async (itemId: string, file: File) => {
@@ -167,6 +216,22 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                     sentinelaRisk: data.risk || 'LOW',
                     isAnalyzing: false 
                 } : i));
+
+                // Validação Adicional contra Políticas
+                const item = items.find(it => it.id === itemId);
+                if (item) {
+                    const policy = policies.find(p => p.categoria === item.categoria);
+                    if (policy) {
+                        const val = parseFloat(data.valor?.toString() || '0');
+                        if (policy.limite_valor && val > policy.limite_valor) {
+                            setItems(prev => prev.map(i => i.id === itemId ? { 
+                                ...i, 
+                                sentinelaRisk: 'HIGH' as any,
+                                sentinelaAlerts: [...(i.sentinelaAlerts || []), `Valor excede o limite da política (R$ ${policy.limite_valor})`]
+                            } : i));
+                        }
+                    }
+                }
             }
         } catch (error) {
             console.error("Erro Sentinela IA:", error);
@@ -297,6 +362,9 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                 value: parseFloat(item.valor.replace(',', '.')),
                 doc_type: 'RECIBO',
                 status: 'PENDING',
+                odometro_inicial: item.odometroInicial ? parseFloat(item.odometroInicial) : null,
+                odometro_final: item.odometroFinal ? parseFloat(item.odometroFinal) : null,
+                placa_veiculo: item.placaVeiculo || null,
                 ai_metadata: {
                     sentinela_risk: item.sentinelaRisk,
                     sentinela_alerts: item.sentinelaAlerts
@@ -483,6 +551,143 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                                     ))}
                                 </div>
                             </div>
+
+                            {/* Detalhes de Transporte / Combustível */}
+                            {item.categoria === 'TRANSPORTE' && (
+                                <>
+                                    <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 p-3 bg-teal-50/50 rounded-lg border border-teal-100 animate-in fade-in zoom-in-95">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-teal-700 uppercase">Placa do Veículo</label>
+                                            <input 
+                                                type="text" 
+                                                value={item.placaVeiculo || ''} 
+                                                onChange={e => updateItem(item.id, 'placaVeiculo', e.target.value.toUpperCase())} 
+                                                className="w-full px-3 py-2 border border-teal-200 rounded-lg text-sm bg-white" 
+                                                placeholder="ABC-1234"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-teal-700 uppercase">Odômetro Inicial</label>
+                                            <input 
+                                                type="number" 
+                                                value={item.odometroInicial || ''} 
+                                                onChange={e => updateItem(item.id, 'odometroInicial', e.target.value)} 
+                                                className="w-full px-3 py-2 border border-teal-200 rounded-lg text-sm bg-white" 
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-teal-700 uppercase">Odômetro Final</label>
+                                            <input 
+                                                type="number" 
+                                                value={item.odometroFinal || ''} 
+                                                onChange={e => updateItem(item.id, 'odometroFinal', e.target.value)} 
+                                                className="w-full px-3 py-2 border border-teal-200 rounded-lg text-sm bg-white" 
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Mapa e Rota */}
+                                    <div className="mt-4 p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-4 animate-in fade-in slide-in-from-top-2">
+                                        <h4 className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-2">
+                                            <Navigation size={14} className="text-teal-600" /> Cálculo de Rota e Distância
+                                        </h4>
+                                        
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase">Origem (Endereço ou Cidade)</label>
+                                                    <div className="relative flex gap-2">
+                                                        <div className="relative flex-1">
+                                                            <input 
+                                                                type="text" 
+                                                                value={item.origemLabel || ''} 
+                                                                onChange={(e) => updateItem(item.id, 'origemLabel', e.target.value)}
+                                                                onKeyDown={(e) => e.key === 'Enter' && handleSearchAddress(item.id, item.origemLabel || '', 'origem')}
+                                                                className={`w-full pl-8 pr-3 py-2 border rounded-lg text-sm transition-all ${item.origemCoords ? 'border-teal-500 bg-teal-50/30' : 'border-slate-200 bg-slate-50/50'}`} 
+                                                                placeholder="Pressione Enter p/ buscar"
+                                                            />
+                                                            <div className="absolute left-2.5 top-1/2 -translate-y-1/2">
+                                                                {item.isAnalyzing ? <Loader2 size={14} className="text-teal-600 animate-spin" /> : <Search size={14} className="text-slate-400" />}
+                                                            </div>
+                                                        </div>
+                                                        <button 
+                                                            disabled={item.isAnalyzing}
+                                                            onClick={() => handleSearchAddress(item.id, item.origemLabel || '', 'origem')}
+                                                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${item.isAnalyzing ? 'bg-slate-100 text-slate-400' : 'bg-teal-600 text-white hover:bg-teal-700 active:scale-95 shadow-sm'}`}
+                                                        >
+                                                            {item.isAnalyzing ? '...' : 'Buscar'}
+                                                        </button>
+                                                    </div>
+                                                    {item.origemCoords && (
+                                                        <div className="flex items-center gap-1 mt-1 animate-in fade-in zoom-in-95 duration-200">
+                                                            <CheckCircle2 size={10} className="text-teal-600" />
+                                                            <span className="text-[9px] text-teal-600 font-bold uppercase">Localização Encontrada</span>
+                                                        </div>
+                                                    )}
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase">Destino (Endereço ou Cidade)</label>
+                                                    <div className="relative flex gap-2">
+                                                        <div className="relative flex-1">
+                                                            <input 
+                                                                type="text" 
+                                                                value={item.destinoLabel || ''} 
+                                                                onChange={(e) => updateItem(item.id, 'destinoLabel', e.target.value)}
+                                                                onKeyDown={(e) => e.key === 'Enter' && handleSearchAddress(item.id, item.destinoLabel || '', 'destino')}
+                                                                className={`w-full pl-8 pr-3 py-2 border rounded-lg text-sm transition-all ${item.destinoCoords ? 'border-teal-500 bg-teal-50/30' : 'border-slate-200 bg-slate-50/50'}`} 
+                                                                placeholder="Pressione Enter p/ buscar"
+                                                            />
+                                                            <div className="absolute left-2.5 top-1/2 -translate-y-1/2">
+                                                                {item.isAnalyzing ? <Loader2 size={14} className="text-teal-600 animate-spin" /> : <Search size={14} className="text-slate-400" />}
+                                                            </div>
+                                                        </div>
+                                                        <button 
+                                                            disabled={item.isAnalyzing}
+                                                            onClick={() => handleSearchAddress(item.id, item.destinoLabel || '', 'destino')}
+                                                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${item.isAnalyzing ? 'bg-slate-100 text-slate-400' : 'bg-teal-600 text-white hover:bg-teal-700 active:scale-95 shadow-sm'}`}
+                                                        >
+                                                            {item.isAnalyzing ? '...' : 'Buscar'}
+                                                        </button>
+                                                    </div>
+                                                    {item.destinoCoords && (
+                                                        <div className="flex items-center gap-1 mt-1 animate-in fade-in zoom-in-95 duration-200">
+                                                            <CheckCircle2 size={10} className="text-teal-600" />
+                                                            <span className="text-[9px] text-teal-600 font-bold uppercase">Localização Encontrada</span>
+                                                        </div>
+                                                    )}
+                                            </div>
+                                        </div>
+
+                                        {(item.origemCoords || item.destinoCoords) && (
+                                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                                <div className="lg:col-span-2">
+                                                    <GoogleMapPremium 
+                                                        origin={item.origemCoords}
+                                                        destination={item.destinoCoords}
+                                                        onRouteCalculated={(km) => {
+                                                            if (item.kmCalculado !== parseFloat(km.toFixed(2))) {
+                                                                updateItem(item.id, 'kmCalculado', parseFloat(km.toFixed(2)));
+                                                            }
+                                                        }}
+                                                        className="h-[400px] shadow-inner"
+                                                    />
+                                                </div>
+                                                <div className="bg-teal-900 rounded-xl p-4 text-white flex flex-col justify-center">
+                                                    <p className="text-[10px] font-bold text-teal-400 uppercase tracking-wider mb-1">Distância Calculada</p>
+                                                    <div className="flex items-baseline gap-1">
+                                                        <span className="text-3xl font-black">{item.kmCalculado || '--'}</span>
+                                                        <span className="text-sm font-bold opacity-70">KM</span>
+                                                    </div>
+                                                    <p className="text-[9px] text-teal-300 mt-2 leading-tight">
+                                                        Dados baseados em rotas oficiais via Google Maps. Use para validar sua despesa.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
                         </div>
                     ))}
                 </div>

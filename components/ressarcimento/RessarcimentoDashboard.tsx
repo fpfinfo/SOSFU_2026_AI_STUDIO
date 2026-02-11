@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     FileText, Search, Loader2,
-    Inbox, CheckCircle2, Users, Receipt, Wallet
+    Inbox, CheckCircle2, Users, Receipt, Wallet,
+    AlertTriangle, ShieldAlert, Fuel, Car
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStaleProcesses } from '../../hooks/useStaleProcesses';
@@ -28,7 +29,9 @@ export const RessarcimentoDashboard: React.FC<RessarcimentoDashboardProps> = ({ 
         newInbox: 0,
         myAnalysis: 0,
         inPayment: 0,
-        done: 0
+        done: 0,
+        highRisk: 0,
+        fuelRequests: 0
     });
 
     const MODULE_NAME: 'RESSARCIMENTO' = 'RESSARCIMENTO';
@@ -65,11 +68,23 @@ export const RessarcimentoDashboard: React.FC<RessarcimentoDashboardProps> = ({ 
                 .select('*', { count: 'exact', head: true })
                 .eq('status', 'PAID'); // Or APPROVED
 
+            // 5. High Risk (Sentinela)
+            const { count: riskCount } = await supabase.from('accountabilities')
+                .select('*', { count: 'exact', head: true })
+                .eq('sentinela_risk', 'HIGH');
+
+            // 6. Fuel Requests
+            const { count: fuelCount } = await supabase.from('accountability_items')
+                .select('*', { count: 'exact', head: true })
+                .not('placa_veiculo', 'is', null);
+
             setStats({
                 newInbox: newSols || 0,
                 myAnalysis: mySols || 0,
                 inPayment: paymentPhase || 0,
-                done: doneTotal || 0
+                done: doneTotal || 0,
+                highRisk: riskCount || 0,
+                fuelRequests: fuelCount || 0
             });
 
         } catch (error) { console.error(`Erro ${MODULE_NAME}:`, error); } finally { setLoading(false); }
@@ -99,7 +114,8 @@ export const RessarcimentoDashboard: React.FC<RessarcimentoDashboardProps> = ({ 
         <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             
             {/* ===== STATS CARDS ===== */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* ===== STATS CARDS ===== */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* 1. CAIXA DE ENTRADA */}
                 <div className="bg-white rounded-2xl p-5 border shadow-sm border-emerald-100 relative overflow-hidden group">
                      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -167,6 +183,42 @@ export const RessarcimentoDashboard: React.FC<RessarcimentoDashboardProps> = ({ 
                     </div>
                     <h3 className="text-3xl font-black text-slate-800">{stats.done}</h3>
                     <p className="text-xs text-slate-500 font-medium mt-1">Ressarcimentos Pagos</p>
+                </div>
+
+                {/* 5. ALERTAS SENTINELA (ALTO RISCO) */}
+                <div className="bg-white rounded-2xl p-5 border-2 shadow-sm border-red-100 relative overflow-hidden group cursor-pointer hover:border-red-300 transition-all">
+                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <AlertTriangle size={48} className="text-red-600" />
+                    </div>
+                     <div className="flex items-center gap-2 mb-2">
+                         <div className="p-2 rounded-lg bg-red-50 text-red-600">
+                             <ShieldAlert size={18} />
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Alertas Sentinela IA</span>
+                    </div>
+                    <h3 className="text-3xl font-black text-slate-800">{stats.highRisk}</h3>
+                    <p className="text-xs text-slate-500 font-medium mt-1">Possíveis Irregularidades</p>
+                    <div className="mt-3 flex items-center gap-1.5 text-[9px] font-bold text-red-600 bg-red-50 w-fit px-2 py-1 rounded-md animate-pulse">
+                        Atenção Imediata
+                    </div>
+                </div>
+
+                {/* 6. GESTÃO DE COMBUSTÍVEL / FROTA */}
+                <div className="bg-white rounded-2xl p-5 border shadow-sm border-teal-100 relative overflow-hidden group">
+                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <Fuel size={48} className="text-teal-600" />
+                    </div>
+                     <div className="flex items-center gap-2 mb-2">
+                         <div className="p-2 rounded-lg bg-teal-50 text-teal-600">
+                             <Fuel size={18} />
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Frota & Combustível</span>
+                    </div>
+                    <h3 className="text-3xl font-black text-slate-800">{stats.fuelRequests}</h3>
+                    <p className="text-xs text-slate-500 font-medium mt-1">Registros de Abastecimento</p>
+                    <div className="mt-3 flex items-center gap-1 text-[10px] text-teal-600/80 font-medium">
+                        <Car size={12} /> Controle de Odômetro Ativo
+                    </div>
                 </div>
             </div>
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback, memo, useRef } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, ZoomControl, useMap, Polyline, GeoJSON } from 'react-leaflet';
 import { supabase } from '../../lib/supabase';
+import { GoogleMapPremium } from '../ui/Map/GoogleMapPremium';
 import {
     geocodeAddress,
     getRouteFromSede,
@@ -102,38 +102,11 @@ interface UnidadeAdmin {
     lng: number;
 }
 
-// ── Map Controller (FlyTo) ──
-const MapController = memo(({ center, zoom }: { center: [number, number] | null; zoom: number }) => {
-    const map = useMap();
-    useEffect(() => {
-        if (center) map.flyTo(center, zoom, { duration: 0.8 });
-    }, [center, zoom, map]);
-    return null;
-});
+// Remoção do MapController Leaflet
 
 
 
-// ── Comarca Marker ──
-const ComarcaMarker = memo(({ stat, isSelected, radius, color, onClick }: {
-    stat: ComarcaStats; isSelected: boolean; radius: number; color: string; onClick: () => void;
-}) => (
-    <CircleMarker
-        center={[stat.lat, stat.lng]}
-        radius={radius}
-        pathOptions={{
-            fillColor: color,
-            fillOpacity: isSelected ? 0.95 : 0.75,
-            color: isSelected ? '#fff' : color,
-            weight: isSelected ? 3 : 1.5,
-        }}
-        eventHandlers={{ click: onClick }}
-    >
-        <Tooltip direction="top" offset={[0, -10]} className="leaflet-tooltip-custom">
-            <span className="text-[10px] font-black">{stat.comarca}</span>
-        </Tooltip>
-        {/* Popup removed in favor of MapDetailCard overlay */}
-    </CircleMarker>
-));
+// Remoção dos componentes de marcador do Leaflet
 
 // ── Popup Content ──
 const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
@@ -235,51 +208,7 @@ const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
     );
 });
 
-// ── Unidade Admin Marker ──
-const UnidadeAdminMarker = memo(({ unidade }: { unidade: UnidadeAdmin }) => (
-    <CircleMarker
-        center={[unidade.lat, unidade.lng]}
-        radius={5}
-        pathOptions={{
-            fillColor: UNIDADE_COLORS[unidade.tipo] || UNIDADE_COLORS.Outro,
-            fillOpacity: 0.8,
-            color: '#fff',
-            weight: 1.5,
-        }}
-    >
-        <Tooltip direction="top" offset={[0, -6]}>
-            <span className="text-[9px] font-bold">{unidade.sigla || unidade.nome}</span>
-        </Tooltip>
-        <Popup minWidth={200}>
-            <div className="w-full">
-                <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100">
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-100" style={{
-                        backgroundColor: (UNIDADE_COLORS[unidade.tipo] || UNIDADE_COLORS.Outro) + '20',
-                        color: UNIDADE_COLORS[unidade.tipo] || UNIDADE_COLORS.Outro
-                    }}>
-                        <Landmark size={14} />
-                    </div>
-                    <div>
-                        <h3 className="text-xs font-black text-slate-800 leading-tight">{unidade.nome}</h3>
-                        <p className="text-[9px] text-slate-500 font-bold uppercase">{unidade.tipo}</p>
-                    </div>
-                </div>
-                <div className="space-y-2">
-                    <div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Responsável</p>
-                        <p className="text-[10px] font-bold text-slate-700">{unidade.responsavel || 'Não informado'}</p>
-                    </div>
-                    {unidade.vinculacao && (
-                        <div>
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Vinculação</p>
-                            <p className="text-[10px] text-slate-600 leading-tight">{unidade.vinculacao}</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </Popup>
-    </CircleMarker>
-));
+// Remoção do marcador de Unidade Admin do Leaflet
 
 // ── Sidebar Item ──
 const SidebarItem = memo(({ stat, isSelected, onClick }: { stat: ComarcaStats; isSelected: boolean; onClick: () => void; }) => {
@@ -592,8 +521,10 @@ export const GeographicMap: React.FC = () => {
         if (!stat.route) {
             setRouteLoading(true);
             try {
+                // Aqui podemos manter o getRouteFromSede por enquanto se ele for agnóstico a mapa
                 const route = await getRouteFromSede(stat.lat, stat.lng, stat.comarca);
                 setActiveRoute(route);
+                
                 // Update stat in-place
                 stat.route = route;
                 setStats(prev => prev.map(s => s.comarca === stat.comarca ? { ...s, route } : s));
@@ -977,81 +908,58 @@ export const GeographicMap: React.FC = () => {
                          )}
                     </div>
 
-                    <MapContainer
-                        center={INITIAL_CENTER}
-                        zoom={6}
-                        scrollWheelZoom={true}
-                        zoomControl={false}
-                        style={{ height: '100%', width: '100%', background: '#e2e8f0' }}
-                    >
-                        {mapFocus && <MapController center={mapFocus.center} zoom={mapFocus.zoom} />}
-                        <TileLayer
-                            attribution={activeTile.attribution}
-                            url={activeTile.url}
-                        />
-                        <ZoomControl position="bottomright" />
-
-                        {/* Isochrones Layer */}
-                        {showIsochrones && isochrones.map((iso, i) => (
-                            <GeoJSON
-                                key={`iso-${i}`}
-                                data={iso.geometry}
-                                style={() => ({
-                                    fillColor: ISOCHRONE_COLORS[i] || ISOCHRONE_COLORS[0],
-                                    fillOpacity: 0.2,
-                                    color: ISOCHRONE_COLORS[i]?.replace('80', 'ff') || '#10b981',
-                                    weight: 2,
-                                    dashArray: '6 4',
-                                })}
-                            />
-                        ))}
-
-                        {/* Active Route Polyline */}
-                        {activeRoute && (
-                            <Polyline
-                                positions={activeRoute.geometry}
-                                pathOptions={{
-                                    color: '#0d9488',
-                                    weight: 4,
-                                    opacity: 0.8,
-                                    dashArray: '8 6',
-                                    lineCap: 'round',
-                                    lineJoin: 'round',
-                                }}
-                            />
-                        )}
-
-                        {/* TJPA Sede Marker */}
-                        <CircleMarker
-                            center={TJPA_SEDE}
-                            radius={8}
-                            pathOptions={{
-                                fillColor: '#0d9488',
-                                fillOpacity: 1,
-                                color: '#fff',
-                                weight: 3,
-                            }}
-                        >
-                            <Tooltip direction="top" offset={[0, -10]} permanent>
-                                <span className="text-[10px] font-black">📍 Sede TJPA</span>
-                            </Tooltip>
-                        </CircleMarker>
-
-                        {showComarcas && filteredStats.map(stat => (
-                            <ComarcaMarker
-                                key={stat.comarca}
-                                stat={stat}
-                                isSelected={selectedComarca === stat.comarca}
-                                radius={calculateRadius(stat.totalConcedido)}
-                                color={getColor(stat)}
-                                onClick={() => handleComarcaClick(stat)}
-                            />
-                        ))}
-
-                        {showUnidades && unidadesAdmin.map(u => (
-                            <UnidadeAdminMarker key={`ua-${u.id}`} unidade={u} />
-                        ))}
-                    </MapContainer>
+                    <GoogleMapPremium
+                        center={mapFocus?.center || INITIAL_CENTER}
+                        zoom={mapFocus?.zoom || 7}
+                        className="h-full w-full"
+                        mapType={activeTileKey === 'satellite' ? 'satellite' : 'roadmap'}
+                        origin={TJPA_SEDE}
+                        destination={activeRoute ? [activeRoute.geometry[activeRoute.geometry.length-1][1], activeRoute.geometry[activeRoute.geometry.length-1][0]] : undefined}
+                        isochrones={showIsochrones ? isochrones.map((iso, i) => ({
+                            points: (iso.geometry.coordinates[0] as number[][]).map(c => ({ lat: c[1], lng: c[0] })),
+                            color: ISOCHRONE_COLORS[i] || ISOCHRONE_COLORS[0],
+                            label: ISOCHRONE_LABELS[i]
+                        })) : []}
+                        markers={[
+                            ...(showComarcas ? filteredStats.map(s => ({
+                                id: `comarca-${s.comarca}`,
+                                lat: s.lat,
+                                lng: s.lng,
+                                title: s.comarca,
+                                tooltip: `${CURRENCY_COMPACT.format(s.totalConcedido)} · ${s.processCount} processos`,
+                                color: getColor(s),
+                                radius: calculateRadius(s.totalConcedido) / 2,
+                                data: s
+                            })) : []),
+                            ...(showUnidades ? unidadesAdmin.map(u => ({
+                                id: `unidade-${u.id}`,
+                                lat: u.lat,
+                                lng: u.lng,
+                                title: u.sigla || u.nome,
+                                tooltip: u.tipo,
+                                color: UNIDADE_COLORS[u.tipo] || UNIDADE_COLORS.Outro,
+                                radius: 5,
+                                data: u
+                            })) : []),
+                            {
+                                id: 'sede-tjpa',
+                                lat: TJPA_SEDE[0],
+                                lng: TJPA_SEDE[1],
+                                title: 'Sede TJPA',
+                                tooltip: 'Sede Administrativa',
+                                color: '#0d9488',
+                                radius: 8,
+                                label: '📍'
+                            }
+                        ]}
+                        onMarkerClick={(marker) => {
+                            if (typeof marker.id === 'string' && marker.id.startsWith('comarca-')) {
+                                handleComarcaClick(marker.data);
+                            } else if (typeof marker.id === 'string' && marker.id.startsWith('unidade-')) {
+                                handleUnidadeClick(marker.data);
+                            }
+                        }}
+                    />
 
                     {/* Legend Floating */}
                     <div className="absolute bottom-6 left-4 md:left-auto md:right-16 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-slate-100 z-[1000] text-xs max-w-[200px]">

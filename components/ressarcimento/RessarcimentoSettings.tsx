@@ -10,13 +10,14 @@ import {
 import { UsersSettings } from '../settings/UsersSettings';
 import { RessarcimentoProfileSettings } from './settings/RessarcimentoProfileSettings';
 import { RessarcimentoGeneralSettings } from './settings/RessarcimentoGeneralSettings';
+import { RessarcimentoPoliciesSettings } from './settings/RessarcimentoPoliciesSettings';
 
 interface RessarcimentoSettingsProps {
     darkMode?: boolean;
     userProfile?: any;
 }
 
-type SettingsTab = 'general' | 'users' | 'roles' | 'notifications';
+type SettingsTab = 'general' | 'users' | 'roles' | 'policies' | 'notifications';
 
 export const RessarcimentoSettings: React.FC<RessarcimentoSettingsProps> = ({ darkMode = false, userProfile }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('general');
@@ -25,6 +26,7 @@ export const RessarcimentoSettings: React.FC<RessarcimentoSettingsProps> = ({ da
         { id: 'general', label: 'Geral', icon: <Settings size={18} /> },
         { id: 'users', label: 'Usuários e Permissões', icon: <Users size={18} /> },
         { id: 'roles', label: 'Gestão de Perfis', icon: <Shield size={18} /> },
+        { id: 'policies', label: 'Políticas e Limites', icon: <Clock size={18} /> },
         { id: 'notifications', label: 'Notificações', icon: <Bell size={18} /> },
     ];
 
@@ -99,6 +101,13 @@ export const RessarcimentoSettings: React.FC<RessarcimentoSettingsProps> = ({ da
                         {activeTab === 'roles' && (
                             <div className="animate-in fade-in slide-in-from-right-4 duration-300">
                                 <RessarcimentoProfileSettings />
+                            </div>
+                        )}
+
+                        {/* TAB: POLICIES */}
+                        {activeTab === 'policies' && (
+                            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                                <RessarcimentoPoliciesSettings />
                             </div>
                         )}
 
