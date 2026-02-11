@@ -25,9 +25,11 @@ import { DiariasSolicitation } from './components/suprido/DiariasSolicitation';
 import { RessarcimentoSolicitation } from './components/suprido/RessarcimentoSolicitation';
 import { ProcessDetailView } from './components/process/ProcessDetailView';
 import { AccountabilityWizard } from './components/accountability/AccountabilityWizard';
+import { SupridoFormsView } from './components/suprido/SupridoFormsView';
+import { SupridoProcessesView } from './components/suprido/SupridoProcessesView';
 import { LoginView } from './components/LoginView';
 import { DASHBOARD_STATS } from './constants';
-import { Loader2, Map as MapIcon } from 'lucide-react';
+import { Loader2, Map as MapIcon, LayoutDashboard } from 'lucide-react';
 
 // Lazy-load: Leaflet (~300KB) é carregado apenas quando o usuário abre a aba Relatórios
 const LazyReportsView = React.lazy(() => import('./components/ReportsView').then(m => ({ default: m.ReportsView })));
@@ -321,6 +323,10 @@ const App: React.FC = () => {
         );
       case 'suprido_dashboard':
         return <SupridoDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} />;
+      case 'suprido_forms':
+        return <SupridoFormsView onNavigate={handleNavigation} onBack={() => setActiveTab('suprido_dashboard')} />;
+      case 'suprido_processes':
+        return <SupridoProcessesView onNavigate={handleNavigation} onBack={() => setActiveTab('suprido_dashboard')} />;
       case 'gestor_dashboard':
         return <GestorDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} />;
       case 'sefin_dashboard':
