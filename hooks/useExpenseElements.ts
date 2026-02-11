@@ -5,11 +5,12 @@ export interface ExpenseElement {
     id: string;
     codigo: string;
     descricao: string;
-    categoria: string;
-    ativo: boolean;
+    categoria?: string;
+    is_active: boolean;
+    module?: 'SOSFU' | 'SODPA' | 'AMBOS';
 }
 
-export function useExpenseElements() {
+export function useExpenseElements(module?: 'SOSFU' | 'SODPA', includeInactive: boolean = false) {
     const [elements, setElements] = useState<ExpenseElement[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -17,11 +18,19 @@ export function useExpenseElements() {
     const fetchElements = useCallback(async () => {
         try {
             setLoading(true);
-            const { data, error: fetchError } = await supabase
-                .from('elementos_despesa')
-                .select('*')
-                .eq('ativo', true)
-                .order('codigo', { ascending: true });
+            let query = supabase
+                .from('delemento')
+                .select('*');
+            
+            if (!includeInactive) {
+                query = query.eq('is_active', true);
+            }
+            
+            if (module) {
+                query = query.or(`module.eq.${module},module.eq.AMBOS`);
+            }
+
+            const { data, error: fetchError } = await query.order('codigo', { ascending: true });
 
             if (fetchError) throw fetchError;
             setElements(data || []);
@@ -31,7 +40,7 @@ export function useExpenseElements() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [module]);
 
     useEffect(() => {
         fetchElements();

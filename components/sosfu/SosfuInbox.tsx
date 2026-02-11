@@ -21,6 +21,7 @@ interface InboxItem {
     analyst_id?: string;
     analyst?: { full_name: string; avatar_url?: string };
     solicitation_id?: string; // For Accountabilities to link back
+    solicitation_analyst_id?: string; // ID of the analyst who paid the solicitation (for conflict checks)
 }
 
 export const SosfuInbox: React.FC<SosfuInboxProps> = ({ onNavigate, userProfile }) => {
@@ -49,7 +50,7 @@ export const SosfuInbox: React.FC<SosfuInboxProps> = ({ onNavigate, userProfile 
             // 2. Fetch Accountabilities
             const { data: pcs } = await supabase
                 .from('accountabilities')
-                .select(`*, analyst:analyst_id(full_name, avatar_url), profiles:requester_id(full_name)`)
+                .select(`*, analyst:analyst_id(full_name, avatar_url), profiles:requester_id(full_name), solicitation:solicitations!solicitation_id(analyst_id)`)
                 .or('status.eq.WAITING_SOSFU,status.eq.CORRECTION,status.eq.LATE,status.eq.APPROVED,status.eq.REJECTED,status.eq.ARCHIVED')
                 .order('created_at', { ascending: false })
                 .limit(200);
@@ -84,7 +85,8 @@ export const SosfuInbox: React.FC<SosfuInboxProps> = ({ onNavigate, userProfile 
                         status: p.status,
                         analyst_id: p.analyst_id,
                         analyst: p.analyst,
-                        solicitation_id: p.solicitation_id
+                        solicitation_id: p.solicitation_id,
+                        solicitation_analyst_id: (p.solicitation as any)?.analyst_id
                     });
                 });
             }
@@ -251,7 +253,8 @@ export const SosfuInbox: React.FC<SosfuInboxProps> = ({ onNavigate, userProfile 
                 <table className="w-full text-left">
                     <thead className="bg-slate-50 text-slate-500 font-semibold text-xs uppercase tracking-wider border-b border-slate-100">
                         <tr>
-                            <th className="px-6 py-4">Tipo / Processo</th>
+                            <th className="px-6 py-4">Processo</th>
+                            <th className="px-6 py-4">Tipo</th>
                             <th className="px-6 py-4">Beneficiário</th>
                             <th className="px-6 py-4">Valor</th>
                             <th className="px-6 py-4">Status</th>
@@ -302,6 +305,15 @@ export const SosfuInbox: React.FC<SosfuInboxProps> = ({ onNavigate, userProfile 
                                                 </div>
                                             </div>
                                         </div>
+                                    </td>
+                                    <td className="px-6 py-3.5">
+                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                                            item.type === 'SOLICITATION' 
+                                                ? 'bg-blue-50 text-blue-700 border-blue-100' 
+                                                : 'bg-amber-50 text-amber-700 border-amber-100'
+                                        }`}>
+                                            {item.type === 'SOLICITATION' ? 'Solicitação SF' : 'Prestação Contas'}
+                                        </span>
                                     </td>
                                     <td className="px-6 py-3.5">
                                         <div className="text-sm font-medium text-slate-700">{item.beneficiary}</div>
@@ -358,6 +370,7 @@ export const SosfuInbox: React.FC<SosfuInboxProps> = ({ onNavigate, userProfile 
                 currentAnalystId={selectedItem?.analyst_id}
                 title="Atribuir Processo"
                 module="SOSFU"
+                conflictAnalystId={selectedItem?.solicitation_analyst_id}
             />
         </div>
     );

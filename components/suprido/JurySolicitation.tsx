@@ -60,7 +60,7 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
     });
 
     // Dados de Apoio
-    const { elements: elementosOptions } = useExpenseElements();
+    const { elements: elementosOptions } = useExpenseElements('SOSFU');
 
     // Etapa 1: Pessoas
     const [peopleCounts, setPeopleCounts] = useState<Record<string, number>>({});

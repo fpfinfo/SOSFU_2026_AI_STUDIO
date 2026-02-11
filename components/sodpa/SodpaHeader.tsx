@@ -64,34 +64,10 @@ export const SodpaHeader: React.FC<SodpaHeaderProps> = ({
             badgeType: urgentCount > 0 ? 'urgent' : 'default'
         },
         {
-            id: 'processes',
-            label: 'Diárias e Passagens',
-            shortLabel: 'Diárias',
-            icon: <Plane size={18} />
-        },
-        {
-            id: 'accountability',
-            label: 'Prest. Contas',
-            shortLabel: 'PC',
-            icon: <FileCheck size={18} />
-        },
-        {
-            id: 'archive',
-            label: 'Arquivo',
-            shortLabel: 'Arquivo',
-            icon: <Archive size={18} />
-        },
-        {
             id: 'reports',
             label: 'Relatórios',
             shortLabel: 'Relat.',
             icon: <BarChart3 size={18} />
-        },
-        {
-            id: 'settings',
-            label: 'Configurações',
-            shortLabel: 'Config.',
-            icon: <Settings size={18} />
         }
     ];
 

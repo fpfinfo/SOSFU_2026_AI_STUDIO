@@ -24,7 +24,7 @@ export const SolicitationModal: React.FC<SolicitationModalProps> = ({ isOpen, on
   const [generatedProcessNumber, setGeneratedProcessNumber] = useState('');
   
   // Data
-  const { elements: elementos, loading: loadingElementos } = useExpenseElements();
+  const { elements: elementos, loading: loadingElementos } = useExpenseElements('SOSFU');
 
   // Form States
   const [value, setValue] = useState('');
@@ -246,16 +246,9 @@ export const SolicitationModal: React.FC<SolicitationModalProps> = ({ isOpen, on
                 className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm appearance-none cursor-pointer font-medium text-gray-700"
             >
                 <option value="">Selecione a natureza da despesa...</option>
-                <optgroup label="Material de Consumo (3.3.90.30)">
-                    {elementos.filter(e => e.codigo.startsWith('3.3.90.30')).map(e => (
-                        <option key={e.id} value={e.codigo}>{e.codigo} - {e.descricao.replace('Material de Consumo - ', '')}</option>
-                    ))}
-                </optgroup>
-                <optgroup label="Serviços e Outros">
-                    {elementos.filter(e => !e.codigo.startsWith('3.3.90.30')).map(e => (
-                        <option key={e.id} value={e.codigo}>{e.codigo} - {e.descricao}</option>
-                    ))}
-                </optgroup>
+                {elementos.map(e => (
+                    <option key={e.id} value={e.codigo}>{e.codigo} - {e.descricao}</option>
+                ))}
             </select>
             {loadingElementos && (
                 <div className="absolute right-8 top-1/2 -translate-y-1/2">
@@ -350,10 +343,12 @@ export const SolicitationModal: React.FC<SolicitationModalProps> = ({ isOpen, on
                 value={selectedElemento}
                 onChange={(e) => setSelectedElemento(e.target.value)}
                 className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+                required
             >
                 <option value="">Selecione...</option>
-                <option value="3.3.90.30.01">3.3.90.30.01 - Alimentação (Consumo)</option>
-                <option value="3.3.90.39.00">3.3.90.39.00 - Serviços PJ (Restaurante)</option>
+                {elementos.map(e => (
+                    <option key={e.id} value={e.codigo}>{e.codigo} - {e.descricao}</option>
+                ))}
             </select>
        </div>
 

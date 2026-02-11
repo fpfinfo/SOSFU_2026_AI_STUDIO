@@ -3,12 +3,15 @@ import { Settings, Users, Shield, Clock, Bell } from 'lucide-react';
 import { GeneralSettings } from './settings/GeneralSettings';
 import { UsersSettings } from './settings/UsersSettings';
 import { RolesSettings } from './settings/RolesSettings';
+import { ExpenseElementsSettings } from './settings/ExpenseElementsSettings';
+import { Tag } from 'lucide-react';
 
 export const SettingsView: React.FC<{ userProfile?: any }> = ({ userProfile }) => {
     const [activeSection, setActiveSection] = useState('general');
 
     const menuItems = [
         { id: 'general', label: 'Geral', icon: Settings },
+        { id: 'elementos', label: 'Elementos de Despesa', icon: Tag },
         { id: 'users', label: 'Usuários e Permissões', icon: Users },
         { id: 'roles', label: 'Gestão de Perfis', icon: Shield },
         { id: 'sla', label: 'Prazos e SLA', icon: Clock },
@@ -52,6 +55,7 @@ export const SettingsView: React.FC<{ userProfile?: any }> = ({ userProfile }) =
             <div className="flex-1">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 min-h-[600px]">
                     {activeSection === 'general' && <GeneralSettings />}
+                    {activeSection === 'elementos' && <ExpenseElementsSettings module="SOSFU" />}
                     {activeSection === 'users' && <UsersSettings userProfile={userProfile} />}
                     {activeSection === 'roles' && <RolesSettings />}
                     

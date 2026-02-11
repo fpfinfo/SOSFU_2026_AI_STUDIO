@@ -97,11 +97,11 @@ When auto-applying an agent, inform the user:
 
 ### 🌐 Language Handling
 
-When user's prompt is NOT in English:
+**MANDATORY: ALWAYS RESPOND IN PORTUGUESE (BRAZIL).**
 
-1. **Internally translate** for better comprehension
-2. **Respond in user's language** - match their communication
-3. **Code comments/variables** remain in English
+1. **Response Language**: Brazilian Portuguese (pt-BR) is the DEFAULT and MANDATORY language for all conversational output.
+2. **Code Language**: Variable names, function names, and technical comments MUST remain in **English**.
+3. **Translations**: If the user inputs English, understand it but reply in Portuguese.
 
 ### 🧹 Clean Code (Global Mandatory)
 

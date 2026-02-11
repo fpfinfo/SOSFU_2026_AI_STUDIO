@@ -8,6 +8,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { generateWithRole } from '../../lib/aiService';
 import { Tooltip } from '../ui/Tooltip';
+import { useExpenseElements } from '../../hooks/useExpenseElements';
 
 interface DiariasSolicitationProps {
     onNavigate: (page: string, processId?: string) => void;
@@ -72,6 +73,9 @@ export const DiariasSolicitation: React.FC<DiariasSolicitationProps> = ({ onNavi
     const [justification, setJustification] = useState('');
     const [urgency, setUrgency] = useState('NORMAL');
     const [observacoes, setObservacoes] = useState('');
+    const [selectedElemento, setSelectedElemento] = useState('');
+
+    const { elements: elementosSodpa, loading: loadingElements } = useExpenseElements('SODPA');
 
     // Comarcas
     const [comarcas, setComarcas] = useState<ComarcaOption[]>([]);
@@ -269,7 +273,7 @@ export const DiariasSolicitation: React.FC<DiariasSolicitationProps> = ({ onNavi
                 solicitation_id: solData.id,
                 category: 'TRECHO',
                 item_name: `${t.origem} -> ${t.destino}`,
-                element_code: t.meioTransporte,
+                element_code: t.necessitaPassagem ? '3.3.90.33' : (selectedElemento || '3.3.90.14'),
                 qty_requested: 1,
                 unit_price_requested: valorDiariaUnitario,
                 qty_approved: 0,
@@ -432,7 +436,7 @@ export const DiariasSolicitation: React.FC<DiariasSolicitationProps> = ({ onNavi
                     <select
                         value={motivoViagem}
                         onChange={e => setMotivoViagem(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none text-gray-900 mb-4"
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none text-gray-900"
                     >
                         <option value="">Selecione o motivo...</option>
                         <option value="INSPECAO_JUDICIAL">Inspecao Judicial</option>
@@ -448,6 +452,23 @@ export const DiariasSolicitation: React.FC<DiariasSolicitationProps> = ({ onNavi
                 </div>
 
                 <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <DollarSign size={16} /> Natureza da Despesa (Elemento)
+                    </h3>
+                    <select
+                        value={selectedElemento}
+                        onChange={e => setSelectedElemento(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none text-gray-900"
+                        required
+                    >
+                        <option value="">Selecione o elemento orçamentário...</option>
+                        {elementosSodpa.map(e => (
+                            <option key={e.id} value={e.codigo}>{e.codigo} - {e.descricao}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm md:col-span-2">
                     <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
                         <MapPin size={16} /> Tipo de Deslocamento
                     </h3>

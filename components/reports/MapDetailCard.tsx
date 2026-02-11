@@ -43,14 +43,15 @@ export const MapDetailCard = memo(({ data, onClose }: MapDetailCardProps) => {
         : '?';
 
     return (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 md:translate-x-0 md:translate-y-0 md:top-6 md:left-20 md:transform-none z-[1000] w-[340px] md:w-[380px] bg-white rounded-3xl shadow-2xl border border-slate-100 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+        <div className="w-full h-full flex flex-col bg-white overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300">
             {/* Header */}
-            <div className="relative p-5 pb-6 bg-gradient-to-br from-white to-slate-50 border-b border-slate-100">
+            <div className="relative p-5 pb-6 bg-gradient-to-br from-white to-slate-50 border-b border-slate-100 shrink-0">
                 <button 
                     onClick={onClose}
-                    className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors"
+                    className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors flex items-center gap-1.5 px-3"
                 >
-                    <X size={16} />
+                    <span className="text-[10px] font-bold uppercase hidden md:inline">Voltar</span>
+                    <X size={14} />
                 </button>
                 
                 <div className="flex flex-col gap-1">
@@ -71,14 +72,13 @@ export const MapDetailCard = memo(({ data, onClose }: MapDetailCardProps) => {
                 </div>
             </div>
 
-            <div className="p-5 space-y-5 overflow-y-auto max-h-[70vh]">
+            <div className="p-5 space-y-5 overflow-y-auto flex-1 custom-scrollbar">
                 
                 {/* Magistrado Section */}
                 {data.juiz && (
                     <div className="bg-amber-50/60 rounded-2xl p-4 border border-amber-100/80 ring-1 ring-amber-50">
                         <div className="flex items-center justify-between mb-3">
                             <p className="text-[9px] font-black text-amber-500 uppercase tracking-[0.15em]">Magistrado Responsável</p>
-                            {/* <img src="/assets/brasao-tjpa.png" alt="TJPA" className="h-4 opacity-40 grayscale" /> */}
                         </div>
                         <div className="flex items-center gap-4">
                             <div className="relative">

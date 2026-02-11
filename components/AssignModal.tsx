@@ -11,6 +11,7 @@ interface AssignModalProps {
     title?: string;
     /** Module to filter team members. If not provided, will auto-detect from current user's role */
     module?: 'SOSFU' | 'SEFIN' | 'AJSEFIN' | 'SGP' | 'SEAD' | 'PRESIDENCIA' | 'GESTOR' | 'SODPA' | 'RESSARCIMENTO';
+    conflictAnalystId?: string; // ID of analyst who CANNOT be assigned (e.g. payer)
 }
 
 interface TeamMember {
@@ -41,7 +42,8 @@ export const AssignModal: React.FC<AssignModalProps> = ({
     onAssign, 
     currentAnalystId, 
     title = "Atribuir Processo",
-    module 
+    module,
+    conflictAnalystId
 }) => {
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [loading, setLoading] = useState(true);
@@ -222,20 +224,33 @@ export const AssignModal: React.FC<AssignModalProps> = ({
                             {currentUser && (
                                 <button 
                                     onClick={() => handleAssign(currentUser.id)}
-                                    disabled={assigning}
-                                    className={`w-full flex items-center justify-between p-4 hover:bg-blue-50 rounded-lg transition-colors group border ${
-                                        currentAnalystId === currentUser.id 
-                                            ? 'border-blue-200 bg-blue-50' 
-                                            : 'border-transparent hover:border-blue-100'
+                                    disabled={assigning || (currentUser && currentUser.id === conflictAnalystId)}
+                                    className={`w-full flex items-center justify-between p-4 rounded-lg transition-colors group border ${
+                                        currentUser && currentUser.id === conflictAnalystId
+                                        ? 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
+                                        : currentAnalystId === currentUser.id 
+                                            ? 'border-blue-200 bg-blue-50 hover:bg-blue-100' 
+                                            : 'border-transparent hover:border-blue-100 hover:bg-blue-50'
                                     }`}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs ${
+                                            currentUser && currentUser.id === conflictAnalystId ? 'bg-slate-200 text-slate-500' : 'bg-blue-100 text-blue-600'
+                                        }`}>
                                             <User size={16} />
                                         </div>
                                         <div className="text-left">
-                                            <p className="text-sm font-bold text-gray-800 group-hover:text-blue-700">Atribuir para Mim</p>
-                                            <p className="text-xs text-gray-500">Puxar processo para minha mesa</p>
+                                            <p className={`text-sm font-bold ${
+                                                currentUser && currentUser.id === conflictAnalystId ? 'text-slate-500' : 'text-gray-800 group-hover:text-blue-700'
+                                            }`}>Atribuir para Mim</p>
+                                            
+                                            {currentUser && currentUser.id === conflictAnalystId ? (
+                                                <div className="flex items-center gap-1 text-[10px] text-red-500 font-bold mt-0.5">
+                                                    <Shield size={10} /> PAGOU SOLICITAÇÃO (IMPEDIDO)
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-gray-500">Puxar processo para minha mesa</p>
+                                            )}
                                         </div>
                                     </div>
                                     {currentAnalystId === currentUser.id && <Check size={16} className="text-blue-600" />}
@@ -256,20 +271,26 @@ export const AssignModal: React.FC<AssignModalProps> = ({
                                         <button 
                                             key={member.id}
                                             onClick={() => handleAssign(member.id)}
-                                            disabled={assigning}
-                                            className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg transition-colors group ${
-                                                currentAnalystId === member.id ? 'bg-green-50 border border-green-200' : ''
+                                            disabled={assigning || member.id === conflictAnalystId}
+                                            className={`w-full flex items-center justify-between p-4 rounded-lg transition-colors group ${
+                                                member.id === conflictAnalystId
+                                                ? 'bg-white opacity-50 cursor-not-allowed hover:bg-white'
+                                                : currentAnalystId === member.id 
+                                                    ? 'bg-green-50 border border-green-200' 
+                                                    : 'hover:bg-gray-50'
                                             }`}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-xs overflow-hidden border border-white shadow-sm">
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs overflow-hidden border shadow-sm ${
+                                                    member.id === conflictAnalystId ? 'bg-slate-100 border-slate-200 text-slate-400' : 'bg-gray-200 border-white text-gray-500'
+                                                }`}>
                                                     {member.avatar_url ? (
-                                                        <img src={member.avatar_url} alt={member.full_name} className="w-full h-full object-cover"/>
+                                                        <img src={member.avatar_url} alt={member.full_name} className={`w-full h-full object-cover ${member.id === conflictAnalystId ? 'grayscale opacity-50' : ''}`}/>
                                                     ) : getInitials(member.full_name)}
                                                 </div>
                                                 <div className="text-left">
                                                     <div className="flex items-center gap-1.5">
-                                                        <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">{member.full_name}</p>
+                                                        <p className={`text-sm font-medium ${member.id === conflictAnalystId ? 'text-slate-400' : 'text-gray-700 group-hover:text-gray-900'}`}>{member.full_name}</p>
                                                         {member.role_slug === 'ADMIN' && (
                                                             <span className="text-[9px] bg-red-100 text-red-700 px-1.5 rounded-full font-bold flex items-center gap-0.5">
                                                                 <Shield size={8} /> Admin
@@ -281,7 +302,14 @@ export const AssignModal: React.FC<AssignModalProps> = ({
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <p className="text-xs text-gray-400">{member.email}</p>
+                                                    
+                                                    {member.id === conflictAnalystId ? (
+                                                        <div className="flex items-center gap-1 text-[9px] text-red-400 font-bold mt-0.5">
+                                                            <Shield size={10} /> PAGOU SOLICITAÇÃO (IMPEDIDO)
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-xs text-gray-400">{member.email}</p>
+                                                    )}
                                                 </div>
                                             </div>
                                             {currentAnalystId === member.id && <Check size={16} className="text-green-600" />}

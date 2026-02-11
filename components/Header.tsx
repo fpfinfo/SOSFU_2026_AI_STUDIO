@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Shield, User, Settings, LogOut, ChevronDown, LayoutDashboard, FileText, CheckSquare, PieChart, Briefcase, Gavel, Scale, Archive } from 'lucide-react';
+import { Shield, User, Settings, LogOut, ChevronDown, LayoutDashboard, FileText, CheckSquare, PieChart, Briefcase, Gavel, Scale, Archive, Map } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { NotificationPanel } from './NotificationPanel';
 import { Tooltip } from './ui/Tooltip';
@@ -167,11 +167,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
   
   const allTabs = [
     { id: 'dashboard', label: 'Painel de Controle', icon: LayoutDashboard, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE'] },
-    { id: 'solicitations', label: 'Solicitações SF', icon: FileText, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
-    { id: 'accountability', label: 'Prest. Contas', icon: CheckSquare, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
-    { id: 'archive', label: 'Arquivo', icon: Archive, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
-    { id: 'reports', label: 'Relatórios', icon: PieChart, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'PRESIDENCIA_GESTOR', 'PRESIDENCIA_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
-    { id: 'settings', label: 'Configurações', icon: Settings, roles: ['ADMIN', 'SOSFU_GESTOR', 'SODPA_GESTOR', 'RESSARCIMENTO_GESTOR', 'SEFIN_GESTOR', 'AJSEFIN_GESTOR'] },
+    { id: 'map_view', label: 'Mapa Geográfico', icon: Map, roles: ['ADMIN', 'SOSFU_GESTOR', 'SOSFU_EQUIPE', 'PRESIDENCIA_GESTOR', 'PRESIDENCIA_EQUIPE', 'SODPA_GESTOR', 'SODPA_EQUIPE'] },
   ];
 
   const modularDashboards = [
@@ -487,6 +483,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
                             <span>Meu Perfil</span>
                         </button>
                         
+                        {(userRole === 'ADMIN' || userRole.startsWith('SOSFU') || userRole.startsWith('SODPA')) && (
+                            <button 
+                                onClick={() => { setIsMenuOpen(false); onTabChange && onTabChange('archive'); }} 
+                                className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 flex items-center gap-3 transition-colors"
+                            >
+                                <Archive size={16} className="text-gray-400" /> 
+                                <span>Arquivo</span>
+                            </button>
+                        )}
+
                         {(userRole === 'ADMIN' || userRole.startsWith('SOSFU') || userRole.startsWith('SODPA') || userRole.startsWith('RESSARCIMENTO')) && (
                             <button 
                                 onClick={() => { setIsMenuOpen(false); onTabChange && onTabChange('settings'); }} 
@@ -494,6 +500,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
                             >
                                 <Settings size={16} className="text-gray-400" /> 
                                 <span>Configurações</span>
+                            </button>
+                        )}
+                        
+                        {(userRole === 'ADMIN' || userRole.startsWith('SOSFU') || userRole.startsWith('SODPA') || userRole.startsWith('PRESIDENCIA')) && (
+                            <button 
+                                onClick={() => { setIsMenuOpen(false); onTabChange && onTabChange('reports'); }} 
+                                className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 flex items-center gap-3 transition-colors"
+                            >
+                                <PieChart size={16} className="text-gray-400" /> 
+                                <span>Relatórios</span>
                             </button>
                         )}
                     </div>

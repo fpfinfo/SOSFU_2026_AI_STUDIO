@@ -31,7 +31,7 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
     
     // Data Loading
-    const { elements: elementos, loading: loadingElements } = useExpenseElements();
+    const { elements: elementos, loading: loadingElements } = useExpenseElements('SOSFU');
     const [loadingData, setLoadingData] = useState(true);
 
     // Form Fields
@@ -412,16 +412,9 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                                                 required
                                             >
                                                 <option value="">Selecione a natureza da despesa...</option>
-                                                <optgroup label="Material de Consumo (3.3.90.30)">
-                                                    {elementos.filter(e => e.codigo.startsWith('3.3.90.30')).map(e => (
-                                                        <option key={e.id} value={e.codigo}>{e.codigo} - {e.descricao.replace('Material de Consumo - ', '')}</option>
-                                                    ))}
-                                                </optgroup>
-                                                <optgroup label="Serviços e Outros">
-                                                    {elementos.filter(e => !e.codigo.startsWith('3.3.90.30')).map(e => (
-                                                        <option key={e.id} value={e.codigo}>{e.codigo} - {e.descricao}</option>
-                                                    ))}
-                                                </optgroup>
+                                                {elementos.map(e => (
+                                                    <option key={e.id} value={e.codigo}>{e.codigo} - {e.descricao}</option>
+                                                ))}
                                             </select>
                                             <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
                                         </div>

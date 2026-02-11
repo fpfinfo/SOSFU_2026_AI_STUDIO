@@ -34,6 +34,10 @@ import {
     // MapPinned removed (invalid)
     Timer,
     Car,
+    Maximize2,
+    Minimize2,
+    Download,
+    PieChart
 } from 'lucide-react';
 import { MapDetailCard, type ComarcaData } from './MapDetailCard';
 
@@ -581,6 +585,7 @@ export const GeographicMap: React.FC = () => {
     const handleComarcaClick = useCallback(async (stat: ComarcaStats) => {
         setMapFocus({ center: [stat.lat, stat.lng], zoom: 10 });
         setSelectedComarca(stat.comarca);
+        setIsExpanded(false);
         setSelectedUnidade(null);
 
         // Calculate route to this comarca
@@ -678,6 +683,8 @@ export const GeographicMap: React.FC = () => {
         setDebouncedSearch('');
     }, []);
 
+    const [isExpanded, setIsExpanded] = useState(false);
+
     // ── Loading State ──
     if (loading) {
         return (
@@ -690,231 +697,285 @@ export const GeographicMap: React.FC = () => {
     }
 
     return (
-        <div className="flex flex-col h-full animate-in fade-in duration-500 gap-3">
-            {/* Header / Stats Badge */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase">Concedido</p>
-                        <p className="text-sm font-black text-emerald-600">{CURRENCY_COMPACT.format(totalGeral)}</p>
+        <div className={`flex flex-col animate-in fade-in duration-500 gap-3 ${isExpanded ? 'h-[calc(100vh-100px)]' : 'h-full'}`}>
+            {/* Header / Stats Badge - Hidden in Expanded Mode */}
+            {!isExpanded && (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 shrink-0">
+                    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase">Concedido</p>
+                            <p className="text-sm font-black text-emerald-600">{CURRENCY_COMPACT.format(totalGeral)}</p>
+                        </div>
+                        <div className="w-8 h-8 bg-emerald-50 text-emerald-500 rounded-lg flex items-center justify-center"><TrendingUp size={16} /></div>
                     </div>
-                    <div className="w-8 h-8 bg-emerald-50 text-emerald-500 rounded-lg flex items-center justify-center"><TrendingUp size={16} /></div>
-                </div>
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase">Prestado</p>
-                        <p className="text-sm font-black text-blue-600">{CURRENCY_COMPACT.format(totalPrestado)}</p>
+                    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase">Prestado</p>
+                            <p className="text-sm font-black text-blue-600">{CURRENCY_COMPACT.format(totalPrestado)}</p>
+                        </div>
+                        <div className="w-8 h-8 bg-blue-50 text-blue-500 rounded-lg flex items-center justify-center"><CheckCircle2 size={16} /></div>
                     </div>
-                    <div className="w-8 h-8 bg-blue-50 text-blue-500 rounded-lg flex items-center justify-center"><CheckCircle2 size={16} /></div>
-                </div>
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase">Comarcas</p>
-                        <p className="text-sm font-black text-slate-800">{comarcasAtivas}</p>
+                    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase">Comarcas</p>
+                            <p className="text-sm font-black text-slate-800">{comarcasAtivas}</p>
+                        </div>
+                        <div className="w-8 h-8 bg-slate-50 text-slate-500 rounded-lg flex items-center justify-center"><MapPin size={16} /></div>
                     </div>
-                    <div className="w-8 h-8 bg-slate-50 text-slate-500 rounded-lg flex items-center justify-center"><MapPin size={16} /></div>
-                </div>
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase">Unidades</p>
-                        <p className="text-sm font-black text-teal-600">{unidadesAdmin.length}</p>
+                    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase">Unidades</p>
+                            <p className="text-sm font-black text-teal-600">{unidadesAdmin.length}</p>
+                        </div>
+                        <div className="w-8 h-8 bg-teal-50 text-teal-500 rounded-lg flex items-center justify-center"><Landmark size={16} /></div>
                     </div>
-                    <div className="w-8 h-8 bg-teal-50 text-teal-500 rounded-lg flex items-center justify-center"><Landmark size={16} /></div>
+                    {/* Active route summary */}
+                    <div className={`bg-white p-4 rounded-2xl border shadow-sm flex items-center justify-between transition-all ${activeRoute ? 'border-teal-200 bg-teal-50/30' : 'border-slate-100'}`}>
+                        {activeRoute ? (
+                            <>
+                                <div>
+                                    <p className="text-[9px] font-black text-teal-500 uppercase">Rota Ativa</p>
+                                    <p className="text-sm font-black text-teal-700">{activeRoute.summary}</p>
+                                </div>
+                                <div className="w-8 h-8 bg-teal-100 text-teal-600 rounded-lg flex items-center justify-center"><Navigation size={16} /></div>
+                            </>
+                        ) : routeLoading ? (
+                            <>
+                                <div>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase">Calculando...</p>
+                                    <p className="text-sm font-black text-slate-500">rota</p>
+                                </div>
+                                <Loader2 size={16} className="text-teal-500 animate-spin" />
+                            </>
+                        ) : (
+                            <>
+                                <div>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase">Rota</p>
+                                    <p className="text-sm font-black text-slate-400">—</p>
+                                </div>
+                                <div className="w-8 h-8 bg-slate-50 text-slate-400 rounded-lg flex items-center justify-center"><Navigation size={16} /></div>
+                            </>
+                        )}
+                    </div>
                 </div>
-                {/* Active route summary */}
-                <div className={`bg-white p-4 rounded-2xl border shadow-sm flex items-center justify-between transition-all ${activeRoute ? 'border-teal-200 bg-teal-50/30' : 'border-slate-100'}`}>
-                    {activeRoute ? (
-                        <>
-                            <div>
-                                <p className="text-[9px] font-black text-teal-500 uppercase">Rota Ativa</p>
-                                <p className="text-sm font-black text-teal-700">{activeRoute.summary}</p>
-                            </div>
-                            <div className="w-8 h-8 bg-teal-100 text-teal-600 rounded-lg flex items-center justify-center"><Navigation size={16} /></div>
-                        </>
-                    ) : routeLoading ? (
-                        <>
-                            <div>
-                                <p className="text-[9px] font-black text-slate-400 uppercase">Calculando...</p>
-                                <p className="text-sm font-black text-slate-500">rota</p>
-                            </div>
-                            <Loader2 size={16} className="text-teal-500 animate-spin" />
-                        </>
-                    ) : (
-                        <>
-                            <div>
-                                <p className="text-[9px] font-black text-slate-400 uppercase">Rota</p>
-                                <p className="text-sm font-black text-slate-400">—</p>
-                            </div>
-                            <div className="w-8 h-8 bg-slate-50 text-slate-400 rounded-lg flex items-center justify-center"><Navigation size={16} /></div>
-                        </>
-                    )}
-                </div>
-            </div>
+            )}
 
             <div className="flex-1 flex flex-col lg:flex-row gap-3 min-h-0">
                 {/* ═══ Sidebar ═══ */}
-                <div className="w-full lg:w-80 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden shrink-0">
-                    <div className="p-4 border-b border-gray-50 bg-slate-50/30 space-y-3">
-                        {/* Geocoding Search */}
-                        <GeoSearchBox onSelect={handleGeoSelect} />
-
-                        {/* Local Search */}
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                            <input
-                                type="text"
-                                placeholder="Filtrar comarcas/unidades..."
-                                className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/10 focus:border-teal-400 shadow-sm font-medium"
-                                value={searchInput}
-                                onChange={handleSearchChange}
-                            />
-                        </div>
-
-                        <div className="flex bg-slate-100 p-1 rounded-2xl">
-                            {[
-                                { key: 'todos' as const, label: 'Todos', count: filteredStats.length + filteredUnidades.length },
-                                { key: 'comarcas' as const, label: 'Comarcas', count: filteredStats.length },
-                                { key: 'unidades' as const, label: 'Unidades', count: filteredUnidades.length },
-                            ].map(tab => (
-                                <button
-                                    key={tab.key}
-                                    onClick={() => setSidebarTab(tab.key)}
-                                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[10px] font-bold uppercase transition-all ${
-                                        sidebarTab === tab.key
-                                            ? 'bg-white text-teal-600 shadow-sm'
-                                            : 'text-slate-400 hover:text-slate-600'
-                                    }`}
-                                >
-                                    {tab.label}
-                                    <span className={`px-1.5 py-0.5 rounded-lg text-[9px] ${
-                                        sidebarTab === tab.key ? 'bg-teal-50 text-teal-600' : 'bg-slate-200 text-slate-400'
-                                    }`}>{tab.key === 'todos' ? filteredStats.length + filteredUnidades.length : tab.count}</span>
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* ORS Action Buttons */}
-                        <div className="flex gap-2">
-                            <button
-                                onClick={handleLoadIsochrones}
-                                disabled={isoLoading}
-                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-bold uppercase transition-all border ${
-                                    showIsochrones
-                                        ? 'bg-teal-600 text-white border-teal-600'
-                                        : 'bg-white text-teal-600 border-teal-200 hover:bg-teal-50'
-                                }`}
-                            >
-                                {isoLoading ? <Loader2 size={12} className="animate-spin" /> : <Timer size={12} />}
-                                Isócronas
-                            </button>
-                            <button
-                                onClick={handleLoadAllRoutes}
-                                disabled={routeLoading || routesLoaded}
-                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-bold uppercase transition-all border ${
-                                    routesLoaded
-                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-200 opacity-60 cursor-default'
-                                        : routeLoading
-                                            ? 'bg-slate-100 text-slate-400 border-slate-200'
-                                            : 'bg-white text-teal-600 border-teal-200 hover:bg-teal-50'
-                                }`}
-                            >
-                                {routeLoading ? <Loader2 size={12} className="animate-spin" /> : <Navigation size={12} />}
-                                {routeLoading ? `${Math.round((routeProgress.done / routeProgress.total) * 100)}%` : routesLoaded ? 'Rotas OK' : 'Rotas (Todos)'}
-                            </button>
-                            <button
-                                onClick={() => setShowTilePicker(!showTilePicker)}
-                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-bold uppercase transition-all border ${
-                                    showTilePicker
-                                        ? 'bg-slate-700 text-white border-slate-700'
-                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                                }`}
-                            >
-                                <Layers size={12} />
-                                Camadas
-                            </button>
-                        </div>
-
-                        {/* Tile Picker */}
-                        {showTilePicker && (
-                            <div className="grid grid-cols-3 gap-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
-                                {Object.entries(ORS_TILE_LAYERS).map(([key, tile]) => (
-                                    <button
-                                        key={key}
-                                        onClick={() => { setActiveTileKey(key); setShowTilePicker(false); }}
-                                        className={`py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border ${
-                                            activeTileKey === key
-                                                ? 'bg-teal-600 text-white border-teal-600'
-                                                : 'bg-white text-slate-600 border-slate-200 hover:border-teal-300'
-                                        }`}
-                                    >
-                                        {tile.name}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
-                        {/* Comarcas Section */}
-                        {(sidebarTab === 'todos' || sidebarTab === 'comarcas') && (
-                            <>
-                                {sidebarTab === 'todos' && filteredStats.length > 0 && (
-                                    <div className="px-3 pt-3 pb-1 flex items-center gap-2 opacity-40">
-                                        <div className="h-px bg-slate-200 flex-1" />
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Comarcas</span>
-                                        <div className="h-px bg-slate-200 flex-1" />
-                                    </div>
-                                )}
-                                {filteredStats.map(stat => (
-                                    <SidebarItem
-                                        key={stat.comarca}
-                                        stat={stat}
-                                        isSelected={selectedComarca === stat.comarca}
-                                        onClick={() => handleComarcaClick(stat)}
-                                    />
-                                ))}
-                            </>
-                        )}
-
-                        {/* Unidades Section */}
-                        {(sidebarTab === 'todos' || sidebarTab === 'unidades') && (
-                            <>
-                                {sidebarTab === 'todos' && filteredUnidades.length > 0 && (
-                                    <div className="px-3 pt-3 pb-1 flex items-center gap-2 opacity-40">
-                                        <div className="h-px bg-slate-200 flex-1" />
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Unidades</span>
-                                        <div className="h-px bg-slate-200 flex-1" />
-                                    </div>
-                                )}
-                                {filteredUnidades.map(u => (
-                                    <UnidadeSidebarItem
-                                        key={`ua-${u.id}`}
-                                        unidade={u}
-                                        isSelected={selectedUnidade === u.id}
-                                        onClick={() => handleUnidadeClick(u)}
-                                    />
-                                ))}
-                            </>
-                        )}
-                    </div>
-                </div>
-
-                {/* ═══ Map ═══ */}
-                <div className="flex-1 bg-slate-100 rounded-3xl shadow-xl border border-slate-200 overflow-hidden relative z-0">
-                    
-                    {/* Rich Detail Card Overlay */}
-                    {selectedComarca && (
+                {/* Hide sidebar in expanded mode if on mobile, or just shrink it? Let's hide it for full focus */}
+                <div className={`w-full lg:w-80 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden shrink-0 transition-all duration-300 ${isExpanded ? 'hidden' : 'block'}`}>
+                    {selectedComarca ? (
                         (() => {
                             const stat = stats.find(s => s.comarca === selectedComarca);
                             if (!stat) return null;
                             return (
                                 <MapDetailCard 
                                     data={stat} 
-                                    onClose={() => setSelectedComarca(null)} 
+                                    onClose={() => {
+                                        setSelectedComarca(null);
+                                        // Optional: Reset map view?
+                                        setMapFocus({ center: INITIAL_CENTER, zoom: 7 }); 
+                                    }} 
                                 />
                             );
                         })()
+                    ) : (
+                        <>
+                            <div className="p-4 pb-3 border-b border-gray-100 bg-white">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="w-6 h-6 bg-teal-600 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0">
+                                        <PieChart size={14} />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-sm font-black text-slate-800 tracking-tight leading-none">Portal de Inteligência</h2>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">SOSFU · Mapa</p>
+                                    </div>
+                                </div>
+                                <button className="w-full mt-3 flex items-center justify-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 rounded-xl text-[10px] font-bold transition-all">
+                                     <Download size={12} /> Exportar Visão Atual
+                                </button>
+                            </div>
+
+                            <div className="p-4 border-b border-gray-50 bg-slate-50/30 space-y-3">
+                                {/* Geocoding Search */}
+                                <GeoSearchBox onSelect={handleGeoSelect} />
+
+                                {/* Local Search */}
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                                    <input
+                                        type="text"
+                                        placeholder="Filtrar comarcas/unidades..."
+                                        className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/10 focus:border-teal-400 shadow-sm font-medium"
+                                        value={searchInput}
+                                        onChange={handleSearchChange}
+                                    />
+                                </div>
+
+                                <div className="flex bg-slate-100 p-1 rounded-2xl">
+                                    {[
+                                        { key: 'todos' as const, label: 'Todos', count: filteredStats.length + filteredUnidades.length },
+                                        { key: 'comarcas' as const, label: 'Comarcas', count: filteredStats.length },
+                                        { key: 'unidades' as const, label: 'Unidades', count: filteredUnidades.length },
+                                    ].map(tab => (
+                                        <button
+                                            key={tab.key}
+                                            onClick={() => setSidebarTab(tab.key)}
+                                            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[10px] font-bold uppercase transition-all ${
+                                                sidebarTab === tab.key
+                                                    ? 'bg-white text-teal-600 shadow-sm'
+                                                    : 'text-slate-400 hover:text-slate-600'
+                                            }`}
+                                        >
+                                            {tab.label}
+                                            <span className={`px-1.5 py-0.5 rounded-lg text-[9px] ${
+                                                sidebarTab === tab.key ? 'bg-teal-50 text-teal-600' : 'bg-slate-200 text-slate-400'
+                                            }`}>{tab.key === 'todos' ? filteredStats.length + filteredUnidades.length : tab.count}</span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* ORS Action Buttons */}
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={handleLoadIsochrones}
+                                        disabled={isoLoading}
+                                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-bold uppercase transition-all border ${
+                                            showIsochrones
+                                                ? 'bg-teal-600 text-white border-teal-600'
+                                                : 'bg-white text-teal-600 border-teal-200 hover:bg-teal-50'
+                                        }`}
+                                    >
+                                        {isoLoading ? <Loader2 size={12} className="animate-spin" /> : <Timer size={12} />}
+                                        Isócronas
+                                    </button>
+                                    <button
+                                        onClick={handleLoadAllRoutes}
+                                        disabled={routeLoading || routesLoaded}
+                                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-bold uppercase transition-all border ${
+                                            routesLoaded
+                                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200 opacity-60 cursor-default'
+                                                : routeLoading
+                                                    ? 'bg-slate-100 text-slate-400 border-slate-200'
+                                                    : 'bg-white text-teal-600 border-teal-200 hover:bg-teal-50'
+                                        }`}
+                                    >
+                                        {routeLoading ? <Loader2 size={12} className="animate-spin" /> : <Navigation size={12} />}
+                                        {routeLoading ? `${Math.round((routeProgress.done / routeProgress.total) * 100)}%` : routesLoaded ? 'Rotas OK' : 'Rotas (Todos)'}
+                                    </button>
+                                    <button
+                                        onClick={() => setShowTilePicker(!showTilePicker)}
+                                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-bold uppercase transition-all border ${
+                                            showTilePicker
+                                                ? 'bg-slate-700 text-white border-slate-700'
+                                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <Layers size={12} />
+                                        Camadas
+                                    </button>
+                                </div>
+
+                                {/* Expand Map Toggle Button (In Sidebar) */}
+                                <button
+                                    onClick={() => setIsExpanded(!isExpanded)}
+                                    className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-slate-800 text-white text-[10px] font-bold uppercase hover:bg-slate-900 transition-colors shadow-sm"
+                                >
+                                    {isExpanded ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+                                    {isExpanded ? 'Restaurar Visualização' : 'Expandir Mapa'}
+                                </button>
+
+                                {/* Tile Picker */}
+                                {showTilePicker && (
+                                    <div className="grid grid-cols-3 gap-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        {Object.entries(ORS_TILE_LAYERS).map(([key, tile]) => (
+                                            <button
+                                                key={key}
+                                                onClick={() => { setActiveTileKey(key); setShowTilePicker(false); }}
+                                                className={`py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border ${
+                                                    activeTileKey === key
+                                                        ? 'bg-teal-600 text-white border-teal-600'
+                                                        : 'bg-white text-slate-600 border-slate-200 hover:border-teal-300'
+                                                }`}
+                                            >
+                                                {tile.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+
+                                {/* Comarcas Section */}
+                                {(sidebarTab === 'todos' || sidebarTab === 'comarcas') && (
+                                    <>
+                                        {sidebarTab === 'todos' && filteredStats.length > 0 && (
+                                            <div className="px-3 pt-3 pb-1 flex items-center gap-2 opacity-40">
+                                                <div className="h-px bg-slate-200 flex-1" />
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Comarcas</span>
+                                                <div className="h-px bg-slate-200 flex-1" />
+                                            </div>
+                                        )}
+                                        {filteredStats.map(stat => (
+                                            <SidebarItem
+                                                key={stat.comarca}
+                                                stat={stat}
+                                                isSelected={selectedComarca === stat.comarca}
+                                                onClick={() => handleComarcaClick(stat)}
+                                            />
+                                        ))}
+                                    </>
+                                )}
+
+                                {/* Unidades Section */}
+                                {(sidebarTab === 'todos' || sidebarTab === 'unidades') && (
+                                    <>
+                                        {sidebarTab === 'todos' && filteredUnidades.length > 0 && (
+                                            <div className="px-3 pt-3 pb-1 flex items-center gap-2 opacity-40">
+                                                <div className="h-px bg-slate-200 flex-1" />
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Unidades</span>
+                                                <div className="h-px bg-slate-200 flex-1" />
+                                            </div>
+                                        )}
+                                        {filteredUnidades.map(u => (
+                                            <UnidadeSidebarItem
+                                                key={`ua-${u.id}`}
+                                                unidade={u}
+                                                isSelected={selectedUnidade === u.id}
+                                                onClick={() => handleUnidadeClick(u)}
+                                            />
+                                        ))}
+                                    </>
+                                )}
+                            </div>
+                        </>
                     )}
+                </div>
+
+                {/* ═══ Map ═══ */}
+                <div className={`flex-1 bg-slate-100 rounded-3xl shadow-xl border border-slate-200 overflow-hidden relative z-0 transition-all duration-300 ${isExpanded ? 'h-full' : 'min-h-[600px]'}`}>
+                    
+                    {/* Expand/Restore Button (Floating on Map) */}
+                    <div className="absolute top-4 left-4 z-[1000] flex gap-2">
+                         {isExpanded && (
+                            <button
+                                onClick={() => setIsExpanded(false)}
+                                className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-lg border border-slate-200 text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 hover:bg-white transition-colors"
+                            >
+                                <Minimize2 size={14} className="text-slate-500" />
+                                Restaurar
+                            </button>
+                         )}
+                         {!isExpanded && (
+                            <button
+                                onClick={() => setIsExpanded(true)}
+                                className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-lg border border-slate-200 text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 hover:bg-white transition-colors md:hidden"
+                            >
+                                <Maximize2 size={14} className="text-slate-500" />
+                            </button>
+                         )}
+                    </div>
 
                     <MapContainer
                         center={INITIAL_CENTER}
@@ -993,7 +1054,7 @@ export const GeographicMap: React.FC = () => {
                     </MapContainer>
 
                     {/* Legend Floating */}
-                    <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-slate-100 z-[1000] text-xs max-w-[200px]">
+                    <div className="absolute bottom-6 left-4 md:left-auto md:right-16 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-slate-100 z-[1000] text-xs max-w-[200px]">
                         <div className="flex items-center gap-2 mb-3">
                             <BarChart3 size={14} className="text-teal-600" />
                             <span className="font-black text-slate-800 uppercase text-[10px] tracking-wider">Investimento</span>

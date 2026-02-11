@@ -269,7 +269,8 @@ export const SodpaInbox: React.FC<SodpaInboxProps> = ({ onNavigate, userProfile 
                 <table className="w-full text-left">
                     <thead className="bg-slate-50 text-slate-500 font-semibold text-xs uppercase tracking-wider border-b border-slate-100">
                         <tr>
-                            <th className="px-6 py-4">Tipo / Processo</th>
+                            <th className="px-6 py-4">Processo</th>
+                            <th className="px-6 py-4">Tipo</th>
                             <th className="px-6 py-4">Beneficiário</th>
                             <th className="px-6 py-4">Valor</th>
                             <th className="px-6 py-4">Status</th>
@@ -320,6 +321,15 @@ export const SodpaInbox: React.FC<SodpaInboxProps> = ({ onNavigate, userProfile 
                                                 </div>
                                             </div>
                                         </div>
+                                    </td>
+                                    <td className="px-6 py-3.5">
+                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                                            item.type === 'SOLICITATION' 
+                                                ? 'bg-sky-50 text-sky-700 border-sky-100' 
+                                                : 'bg-amber-50 text-amber-700 border-amber-100'
+                                        }`}>
+                                            {item.type === 'SOLICITATION' ? 'Diária/Passagem' : 'Prestação Contas'}
+                                        </span>
                                     </td>
                                     <td className="px-6 py-3.5">
                                         <div className="text-sm font-medium text-slate-700">{item.beneficiary}</div>

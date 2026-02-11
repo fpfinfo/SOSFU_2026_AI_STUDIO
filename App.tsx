@@ -384,7 +384,7 @@ const App: React.FC = () => {
         return <SettingsView userProfile={currentUserProfile} />;
       case 'profile':
         return <ProfileView />;
-      case 'reports':
+      case 'map_view':
         return (
           <Suspense fallback={
             <div className="flex flex-col items-center justify-center h-[500px] bg-slate-50 rounded-xl animate-pulse">
@@ -393,7 +393,19 @@ const App: React.FC = () => {
               <Loader2 size={20} className="text-teal-300 animate-spin mt-3" />
             </div>
           }>
-            <LazyReportsView />
+            <LazyReportsView mode="MAP" />
+          </Suspense>
+        );
+      case 'reports':
+        return (
+          <Suspense fallback={
+            <div className="flex flex-col items-center justify-center h-[500px] bg-slate-50 rounded-xl animate-pulse">
+              <MapIcon size={48} className="text-teal-200 mb-4" />
+              <p className="text-gray-400 font-medium">Carregando relatórios...</p>
+              <Loader2 size={20} className="text-teal-300 animate-spin mt-3" />
+            </div>
+          }>
+            <LazyReportsView mode="ANALYTICS" />
           </Suspense>
         );
       default:

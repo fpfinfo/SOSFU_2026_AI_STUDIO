@@ -22,10 +22,14 @@ import { ExecutionAnalytics } from './reports/ExecutionAnalytics';
 
 type ReportTab = 'MAP' | 'GDR' | 'INSS' | 'ANALYTICS';
 
-export const ReportsView: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<ReportTab>('MAP');
+interface ReportsViewProps {
+    mode?: 'MAP' | 'ANALYTICS';
+}
 
-    const tabs: { id: ReportTab; label: string; icon: React.ReactNode; desc: string }[] = [
+export const ReportsView: React.FC<ReportsViewProps> = ({ mode = 'MAP' }) => {
+    
+    // Define all possible tabs
+    const allTabs: { id: ReportTab; label: string; icon: React.ReactNode; desc: string }[] = [
         { 
             id: 'MAP', 
             label: 'Mapa Geográfico', 
@@ -52,10 +56,21 @@ export const ReportsView: React.FC = () => {
         },
     ];
 
+    // Filter tabs based on mode
+    const tabs = allTabs.filter(tab => {
+        if (mode === 'MAP') return tab.id === 'MAP';
+        if (mode === 'ANALYTICS') return tab.id !== 'MAP';
+        return true;
+    });
+
+    const [activeTab, setActiveTab] = useState<ReportTab>(tabs[0]?.id || 'MAP');
+
     return (
         <div className="flex flex-col h-[calc(100vh-140px)] animate-in fade-in duration-500 gap-4">
             
             {/* ═══ Glassmorphism Header ═══ */}
+            {/* ═══ Glassmorphism Header ═══ */}
+            {mode !== 'MAP' && (
             <div className="bg-white/80 backdrop-blur-md p-4 rounded-3xl border border-slate-200/50 shadow-xl shadow-slate-200/20 shrink-0">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
@@ -98,6 +113,7 @@ export const ReportsView: React.FC = () => {
                     </div>
                 </div>
             </div>
+            )}
 
             {/* ═══ Main Content Canvas ═══ */}
             <div className="flex-1 min-h-0 relative">
@@ -118,6 +134,7 @@ export const ReportsView: React.FC = () => {
             </div>
 
              {/* ═══ Dynamic Status Bar ═══ */}
+             {mode !== 'MAP' && (
              <div className="bg-slate-50/50 px-6 py-2 rounded-2xl border border-slate-100 flex justify-between items-center shrink-0">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
@@ -131,6 +148,7 @@ export const ReportsView: React.FC = () => {
                      Ver Detalhes do NUP Online <ArrowUpRight size={12} />
                 </div>
             </div>
+            )}
         </div>
     );
 };

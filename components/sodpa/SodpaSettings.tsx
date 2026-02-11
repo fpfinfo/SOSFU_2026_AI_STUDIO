@@ -11,7 +11,7 @@ import {
 import { UsersSettings } from '../settings/UsersSettings';
 import { SodpaProfileSettings } from './settings/SodpaProfileSettings';
 import { SodpaGeneralSettings } from './settings/SodpaGeneralSettings';
-import { SodpaExpenseElementsSettings } from './settings/SodpaExpenseElementsSettings';
+import { ExpenseElementsSettings } from '../settings/ExpenseElementsSettings';
 
 interface SodpaSettingsProps {
     darkMode?: boolean;
@@ -94,7 +94,7 @@ export const SodpaSettings: React.FC<SodpaSettingsProps> = ({ darkMode = false, 
 
                         {/* TAB: ELEMENTOS */}
                         {activeTab === 'elementos' && (
-                            <SodpaExpenseElementsSettings darkMode={darkMode} />
+                            <ExpenseElementsSettings darkMode={darkMode} module="SODPA" />
                         )}
 
                         {/* TAB: USUÁRIOS */}
