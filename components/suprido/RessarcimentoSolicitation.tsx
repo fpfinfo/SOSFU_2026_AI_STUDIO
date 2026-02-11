@@ -313,8 +313,7 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                 event_end_date: filledItems[filledItems.length - 1]?.dataOcorrencia || null,
                 manager_name: managerName,
                 manager_email: managerEmail,
-                justification: fullJustification,
-                type: 'RESSARCIMENTO'
+                justification: fullJustification
             }).select('id').single();
 
             if (error) throw error;
