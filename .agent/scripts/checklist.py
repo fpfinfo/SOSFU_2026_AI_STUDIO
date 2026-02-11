@@ -160,6 +160,12 @@ def print_summary(results: List[dict]):
         return True
 
 def main():
+    # Fix for Windows console encoding
+    if sys.platform == "win32":
+        import io
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
     parser = argparse.ArgumentParser(
         description="Run Antigravity Kit validation checklist",
         formatter_class=argparse.RawDescriptionHelpFormatter,

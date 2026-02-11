@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { JuriExceptionInlineAlert } from '../ui/JuriExceptionInlineAlert';
-import { generateWithRole } from '../../lib/gemini';
+import { generateWithRole } from '../../lib/aiService';
 
 // ==================== TYPES ====================
 

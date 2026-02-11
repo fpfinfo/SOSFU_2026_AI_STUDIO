@@ -6,6 +6,8 @@ import {
     BarChart3, Mail, Scale, TrendingUp, Building2, MapPin
 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
+import { useExpenseElements } from '../../hooks/useExpenseElements';
+
 
 // Responsive Leaflet popup overrides (scoped to sodpa-popup mainly)
 const popupStyles = document.createElement('style');
@@ -76,7 +78,7 @@ interface UnidadeAdmin {
 }
 
 const TIPO_MARKER_COLORS: Record<string, string> = {
-    'Secretaria': '#9333ea',
+    'Secretaria': '#4F46E5',
     'Departamento': '#2563eb',
     'Coordenadoria': '#059669',
     'Serviço': '#d97706',
@@ -95,15 +97,6 @@ interface SodpaGeoMapProps {
 const CURRENCY_COMPACT = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' });
 const CURRENCY_FULL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const INITIAL_CENTER: [number, number] = [-3.5, -52];
-
-// Elementos de despesa específicos SODPA
-const ELEMENTOS_DESPESA_SODPA = [
-    { codigo: '3.3.90.14', descricao: 'Diárias - Pessoal Civil' },
-    { codigo: '3.3.90.33', descricao: 'Passagens e Desp. Locomoção' },
-    // Mantendo alguns genéricos para compor valor se necessário, mas focando nos principais
-    { codigo: '3.3.90.30', descricao: 'Material de Consumo' }, // Menor relevância aqui, mas pode existir
-    { codigo: '3.3.90.36', descricao: 'Serviços de Terceiros - PF' },
-];
 
 const ENTRANCIA_RANGES: Record<string, [number, number]> = {
     '3ª Entrância': [40_000, 150_000],
@@ -140,7 +133,7 @@ const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
                 <div>
                     <h3 className="font-black text-slate-800 uppercase text-sm leading-tight tracking-wide">{stat.comarca}</h3>
                     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                        <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold">{stat.entrancia}</span>
+                        <span className="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-bold">{stat.entrancia}</span>
                         <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">{stat.polo}</span>
                     </div>
                 </div>
@@ -224,7 +217,7 @@ const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
                     <tbody>
                         {stat.elementos.map((el, i) => (
                             <tr key={el.codigo} className={`${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} border-b border-slate-50 last:border-0`}>
-                                <td className="py-1.5 px-3 font-mono font-bold text-indigo-600 w-16">{el.codigo}</td>
+                                <td className="py-1.5 px-3 font-mono font-bold text-teal-600 w-16">{el.codigo}</td>
                                 <td className="py-1.5 px-2 text-slate-600">{el.descricao}</td>
                                 <td className="py-1.5 px-3 text-right font-bold text-slate-700">{CURRENCY_FULL.format(el.valor)}</td>
                             </tr>
@@ -373,6 +366,7 @@ const UnidadeAdminMarker = memo(({ unidade }: { unidade: UnidadeAdmin }) => {
 // ==================== MAIN COMPONENT ====================
 export const SodpaGeoMap: React.FC<SodpaGeoMapProps> = ({ darkMode = false }) => {
     const [loading, setLoading] = useState(true);
+    const { elements: expenseElements } = useExpenseElements();
     const [stats, setStats] = useState<ComarcaStats[]>([]);
     const [unidadesAdmin, setUnidadesAdmin] = useState<UnidadeAdmin[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -433,10 +427,15 @@ export const SodpaGeoMap: React.FC<SodpaGeoMapProps> = ({ darkMode = false }) =>
                     pcts[3] = Math.max(0.01, 1 - sumPcts);
                     const totalPcts = pcts.reduce((a, b) => a + b, 0);
 
-                    const elementos: ElementoDespesa[] = ELEMENTOS_DESPESA_SODPA.map((el, i) => ({
+                    const elementos: ElementoDespesa[] = (expenseElements.length > 0 ? expenseElements : [
+                        { codigo: '3.3.90.14', descricao: 'Diárias - Pessoal Civil' },
+                        { codigo: '3.3.90.33', descricao: 'Passagens e Desp. Locomoção' },
+                        { codigo: '3.3.90.30', descricao: 'Material de Consumo' },
+                        { codigo: '3.3.90.36', descricao: 'Serviços de Terceiros - PF' },
+                    ]).map((el, i) => ({
                         codigo: el.codigo,
                         descricao: el.descricao,
-                        valor: Math.round(totalConcedido * (pcts[i] / totalPcts)),
+                        valor: Math.round(totalConcedido * ((pcts[i] || 0.05) / totalPcts)),
                     }));
 
                     // Assign judge from profiles
@@ -589,7 +588,7 @@ export const SodpaGeoMap: React.FC<SodpaGeoMapProps> = ({ darkMode = false }) =>
                         <p className="text-[9px] text-slate-400 uppercase font-bold">Comarcas Ativas</p>
                     </div>
                     <div className="text-center px-4">
-                        <p className="text-lg font-black text-purple-600">{stats.length + unidadesAdmin.length}</p>
+                        <p className="text-lg font-black text-teal-600">{stats.length + unidadesAdmin.length}</p>
                         <p className="text-[9px] text-slate-400 uppercase font-bold">Unidades</p>
                     </div>
                 </div>

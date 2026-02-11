@@ -106,12 +106,12 @@ export const GdrManagement: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-indigo-600 p-6 rounded-3xl shadow-xl shadow-indigo-600/20 flex items-center gap-4 text-white">
+                <div className="bg-teal-600 p-6 rounded-3xl shadow-xl shadow-teal-600/20 flex items-center gap-4 text-white">
                     <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
                         <ArrowUpRight size={24} />
                     </div>
                     <div>
-                        <p className="text-[10px] font-black text-indigo-100 uppercase tracking-widest">Eficiência de Saldo</p>
+                        <p className="text-[10px] font-black text-teal-100 uppercase tracking-widest">Eficiência de Saldo</p>
                         <p className="text-xl font-black">
                             {data.length > 0 ? Math.round((totalDevolvido / (totalDevolvido + pendenteDevolucao || 1)) * 100) : 0}%
                         </p>
@@ -128,7 +128,7 @@ export const GdrManagement: React.FC = () => {
                             <input 
                                 type="text" 
                                 placeholder="Buscar NUP ou GDR..."
-                                className="pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-2xl text-sm w-64 focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium"
+                                className="pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-2xl text-sm w-64 focus:ring-2 focus:ring-teal-500/20 transition-all font-medium"
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                             />
@@ -138,7 +138,7 @@ export const GdrManagement: React.FC = () => {
                                 <button
                                     key={s}
                                     onClick={() => setStatusFilter(s)}
-                                    className={`px-4 py-1.5 rounded-xl text-xs font-bold uppercase transition-all ${statusFilter === s ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                    className={`px-4 py-1.5 rounded-xl text-xs font-bold uppercase transition-all ${statusFilter === s ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                                 >
                                     {s === 'ALL' ? 'Todos' : s}
                                 </button>
@@ -147,7 +147,7 @@ export const GdrManagement: React.FC = () => {
                     </div>
                     <button 
                         onClick={fetchGdrData}
-                        className="p-2.5 bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all"
+                        className="p-2.5 bg-slate-50 text-slate-400 hover:bg-teal-50 hover:text-teal-600 rounded-xl transition-all"
                         title="Atualizar dados"
                     >
                         <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
@@ -171,7 +171,7 @@ export const GdrManagement: React.FC = () => {
                                 <tr>
                                     <td colSpan={6} className="px-6 py-20 text-center">
                                         <div className="flex flex-col items-center gap-3">
-                                            <Loader2 className="animate-spin text-indigo-600" size={32} />
+                                            <Loader2 className="animate-spin text-teal-600" size={32} />
                                             <p className="text-sm font-bold text-slate-400 uppercase">Carregando Auditoria...</p>
                                         </div>
                                     </td>
@@ -198,7 +198,7 @@ export const GdrManagement: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col">
-                                            <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full w-fit mb-1">{item.numero_gdr}</span>
+                                            <span className="text-[10px] font-black text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full w-fit mb-1">{item.numero_gdr}</span>
                                             <span className="text-[10px] text-slate-400 flex items-center gap-1">
                                                 <Calendar size={10} />
                                                 {item.data_referencia ? new Date(item.data_referencia).toLocaleDateString() : '-'}
@@ -216,7 +216,7 @@ export const GdrManagement: React.FC = () => {
                                             href={item.comprovante_url || '#'} 
                                             target="_blank" 
                                             rel="noopener noreferrer"
-                                            className="inline-flex p-2 bg-slate-100 text-slate-400 hover:bg-indigo-600 hover:text-white rounded-xl transition-all"
+                                            className="inline-flex p-2 bg-slate-100 text-slate-400 hover:bg-teal-600 hover:text-white rounded-xl transition-all"
                                         >
                                             <Download size={16} />
                                         </a>

@@ -95,14 +95,14 @@ export const SodpaHeader: React.FC<SodpaHeaderProps> = ({
         }
     ];
 
-    // Cores SODPA: Sky/Indigo (diferente do SEFIN que usa Emerald)
+    // Cores SODPA: Sky/Teal (diferente do SEFIN que usa Emerald)
     const accentColor = darkMode ? 'sky' : 'sky';
 
     return (
         <div className={`border-b shadow-sm ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
             {/* New Processes Alert Banner */}
             {showNewAlert && newCount > 0 && (
-                <div className="bg-gradient-to-r from-sky-500 to-indigo-500 text-white px-4 py-2 flex items-center justify-between animate-in slide-in-from-top duration-300">
+                <div className="bg-gradient-to-r from-sky-500 to-teal-500 text-white px-4 py-2 flex items-center justify-between animate-in slide-in-from-top duration-300">
                     <div className="flex items-center gap-2">
                         <BellRing size={18} className="animate-bounce" />
                         <span className="text-sm font-medium">

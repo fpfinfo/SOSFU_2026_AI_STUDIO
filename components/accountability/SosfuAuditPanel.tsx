@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     BrainCircuit, Search, FileText, Eye, Check, X, Ban,
     Database, Lock, Loader2, AlertTriangle, CheckCircle2,
@@ -9,7 +9,8 @@ import {
     ClipboardCheck
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { generateWithRole } from '../../lib/gemini';
+import { generateWithRole } from '../../lib/aiService';
+import { useExpenseElements } from '../../hooks/useExpenseElements';
 
 // ==================== TYPES ====================
 
@@ -58,7 +59,6 @@ interface ChecklistItem {
 
 // ==================== CONSTANTS ====================
 
-const ALLOWED_ELEMENTS = ['3.3.90.30', '3.3.90.33', '3.3.90.36', '3.3.90.39'];
 const LIMIT_CNJ = 15000;
 
 const GLOSA_REASONS: { code: GlosaReasonCode; label: string; description: string }[] = [
@@ -76,7 +76,7 @@ const formatCurrency = (value: number) =>
 
 // ==================== VALIDATION ENGINE ====================
 
-function validateItem(item: any, accountabilityCreatedAt: string): ValidationResult {
+function validateItem(item: any, accountabilityCreatedAt: string, allowedElements: string[]): ValidationResult {
     const itemDate = new Date(item.item_date);
     const releaseDate = new Date(accountabilityCreatedAt);
     // Art 4: Nota deve ser posterior (ou igual) à data de liberação do recurso
@@ -84,9 +84,9 @@ function validateItem(item: any, accountabilityCreatedAt: string): ValidationRes
     releaseDate.setDate(releaseDate.getDate() - 7); // tolerância de 7 dias antes
     const dateValid = itemDate >= releaseDate;
 
-    const rawElement = (item.element_code || '').substring(0, 10); // Normaliza ex: 3.3.90.30.01 -> 3.3.90.30
+    const rawElement = (item.element_code || '').substring(0, 10); 
     const normalizedElement = rawElement.split('.').slice(0, 4).join('.');
-    const elementValid = ALLOWED_ELEMENTS.includes(normalizedElement);
+    const elementValid = allowedElements.length === 0 || allowedElements.includes(normalizedElement);
 
     return {
         dateValid,
@@ -489,6 +489,13 @@ export const SosfuAuditPanel: React.FC<SosfuAuditPanelProps> = ({
     const [auditItems, setAuditItems] = useState<AuditItem[]>([]);
     const [isScanning, setIsScanning] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const { elements: expenseElements } = useExpenseElements();
+    
+    // Calcula os prefixos de elementos permitidos dinamicamente (ex: 3.3.90.30)
+    const allowedRoots = useMemo(() => {
+        const roots = expenseElements.map(el => el.codigo.split('.').slice(0, 4).join('.'));
+        return Array.from(new Set(roots));
+    }, [expenseElements]);
     const [viewingReceipt, setViewingReceipt] = useState<AuditItem | null>(null);
 
     // SIAFE Modal
@@ -516,11 +523,11 @@ export const SosfuAuditPanel: React.FC<SosfuAuditPanelProps> = ({
             auditStatus: (item.status === 'REJECTED' ? 'REJECTED' : item.status === 'APPROVED' ? 'APPROVED' : 'PENDING') as AuditItem['auditStatus'],
             glosaReason: item.audit_reason || '',
             glosaReasonCode: (item.audit_reason_code || '') as GlosaReasonCode | '',
-            validationResult: validateItem(item, accountabilityData?.created_at || new Date().toISOString())
+            validationResult: validateItem(item, accountabilityData?.created_at || new Date().toISOString(), allowedRoots)
         }));
         setAuditItems(validated);
         setHasUnsavedChanges(false);
-    }, [pcItems, accountabilityData]);
+    }, [pcItems, accountabilityData, allowedRoots]);
 
     // Pre-load SIAFE data from accountability
     useEffect(() => {
@@ -903,7 +910,7 @@ INSTRUÇÕES:
                             disabled={generatingParecer}
                             className="px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50"
                         >
-                            {generatingParecer ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} className="text-purple-500" />}
+                            {generatingParecer ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} className="text-teal-500" />}
                             Parecer IA
                         </button>
                         <button
@@ -1081,10 +1088,10 @@ INSTRUÇÕES:
                 <div className="xl:col-span-4 flex flex-col gap-6">
 
                     {/* IA Compliance Checklist */}
-                    <div className="bg-indigo-900 rounded-xl shadow-lg border border-indigo-800 overflow-hidden text-white">
-                        <div className="px-6 py-4 border-b border-indigo-800/50 flex justify-between items-center bg-indigo-950/30">
+                    <div className="bg-teal-900 rounded-xl shadow-lg border border-teal-800 overflow-hidden text-white">
+                        <div className="px-6 py-4 border-b border-teal-800/50 flex justify-between items-center bg-teal-950/30">
                             <h4 className="font-bold text-xs uppercase flex items-center gap-2">
-                                <BrainCircuit size={16} className="text-indigo-400" /> IA Compliance Check
+                                <BrainCircuit size={16} className="text-teal-400" /> IA Compliance Check
                             </h4>
                             <span className={`text-[10px] px-2 py-0.5 rounded font-bold border ${aiScore >= 80 ? 'bg-green-500/20 text-green-400 border-green-500/30' : aiScore >= 50 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}`}>
                                 {checksPassCount}/{checklist.length} Pass
@@ -1107,11 +1114,11 @@ INSTRUÇÕES:
                                                 <div className={`w-5 h-5 rounded-full ${colors.bg} flex items-center justify-center ${colors.text} border ${colors.border}`}>
                                                     <StatusIcon size={10} />
                                                 </div>
-                                                <span className="text-xs font-medium text-indigo-100">{check.label}</span>
+                                                <span className="text-xs font-medium text-teal-100">{check.label}</span>
                                             </div>
-                                            <Icon size={12} className="text-indigo-500" />
+                                            <Icon size={12} className="text-teal-500" />
                                         </div>
-                                        <p className="text-[10px] text-indigo-400 ml-8 mt-0.5 opacity-70">{check.detail}</p>
+                                        <p className="text-[10px] text-teal-400 ml-8 mt-0.5 opacity-70">{check.detail}</p>
                                     </div>
                                 );
                             })}
@@ -1156,14 +1163,14 @@ INSTRUÇÕES:
 
                     {/* AI Parecer */}
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div className="px-5 py-3 bg-gradient-to-r from-purple-50 to-blue-50 border-b border-purple-100 flex items-center justify-between">
-                            <h4 className="text-xs font-bold text-purple-800 uppercase tracking-wider flex items-center gap-2">
-                                <Sparkles size={14} className="text-purple-600" /> Parecer Técnico IA
+                        <div className="px-5 py-3 bg-gradient-to-r from-teal-50 to-blue-50 border-b border-teal-100 flex items-center justify-between">
+                            <h4 className="text-xs font-bold text-teal-800 uppercase tracking-wider flex items-center gap-2">
+                                <Sparkles size={14} className="text-teal-600" /> Parecer Técnico IA
                             </h4>
                             {!generatingParecer && (
                                 <button
                                     onClick={handleGenerateParecer}
-                                    className="text-[10px] font-bold text-purple-600 hover:text-purple-800 flex items-center gap-1"
+                                    className="text-[10px] font-bold text-teal-600 hover:text-teal-800 flex items-center gap-1"
                                 >
                                     <Zap size={10} /> {aiParecer ? 'Regerar' : 'Gerar'}
                                 </button>
@@ -1171,7 +1178,7 @@ INSTRUÇÕES:
                         </div>
                         <div className="p-5">
                             {generatingParecer ? (
-                                <div className="flex items-center justify-center py-6 gap-3 text-purple-600 animate-pulse">
+                                <div className="flex items-center justify-center py-6 gap-3 text-teal-600 animate-pulse">
                                     <Loader2 size={16} className="animate-spin" />
                                     <span className="text-sm font-medium">Analisando comprovantes...</span>
                                 </div>

@@ -355,12 +355,12 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                 <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all group cursor-pointer relative overflow-hidden" onClick={() => onNavigate('solicitation_ressarcimento')}>
                     <div className="relative z-10">
                         <div className="flex justify-between items-start">
-                            <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-purple-500 mb-4 group-hover:scale-105 transition-transform"><ShieldCheck size={24} /></div>
-                            <span className="bg-purple-50 text-purple-600 text-[10px] font-bold px-2 py-1 rounded uppercase">Reembolso</span>
+                            <div className="w-12 h-12 bg-teal-50 rounded-xl flex items-center justify-center text-teal-500 mb-4 group-hover:scale-105 transition-transform"><ShieldCheck size={24} /></div>
+                            <span className="bg-teal-50 text-teal-600 text-[10px] font-bold px-2 py-1 rounded uppercase">Reembolso</span>
                         </div>
                         <h4 className="text-lg font-bold text-gray-800 mb-1">Ressarcimento</h4>
                         <p className="text-sm text-gray-500 mb-4 max-w-xs">Para ressarcimento de despesas realizadas com recursos próprios.</p>
-                        <span className="text-xs font-bold text-purple-600 flex items-center gap-1 group-hover:gap-2 transition-all">Iniciar Solicitação <ArrowRight size={14} /></span>
+                        <span className="text-xs font-bold text-teal-600 flex items-center gap-1 group-hover:gap-2 transition-all">Iniciar Solicitação <ArrowRight size={14} /></span>
                     </div>
                 </div>
             </div>
@@ -373,8 +373,10 @@ export const SupridoDashboard: React.FC<SupridoDashboardProps> = ({ onNavigate }
                         <p className="text-xs text-slate-500 tracking-wide">Acompanhe o fluxo de tramitação de todas as suas solicitações</p>
                     </div>
                     <div className="relative w-full md:w-80">
+                        <label htmlFor="process-search-input" className="sr-only">Buscar NUP ou Unidade</label>
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         <input 
+                            id="process-search-input"
                             type="text" 
                             placeholder="Buscar NUP ou Unidade..." 
                             className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 outline-none transition-all" 

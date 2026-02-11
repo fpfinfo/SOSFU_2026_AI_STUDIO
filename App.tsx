@@ -181,12 +181,16 @@ const App: React.FC = () => {
         let activeRole = profile.dperfil;
         
         if (roles && roles.length > 0) {
-            // Priority 1: SODPA Roles
+            // Priority 1: SOSFU / ADMIN Roles (Takes precedence over everything)
+            const sosfuRole = roles.find((r: any) => r.sys_roles?.slug?.startsWith('SOSFU') || r.sys_roles?.slug === 'ADMIN');
+            // Priority 2: SODPA Roles
             const sodpaRole = roles.find((r: any) => r.sys_roles?.slug?.includes('SODPA'));
-            // Priority 2: Any System Role
+            // Priority 3: Any System Role
             const anyRole = roles[0]?.sys_roles;
             
-            if (sodpaRole?.sys_roles) {
+            if (sosfuRole?.sys_roles) {
+                activeRole = sosfuRole.sys_roles;
+            } else if (sodpaRole?.sys_roles) {
                 activeRole = sodpaRole.sys_roles;
             } else if (anyRole) {
                 activeRole = anyRole;
@@ -384,9 +388,9 @@ const App: React.FC = () => {
         return (
           <Suspense fallback={
             <div className="flex flex-col items-center justify-center h-[500px] bg-slate-50 rounded-xl animate-pulse">
-              <MapIcon size={48} className="text-indigo-200 mb-4" />
+              <MapIcon size={48} className="text-teal-200 mb-4" />
               <p className="text-gray-400 font-medium">Carregando mapa geográfico...</p>
-              <Loader2 size={20} className="text-indigo-300 animate-spin mt-3" />
+              <Loader2 size={20} className="text-teal-300 animate-spin mt-3" />
             </div>
           }>
             <LazyReportsView />

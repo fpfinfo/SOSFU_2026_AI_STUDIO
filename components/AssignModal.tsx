@@ -189,18 +189,24 @@ export const AssignModal: React.FC<AssignModalProps> = ({
                     <h3 className="font-bold text-gray-800 flex items-center gap-2">
                         <UserPlus size={18} className="text-blue-600"/> {title}
                     </h3>
-                    <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-full text-gray-500 transition-colors">
-                        <X size={18} />
+                    <button 
+                        onClick={onClose} 
+                        className="p-3 hover:bg-gray-200 rounded-full text-gray-500 transition-colors"
+                        aria-label="Fechar"
+                    >
+                        <X size={20} />
                     </button>
                 </div>
 
                 <div className="p-4 border-b border-gray-100">
                     <div className="relative">
+                        <label htmlFor="analyst-search" className="sr-only">Buscar analista</label>
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                         <input 
+                            id="analyst-search"
                             type="text" 
                             placeholder="Buscar analista..." 
-                            className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                            className="w-full pl-9 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                         />
@@ -217,15 +223,15 @@ export const AssignModal: React.FC<AssignModalProps> = ({
                                 <button 
                                     onClick={() => handleAssign(currentUser.id)}
                                     disabled={assigning}
-                                    className={`w-full flex items-center justify-between p-3 hover:bg-blue-50 rounded-lg transition-colors group border ${
+                                    className={`w-full flex items-center justify-between p-4 hover:bg-blue-50 rounded-lg transition-colors group border ${
                                         currentAnalystId === currentUser.id 
                                             ? 'border-blue-200 bg-blue-50' 
                                             : 'border-transparent hover:border-blue-100'
                                     }`}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
-                                            <User size={14} />
+                                        <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
+                                            <User size={16} />
                                         </div>
                                         <div className="text-left">
                                             <p className="text-sm font-bold text-gray-800 group-hover:text-blue-700">Atribuir para Mim</p>
@@ -251,13 +257,15 @@ export const AssignModal: React.FC<AssignModalProps> = ({
                                             key={member.id}
                                             onClick={() => handleAssign(member.id)}
                                             disabled={assigning}
-                                            className={`w-full flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group ${
+                                            className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg transition-colors group ${
                                                 currentAnalystId === member.id ? 'bg-green-50 border border-green-200' : ''
                                             }`}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-xs overflow-hidden border border-white shadow-sm">
-                                                    {member.avatar_url ? <img src={member.avatar_url} className="w-full h-full object-cover"/> : getInitials(member.full_name)}
+                                                <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-xs overflow-hidden border border-white shadow-sm">
+                                                    {member.avatar_url ? (
+                                                        <img src={member.avatar_url} alt={member.full_name} className="w-full h-full object-cover"/>
+                                                    ) : getInitials(member.full_name)}
                                                 </div>
                                                 <div className="text-left">
                                                     <div className="flex items-center gap-1.5">

@@ -84,7 +84,7 @@ export const JuriExceptionInlineAlert: React.FC<JuriExceptionInlineAlertProps> =
                     return {
                         title: 'Ação Necessária — PC Atrasada',
                         message: 'Esta prestação de contas foi enviada fora do prazo de 30 dias. Anexe um Ofício de Justificativa explicando o motivo do atraso.',
-                        color: 'purple' as const,
+                        color: 'teal' as const,
                         icon: AlertTriangle
                     };
                 default:
@@ -111,7 +111,7 @@ export const JuriExceptionInlineAlert: React.FC<JuriExceptionInlineAlertProps> =
                     return {
                         title: 'Ação Necessária — Prazo Insuficiente',
                         message: 'Esta solicitação foi feita com menos de 7 dias de antecedência. Anexe um Ofício de Justificativa explicando a urgência.',
-                        color: 'purple' as const,
+                        color: 'teal' as const,
                         icon: AlertTriangle
                     };
                 default:
@@ -137,7 +137,7 @@ export const JuriExceptionInlineAlert: React.FC<JuriExceptionInlineAlertProps> =
                 return {
                     title: 'Ação Necessária',
                     message: 'Este processo contém valores/prazos fora dos limites. Anexe um Ofício de Justificativa junto à Certidão de Atesto explicando a necessidade.',
-                    color: 'purple' as const,
+                    color: 'teal' as const,
                     icon: AlertTriangle
                 };
             case 'SOSFU':
@@ -169,13 +169,13 @@ export const JuriExceptionInlineAlert: React.FC<JuriExceptionInlineAlertProps> =
             iconBg: 'bg-amber-100',
             borderSep: 'border-amber-200/40'
         },
-        purple: {
-            bg: 'bg-purple-50',
-            border: 'border-purple-300',
-            text: 'text-purple-800',
-            badge: 'bg-purple-100',
-            iconBg: 'bg-purple-100',
-            borderSep: 'border-purple-200/40'
+        teal: {
+            bg: 'bg-teal-50',
+            border: 'border-teal-300',
+            text: 'text-teal-800',
+            badge: 'bg-teal-100',
+            iconBg: 'bg-teal-100',
+            borderSep: 'border-teal-200/40'
         },
         blue: {
             bg: 'bg-blue-50',

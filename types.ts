@@ -18,7 +18,7 @@ export interface StatCardData {
   subtitle: string;
   count: number;
   details: string[];
-  color: 'blue' | 'purple' | 'orange' | 'yellow';
+  color: 'blue' | 'teal' | 'orange' | 'yellow';
   iconType: 'inbox' | 'file' | 'user' | 'shield';
 }
 

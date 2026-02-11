@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { DocumentSignatureFooter } from '../ui/DocumentSignatureFooter';
+import { useExpenseElements } from '../../hooks/useExpenseElements';
 
 // Interfaces
 interface DocumentProps {
@@ -338,11 +339,12 @@ const valorPorExtenso = (valor: number): string => {
   return resultado.trim();
 };
 
-// Mapeamento de códigos de elemento para descrições
-const ELEMENT_LABELS: Record<string, string> = {
+// Fallback mapping de códigos de elemento para descrições
+const DEFAULT_ELEMENT_LABELS: Record<string, string> = {
   '3.3.90.30': 'Material de Consumo',
   '3.3.90.30.01': 'Material de Consumo',
-  '3.3.90.30.02': 'Combustíveis e Lubrificantes',
+  '3.3.90.30.07': 'Gêneros de Alimentação',
+  '3.3.90.30.16': 'Material de Expediente',
   '3.3.90.33': 'Passagens e Despesas com Locomoção',
   '3.3.90.36': 'Outros Serviços de Terceiros – Pessoa Física',
   '3.3.90.39': 'Outros Serviços de Terceiros – Pessoa Jurídica',
@@ -405,12 +407,21 @@ const ElectronicSignatureBlock: React.FC<{ document: any; metadata: any; formatD
     );
 };
 
-// --- 4. PORTARIA (ATO DE CONCESSÃO) --- [Rewritten from Reference App]
 export const GrantActTemplate: React.FC<DocumentProps> = ({ data, user, document, comarcaData }) => {
     // Metadata merge (signature + form data)
     const rootMetadata = document?.metadata || {};
     const formData = rootMetadata.form_data || {};
     const metadata = { ...rootMetadata, ...formData };
+    
+    // Dynamic Labels from Hook
+    const { elements: expenseElements } = useExpenseElements();
+    const elementLabels = useMemo(() => {
+        const labels = { ...DEFAULT_ELEMENT_LABELS };
+        expenseElements.forEach(el => {
+            labels[el.codigo] = el.descricao;
+        });
+        return labels;
+    }, [expenseElements]);
 
     // Parse expense items and sort by element code
     const rawItens = parseItens(data.itens_despesa || data.items);
@@ -534,7 +545,7 @@ export const GrantActTemplate: React.FC<DocumentProps> = ({ data, user, document
                     <div className="pl-8 space-y-2">
                         {itens.map((item: any, index: number) => {
                             const codigo = item.element || item.codigo || item.elemento || '3.3.90.30';
-                            const descricao = ELEMENT_LABELS[codigo] || item.descricao || item.description || 'Despesa';
+                            const descricao = elementLabels[codigo] || item.descricao || item.description || 'Despesa';
                             const valor = item.total || (item.qty || item.quantity || 1) * (item.val || item.value || item.unitValue || 0);
                             return (
                                 <div key={index} className="leading-relaxed">
@@ -548,7 +559,7 @@ export const GrantActTemplate: React.FC<DocumentProps> = ({ data, user, document
                 {/* Fallback: Elemento único quando não há itens detalhados */}
                 {itens.length === 0 && (
                     <div className="pl-8 leading-relaxed">
-                        <strong>I</strong> – {data.elementCode || '3.3.90.30'} – {data.elementDesc || ELEMENT_LABELS[data.elementCode || '3.3.90.30'] || 'Despesas Variáveis'}: <strong>{formatCurrency(valorTotal)}</strong>
+                        <strong>I</strong> – {data.elementCode || '3.3.90.30'} – {data.elementDesc || elementLabels[data.elementCode || '3.3.90.30'] || 'Despesas Variáveis'}: <strong>{formatCurrency(valorTotal)}</strong>
                     </div>
                 )}
 

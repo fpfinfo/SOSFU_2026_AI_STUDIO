@@ -10,7 +10,7 @@ export const StatCard: React.FC<StatCardProps> = ({ data }) => {
   const getIcon = () => {
     switch (data.iconType) {
       case 'inbox': return <Inbox size={20} className="text-blue-500" />;
-      case 'file': return <FileText size={20} className="text-purple-500" />;
+      case 'file': return <FileText size={20} className="text-teal-500" />;
       case 'user': return <UserCheck size={20} className="text-orange-500" />;
       case 'shield': return <ShieldCheck size={20} className="text-yellow-500" />;
     }
@@ -19,7 +19,7 @@ export const StatCard: React.FC<StatCardProps> = ({ data }) => {
   const getBorderColor = () => {
     switch (data.color) {
       case 'blue': return 'border-l-blue-500';
-      case 'purple': return 'border-l-purple-500';
+      case 'teal': return 'border-l-teal-500';
       case 'orange': return 'border-l-orange-500';
       case 'yellow': return 'border-l-yellow-500';
       default: return 'border-l-gray-300';
@@ -29,7 +29,7 @@ export const StatCard: React.FC<StatCardProps> = ({ data }) => {
   const getLightBg = () => {
     switch (data.color) {
         case 'blue': return 'bg-blue-50';
-        case 'purple': return 'bg-purple-50';
+        case 'teal': return 'bg-teal-50';
         case 'orange': return 'bg-orange-50';
         case 'yellow': return 'bg-yellow-50';
     }

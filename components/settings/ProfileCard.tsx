@@ -20,7 +20,7 @@ interface ProfileCardProps {
   profiles: ProfileOption[];
   onSelect: (profileId: string) => void;
   onRemove: () => void;
-  colorScheme?: 'blue' | 'emerald' | 'amber' | 'indigo';
+  colorScheme?: 'blue' | 'emerald' | 'amber' | 'teal';
 }
 
 // ==================== HELPERS ====================
@@ -37,7 +37,7 @@ const COLOR_SCHEMES = {
   blue:    { bg: 'bg-blue-50/60', border: 'border-blue-200', headerText: 'text-blue-800', iconBg: 'bg-blue-100', iconColor: 'text-blue-600', btnBg: 'bg-blue-600 hover:bg-blue-700' },
   emerald: { bg: 'bg-emerald-50/60', border: 'border-emerald-200', headerText: 'text-emerald-800', iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600', btnBg: 'bg-emerald-600 hover:bg-emerald-700' },
   amber:   { bg: 'bg-amber-50/60', border: 'border-amber-200', headerText: 'text-amber-800', iconBg: 'bg-amber-100', iconColor: 'text-amber-600', btnBg: 'bg-amber-600 hover:bg-amber-700' },
-  indigo:  { bg: 'bg-indigo-50/60', border: 'border-indigo-200', headerText: 'text-indigo-800', iconBg: 'bg-indigo-100', iconColor: 'text-indigo-600', btnBg: 'bg-indigo-600 hover:bg-indigo-700' },
+  teal:  { bg: 'bg-teal-50/60', border: 'border-teal-200', headerText: 'text-teal-800', iconBg: 'bg-teal-100', iconColor: 'text-teal-600', btnBg: 'bg-teal-600 hover:bg-teal-700' },
 };
 
 // ==================== COMPONENT ====================

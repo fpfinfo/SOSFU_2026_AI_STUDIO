@@ -56,10 +56,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
                     onClick={() => fileInputRef.current?.click()}
                     className="absolute bottom-1 right-1 bg-blue-600 text-white p-2 rounded-full shadow-lg hover:bg-blue-700 transition-transform hover:scale-105"
                     title="Alterar foto"
+                    aria-label="Escolher foto de perfil"
                 >
                     <Camera size={18} />
                 </button>
+                <label htmlFor="avatar-file-input" className="sr-only">Alterar foto de perfil</label>
                 <input 
+                    id="avatar-file-input"
                     type="file" 
                     ref={fileInputRef} 
                     className="hidden" 
@@ -89,7 +92,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
              </div>
 
              <div className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 border border-gray-100">
-                <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600">
+                <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center text-teal-600">
                     <Mail size={20} />
                 </div>
                 <div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Siren, Gavel, DollarSign, Calendar, FileText, AlertTriangle, CheckCircle2, Loader2, Bookmark, User, Mail } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useExpenseElements } from '../../hooks/useExpenseElements';
 
 interface SolicitationModalProps {
   isOpen: boolean;
@@ -23,8 +24,7 @@ export const SolicitationModal: React.FC<SolicitationModalProps> = ({ isOpen, on
   const [generatedProcessNumber, setGeneratedProcessNumber] = useState('');
   
   // Data
-  const [elementos, setElementos] = useState<ElementoDespesa[]>([]);
-  const [loadingElementos, setLoadingElementos] = useState(false);
+  const { elements: elementos, loading: loadingElementos } = useExpenseElements();
 
   // Form States
   const [value, setValue] = useState('');
@@ -57,18 +57,7 @@ export const SolicitationModal: React.FC<SolicitationModalProps> = ({ isOpen, on
   }, [isOpen, initialType]);
 
   const fetchInitialData = async () => {
-      setLoadingElementos(true);
       try {
-          // 1. Buscar Elementos de Despesa
-          const { data: elData, error: elError } = await supabase
-            .from('delemento')
-            .select('*')
-            .eq('is_active', true)
-            .order('codigo');
-          
-          if (elError) throw elError;
-          setElementos(elData || []);
-
           // 2. Buscar Dados do Usuário para preencher Gestor
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
@@ -86,8 +75,6 @@ export const SolicitationModal: React.FC<SolicitationModalProps> = ({ isOpen, on
 
       } catch (err) {
           console.error('Erro ao buscar dados iniciais:', err);
-      } finally {
-          setLoadingElementos(false);
       }
   };
 

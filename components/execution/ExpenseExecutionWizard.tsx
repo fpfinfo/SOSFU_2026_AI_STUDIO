@@ -383,7 +383,7 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
 
         <div className="relative bg-white rounded-[32px] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-in zoom-in-95 flex flex-col">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 shrink-0">
+          <div className="bg-gradient-to-r from-blue-600 to-teal-600 text-white p-8 shrink-0">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-black uppercase tracking-tight">Execução da Despesa</h2>
@@ -516,10 +516,10 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
             {/* Step: DL (Auto-signed by SOSFU) */}
             {currentStep === 'DL' && (
               <div className="space-y-6">
-                <div className="bg-purple-50 p-6 rounded-2xl border border-purple-100">
+                <div className="bg-teal-50 p-6 rounded-2xl border border-teal-100">
                   <h3 className="text-lg font-black text-slate-800 mb-2">4. Documento de Liquidação (DL)</h3>
                   <p className="text-sm text-slate-600 mb-2">
-                    Anexe o PDF do DL do <strong>SIAFE</strong>. <span className="text-purple-700 font-bold">Assinado automaticamente pelo analista SOSFU.</span>
+                    Anexe o PDF do DL do <strong>SIAFE</strong>. <span className="text-teal-700 font-bold">Assinado automaticamente pelo analista SOSFU.</span>
                   </p>
                   <div className="mb-6">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Valor da Liquidação (R$)</label>
@@ -534,11 +534,11 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
                       </p>
                     )}
                   </div>
-                  {renderUploadArea(dlUpload, setDlUpload, 'dl-upload', 'purple', dlUploadResult, setDlUploadResult)}
+                  {renderUploadArea(dlUpload, setDlUpload, 'dl-upload', 'teal', dlUploadResult, setDlUploadResult)}
                 </div>
                 <button onClick={() => dlUpload && handleSaveDocument('LIQUIDACAO', 'Doc. de Liquidação', dlValor, dlUpload, 'dl', true, dlUploadResult)}
                   disabled={!dlUpload || isProcessing || generatedDocs.DL}
-                  className="w-full py-4 bg-purple-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                  className="w-full py-4 bg-teal-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-teal-700 disabled:opacity-50 flex items-center justify-center gap-2">
                   {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <FileCheck size={16} />}
                   {generatedDocs.DL ? 'DL Registrado ✓' : 'Registrar e Assinar DL'}
                 </button>
@@ -548,10 +548,10 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
             {/* Step: OB (Auto-signed by SOSFU) */}
             {currentStep === 'OB' && (
               <div className="space-y-6">
-                <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100">
+                <div className="bg-teal-50 p-6 rounded-2xl border border-teal-100">
                   <h3 className="text-lg font-black text-slate-800 mb-2">5. Ordem Bancária (OB)</h3>
                   <p className="text-sm text-slate-600 mb-2">
-                    Anexe o PDF da OB do <strong>SIAFE</strong>. <span className="text-indigo-700 font-bold">Assinada automaticamente pelo analista SOSFU.</span>
+                    Anexe o PDF da OB do <strong>SIAFE</strong>. <span className="text-teal-700 font-bold">Assinada automaticamente pelo analista SOSFU.</span>
                   </p>
                   <div className="mb-6">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Valor da Ordem Bancária (R$)</label>
@@ -566,11 +566,11 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
                       </p>
                     )}
                   </div>
-                  {renderUploadArea(obUpload, setObUpload, 'ob-upload', 'indigo', obUploadResult, setObUploadResult)}
+                  {renderUploadArea(obUpload, setObUpload, 'ob-upload', 'teal', obUploadResult, setObUploadResult)}
                 </div>
                 <button onClick={() => obUpload && handleSaveDocument('ORDEM_BANCARIA', 'Ordem Bancária', obValor, obUpload, 'ob', true, obUploadResult)}
                   disabled={!obUpload || isProcessing || generatedDocs.OB}
-                  className="w-full py-4 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                  className="w-full py-4 bg-teal-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-teal-700 disabled:opacity-50 flex items-center justify-center gap-2">
                   {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <CreditCard size={16} />}
                   {generatedDocs.OB ? 'OB Registrada ✓' : 'Registrar e Assinar OB'}
                 </button>
@@ -611,8 +611,8 @@ export const ExpenseExecutionWizard: React.FC<ExpenseExecutionWizardProps> = ({
                       <p className="text-[10px] font-black text-slate-400 uppercase mb-3">Triple Check: NE → DL → OB</p>
                       <div className="grid grid-cols-3 gap-4 text-center">
                         <div><p className="text-[9px] font-bold text-amber-600 uppercase">NE</p><p className="text-lg font-black text-slate-800">{formatCurrency(neValor)}</p></div>
-                        <div><p className="text-[9px] font-bold text-purple-600 uppercase">DL</p><p className="text-lg font-black text-slate-800">{formatCurrency(dlValor)}</p></div>
-                        <div><p className="text-[9px] font-bold text-indigo-600 uppercase">OB</p><p className="text-lg font-black text-slate-800">{formatCurrency(obValor)}</p></div>
+                        <div><p className="text-[9px] font-bold text-teal-600 uppercase">DL</p><p className="text-lg font-black text-slate-800">{formatCurrency(dlValor)}</p></div>
+                        <div><p className="text-[9px] font-bold text-teal-600 uppercase">OB</p><p className="text-lg font-black text-slate-800">{formatCurrency(obValor)}</p></div>
                       </div>
                     </div>
                   )}

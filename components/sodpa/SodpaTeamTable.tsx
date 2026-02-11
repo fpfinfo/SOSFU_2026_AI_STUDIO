@@ -166,7 +166,7 @@ export const SodpaTeamTable: React.FC<{ isGestor?: boolean }> = ({ isGestor = fa
 
             {/* Banner */}
             {members.length > 0 && (
-                <div className="mb-4 flex items-start gap-3 px-4 py-3 rounded-xl border bg-gradient-to-r from-sky-50 to-indigo-50 border-sky-200/60">
+                <div className="mb-4 flex items-start gap-3 px-4 py-3 rounded-xl border bg-gradient-to-r from-sky-50 to-teal-50 border-sky-200/60">
                     <div className="mt-0.5 p-1.5 rounded-lg shrink-0 bg-sky-100">
                         <ShieldCheck size={16} className="text-sky-600" />
                     </div>

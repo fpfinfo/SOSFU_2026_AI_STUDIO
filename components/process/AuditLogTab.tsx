@@ -58,11 +58,11 @@ const ACTION_CONFIG: Record<string, { icon: React.ElementType; color: string; bg
     'DOCUMENT_CREATED': { icon: Plus, color: 'text-emerald-600', bgColor: 'bg-emerald-50 border-emerald-200', label: 'Doc. Criado' },
     'DOCUMENT_UPDATED': { icon: Pencil, color: 'text-sky-600', bgColor: 'bg-sky-50 border-sky-200', label: 'Doc. Editado' },
     'DOCUMENT_DELETED': { icon: Trash2, color: 'text-red-600', bgColor: 'bg-red-50 border-red-200', label: 'Doc. Excluído' },
-    'DOCUMENT_SIGNED': { icon: FileCheck2, color: 'text-violet-600', bgColor: 'bg-violet-50 border-violet-200', label: 'Assinatura' },
+    'DOCUMENT_SIGNED': { icon: FileCheck2, color: 'text-teal-600', bgColor: 'bg-teal-50 border-teal-200', label: 'Assinatura' },
     'PAYMENT_CONFIRMED': { icon: CreditCard, color: 'text-green-600', bgColor: 'bg-green-50 border-green-200', label: 'Pagamento' },
     'ITEM_ADDED': { icon: Plus, color: 'text-emerald-600', bgColor: 'bg-emerald-50 border-emerald-200', label: 'Item Adicionado' },
     'ITEM_REMOVED': { icon: Trash2, color: 'text-red-600', bgColor: 'bg-red-50 border-red-200', label: 'Item Removido' },
-    'ANALYSIS_COMPLETED': { icon: ShieldCheck, color: 'text-indigo-600', bgColor: 'bg-indigo-50 border-indigo-200', label: 'Análise' },
+    'ANALYSIS_COMPLETED': { icon: ShieldCheck, color: 'text-teal-600', bgColor: 'bg-teal-50 border-teal-200', label: 'Análise' },
     'PROCESS_CREATED': { icon: FileText, color: 'text-emerald-600', bgColor: 'bg-emerald-50 border-emerald-200', label: 'Processo Criado' },
     'REJECTION': { icon: AlertTriangle, color: 'text-red-600', bgColor: 'bg-red-50 border-red-200', label: 'Rejeição' },
 };
@@ -289,7 +289,7 @@ export const AuditLogTab: React.FC<AuditLogTabProps> = ({ solicitationId, proces
                 {[
                     { label: 'Total', value: stats.total, icon: ScrollText, color: 'text-gray-700', bg: 'bg-gray-50' },
                     { label: 'Tramitações', value: stats.tramitacoes, icon: ArrowRightLeft, color: 'text-blue-700', bg: 'bg-blue-50' },
-                    { label: 'Documentos', value: stats.documentos, icon: FileText, color: 'text-violet-700', bg: 'bg-violet-50' },
+                    { label: 'Documentos', value: stats.documentos, icon: FileText, color: 'text-teal-700', bg: 'bg-teal-50' },
                     { label: 'Alterações', value: stats.alteracoes, icon: Pencil, color: 'text-amber-700', bg: 'bg-amber-50' },
                 ].map(s => (
                     <div key={s.label} className={`${s.bg} rounded-xl p-4 border border-gray-200/60`}>

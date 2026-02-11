@@ -33,11 +33,11 @@ const TIPO_OPTIONS = [
 ];
 
 const TIPO_COLORS: Record<string, string> = {
-  'Secretaria':     'bg-purple-100 text-purple-700',
+  'Secretaria':     'bg-teal-100 text-teal-700',
   'Departamento':   'bg-blue-100 text-blue-700',
   'Coordenadoria':  'bg-emerald-100 text-emerald-700',
   'Serviço':        'bg-amber-100 text-amber-700',
-  'Assessoria':     'bg-indigo-100 text-indigo-700',
+  'Assessoria':     'bg-teal-100 text-teal-700',
   'Seção':          'bg-cyan-100 text-cyan-700',
   'Gabinete':       'bg-rose-100 text-rose-700',
   'Outro':          'bg-gray-100 text-gray-600',
@@ -341,7 +341,7 @@ export const UnidadesSettings: React.FC = () => {
                 <span className="bg-green-50 text-green-700 px-3 py-1.5 rounded-full font-bold">
                   {unidades.filter(u => u.ativo).length} ativas
                 </span>
-                <span className="bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full font-bold flex items-center gap-1">
+                <span className="bg-teal-50 text-teal-700 px-3 py-1.5 rounded-full font-bold flex items-center gap-1">
                   <User size={10} />
                   {unidades.filter(u => u.responsavel_id).length} vinculadas
                 </span>
@@ -423,7 +423,7 @@ export const UnidadesSettings: React.FC = () => {
                                   <img src={profile.avatar_url} alt={profile.full_name || ''}
                                     className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm shrink-0" />
                                 ) : (
-                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-[10px] font-black text-white border-2 border-white shadow-sm shrink-0">
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-teal-500 flex items-center justify-center text-[10px] font-black text-white border-2 border-white shadow-sm shrink-0">
                                     {(profile.full_name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
                                   </div>
                                 )}
@@ -603,14 +603,14 @@ export const UnidadesSettings: React.FC = () => {
             <ProfileCard
               profile={gestorProfile}
               label="Gestor Responsável"
-              icon={<User size={14} className="text-indigo-600" />}
+              icon={<User size={14} className="text-teal-600" />}
               profiles={profiles}
               onSelect={(id) => {
                 const p = profiles.find(pr => pr.id === id);
                 setFormData({ ...formData, responsavel_id: id, responsavel: p?.full_name || null });
               }}
               onRemove={() => setFormData({ ...formData, responsavel_id: null, responsavel: null })}
-              colorScheme="indigo"
+              colorScheme="teal"
             />
 
             {/* Fallback: Manual responsável name */}
@@ -623,7 +623,7 @@ export const UnidadesSettings: React.FC = () => {
                   type="text"
                   value={formData.responsavel ?? ''}
                   onChange={(e) => setFormData({ ...formData, responsavel: e.target.value || null, responsavel_id: null })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                   placeholder="Nome do responsável"
                 />
               </div>

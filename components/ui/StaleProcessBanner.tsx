@@ -92,7 +92,7 @@ export const StaleProcessBanner: React.FC<StaleProcessBannerProps> = ({
                     >
                         <div className={`w-2 h-2 rounded-full ${styles.pill} shrink-0`} />
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-gray-800 truncate group-hover:text-indigo-700 transition-colors">
+                            <p className="text-sm font-bold text-gray-800 truncate group-hover:text-teal-700 transition-colors">
                                 {proc.process_number}
                             </p>
                             <p className="text-xs text-gray-500 truncate">{proc.beneficiary}</p>
@@ -101,7 +101,7 @@ export const StaleProcessBanner: React.FC<StaleProcessBannerProps> = ({
                             <span className={`${styles.badge} text-[10px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-1`}>
                                 <Clock size={10} /> {proc.staleDays}d parado
                             </span>
-                            <ChevronRight size={14} className="text-gray-400 group-hover:text-indigo-500 transition-colors" />
+                            <ChevronRight size={14} className="text-gray-400 group-hover:text-teal-500 transition-colors" />
                         </div>
                     </div>
                 ))}

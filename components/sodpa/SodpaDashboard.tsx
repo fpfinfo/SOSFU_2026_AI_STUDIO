@@ -93,7 +93,7 @@ export const SodpaDashboard: React.FC<SodpaDashboardProps> = ({ onNavigate, dark
         return (
             <div className="flex flex-col items-center justify-center h-96 gap-4">
                 <div className="relative">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-sky-400 to-indigo-400 animate-ping opacity-30" />
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-sky-400 to-teal-400 animate-ping opacity-30" />
                     <Loader2 className="w-10 h-10 text-sky-600 animate-spin absolute top-3 left-3" />
                 </div>
                 <p className="text-slate-500 font-medium">Carregando painel SODPA...</p>
@@ -127,19 +127,19 @@ export const SodpaDashboard: React.FC<SodpaDashboardProps> = ({ onNavigate, dark
                 </div>
 
                 {/* 2. MINHA MESA (Solicitações) */}
-                <div className="bg-white rounded-2xl p-5 border shadow-sm border-purple-100 relative overflow-hidden group">
+                <div className="bg-white rounded-2xl p-5 border shadow-sm border-teal-100 relative overflow-hidden group">
                      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <FileText size={48} className="text-purple-600" />
+                        <FileText size={48} className="text-teal-600" />
                     </div>
                     <div className="flex items-center gap-2 mb-2">
-                         <div className="p-2 rounded-lg bg-purple-50 text-purple-600">
+                         <div className="p-2 rounded-lg bg-teal-50 text-teal-600">
                             <FileText size={18} />
                         </div>
                         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Minha Mesa</span>
                     </div>
                     <h3 className="text-3xl font-black text-slate-800">{stats.mySolicitations}</h3>
                     <p className="text-xs text-slate-500 font-medium mt-1">Diárias em Análise</p>
-                    <div className="mt-3 flex items-center gap-1 text-[10px] text-purple-600/80 font-medium">
+                    <div className="mt-3 flex items-center gap-1 text-[10px] text-teal-600/80 font-medium">
                         <Users size={12} /> Sob sua responsabilidade
                     </div>
                 </div>

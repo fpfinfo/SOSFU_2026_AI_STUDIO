@@ -173,7 +173,7 @@ export const TeamTable: React.FC<{ isGestor?: boolean }> = ({ isGestor = false }
 
             {/* Co-responsability banner */}
             {members.length > 0 && (
-                <div className="mb-4 flex items-start gap-3 px-4 py-3 rounded-xl border bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200/60">
+                <div className="mb-4 flex items-start gap-3 px-4 py-3 rounded-xl border bg-gradient-to-r from-blue-50 to-teal-50 border-blue-200/60">
                     <div className="mt-0.5 p-1.5 rounded-lg shrink-0 bg-blue-100">
                         <ShieldCheck size={16} className="text-blue-600" />
                     </div>
@@ -247,11 +247,11 @@ export const TeamTable: React.FC<{ isGestor?: boolean }> = ({ isGestor = false }
                                                     </div>
                                                     {/* Accontabilities */}
                                                     <div className="flex items-center justify-between text-xs">
-                                                        <div className="flex items-center gap-1.5 text-purple-600">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                                                        <div className="flex items-center gap-1.5 text-teal-600">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
                                                             <span className="font-medium">Prest. Contas</span>
                                                         </div>
-                                                        <span className="font-bold text-slate-700 bg-purple-50 px-1.5 py-0.5 rounded-md min-w-[24px] text-center">
+                                                        <span className="font-bold text-slate-700 bg-teal-50 px-1.5 py-0.5 rounded-md min-w-[24px] text-center">
                                                             {member.accountabilityCount}
                                                         </span>
                                                     </div>
@@ -301,7 +301,7 @@ export const TeamTable: React.FC<{ isGestor?: boolean }> = ({ isGestor = false }
                                                                                 className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-all group/proc bg-white border-slate-200 hover:border-blue-300 hover:bg-blue-50/50"
                                                                             >
                                                                                 <div className="flex items-center gap-2.5 min-w-0">
-                                                                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${proc.type === 'SOLICITATION' ? 'bg-blue-50 text-blue-500' : 'bg-purple-50 text-purple-500'}`}>
+                                                                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${proc.type === 'SOLICITATION' ? 'bg-blue-50 text-blue-500' : 'bg-teal-50 text-teal-500'}`}>
                                                                                         {proc.type === 'SOLICITATION' ? <FileText size={13} /> : <CheckSquare size={13} />}
                                                                                     </div>
                                                                                     <div className="min-w-0">
@@ -312,7 +312,7 @@ export const TeamTable: React.FC<{ isGestor?: boolean }> = ({ isGestor = false }
                                                                                     </div>
                                                                                 </div>
                                                                                 <div className="flex items-center gap-2 shrink-0">
-                                                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${proc.type === 'SOLICITATION' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                                                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${proc.type === 'SOLICITATION' ? 'bg-blue-100 text-blue-700' : 'bg-teal-100 text-teal-700'}`}>
                                                                                         {proc.type === 'SOLICITATION' ? 'SOLICITAÇÃO' : 'CONTAS'}
                                                                                     </span>
                                                                                     {proc.value && (

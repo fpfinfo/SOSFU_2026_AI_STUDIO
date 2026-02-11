@@ -21,9 +21,9 @@ interface ProcessTimelineProps {
 
 const STEPS = [
     { id: 0, label: 'Solicitação', shortLabel: 'Solic.', icon: FileText, statuses: ['PENDING', 'DRAFT'], color: 'blue', description: 'Criação e preenchimento da solicitação de suprimento de fundos' },
-    { id: 1, label: 'Atesto Gestor', shortLabel: 'Atesto', icon: UserCheck, statuses: ['WAITING_MANAGER'], color: 'indigo', description: 'O gestor da unidade analisa e atesta a necessidade da despesa' },
-    { id: 2, label: 'Análise SOSFU', shortLabel: 'Análise', icon: Search, statuses: ['WAITING_SOSFU', 'WAITING_SOSFU_ANALYSIS', 'WAITING_CORRECTION'], color: 'violet', description: 'A SOSFU verifica conformidade legal, elementos e limites (CNJ 169/2013)' },
-    { id: 3, label: 'Execução SOSFU', shortLabel: 'Exec.', icon: ClipboardList, statuses: ['WAITING_SOSFU_EXECUTION'], color: 'purple', description: 'Geração dos documentos financeiros: Portaria SF, NE, DL e OB' },
+    { id: 1, label: 'Atesto Gestor', shortLabel: 'Atesto', icon: UserCheck, statuses: ['WAITING_MANAGER'], color: 'teal', description: 'O gestor da unidade analisa e atesta a necessidade da despesa' },
+    { id: 2, label: 'Análise SOSFU', shortLabel: 'Análise', icon: Search, statuses: ['WAITING_SOSFU', 'WAITING_SOSFU_ANALYSIS', 'WAITING_CORRECTION'], color: 'teal', description: 'A SOSFU verifica conformidade legal, elementos e limites (CNJ 169/2013)' },
+    { id: 3, label: 'Execução SOSFU', shortLabel: 'Exec.', icon: ClipboardList, statuses: ['WAITING_SOSFU_EXECUTION'], color: 'teal', description: 'Geração dos documentos financeiros: Portaria SF, NE, DL e OB' },
     { id: 4, label: 'Autorização SEFIN', shortLabel: 'Autoriz.', icon: Scale, statuses: ['WAITING_SEFIN_SIGNATURE'], color: 'amber', description: 'O Ordenador de Despesa (SEFIN) autoriza e assina os documentos' },
     { id: 5, label: 'Pagamento SOSFU', shortLabel: 'Pagam.', icon: Wallet, statuses: ['WAITING_SOSFU_PAYMENT', 'WAITING_SUPRIDO_CONFIRMATION', 'PAID'], color: 'emerald', description: 'A SOSFU processa o pagamento e libera os recursos ao suprido' },
     { id: 6, label: 'Prestação de Contas', shortLabel: 'Prest.', icon: Receipt, statuses: ['PC_PENDING', 'PC_ANALYSIS', 'PC_APPROVED'], color: 'cyan', description: 'O suprido comprova a aplicação dos recursos com notas fiscais' },
@@ -326,3 +326,4 @@ export const ProcessTimeline: React.FC<ProcessTimelineProps> = ({ status, solici
         </div>
     );
 };
+

@@ -290,7 +290,7 @@ INSERT INTO public.app_config (max_value_extraordinary) SELECT 15000.00 WHERE NO
                 {/* 3. Limites de Pessoal */}
                 <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
                     <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center">
+                        <div className="w-10 h-10 bg-teal-100 text-teal-600 rounded-lg flex items-center justify-center">
                             <Users size={20} />
                         </div>
                         <div>
@@ -366,13 +366,13 @@ INSERT INTO public.app_config (max_value_extraordinary) SELECT 15000.00 WHERE NO
                             </button>
                         </div>
 
-                        <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
-                            <p className="text-[10px] font-bold text-purple-600 uppercase mb-1">BUILD INFO</p>
-                            <div className="flex justify-between text-xs text-purple-800">
+                        <div className="p-4 bg-teal-50 rounded-lg border border-teal-100">
+                            <p className="text-[10px] font-bold text-teal-600 uppercase mb-1">BUILD INFO</p>
+                            <div className="flex justify-between text-xs text-teal-800">
                                 <span>Versão:</span>
                                 <span className="font-mono">{config.version}</span>
                             </div>
-                            <div className="flex justify-between text-xs text-purple-800 mt-1">
+                            <div className="flex justify-between text-xs text-teal-800 mt-1">
                                 <span>Environment:</span>
                                 <span className="font-mono">{process.env.SUPABASE_URL ? 'Custom Environment' : 'Production (Demo)'}</span>
                             </div>

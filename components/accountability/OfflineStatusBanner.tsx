@@ -36,12 +36,12 @@ export const OfflineStatusBanner: React.FC<OfflineStatusBannerProps> = ({
       }
     : syncStatus === 'syncing'
     ? {
-        bg: 'bg-indigo-50 border-indigo-200',
-        icon: <Loader2 size={16} className="text-indigo-500 animate-spin" />,
+        bg: 'bg-teal-50 border-teal-200',
+        icon: <Loader2 size={16} className="text-teal-500 animate-spin" />,
         title: 'Sincronizando...',
         subtitle: `Enviando ${pendingCount} rascunho(s) ao servidor`,
-        titleColor: 'text-indigo-800',
-        subtitleColor: 'text-indigo-500',
+        titleColor: 'text-teal-800',
+        subtitleColor: 'text-teal-500',
       }
     : syncStatus === 'synced'
     ? {

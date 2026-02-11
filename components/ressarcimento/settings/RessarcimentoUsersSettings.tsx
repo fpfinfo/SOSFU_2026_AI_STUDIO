@@ -183,7 +183,7 @@ export const RessarcimentoUsersSettings: React.FC = () => {
                             <div key={user.id} className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-gray-50 transition-colors group">
                                 <div className="col-span-5 flex items-center gap-4">
                                     <div className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0 border-2 border-white">
-                                        {user.avatar_url ? <img src={user.avatar_url} className="w-full h-full rounded-full object-cover" /> : getInitials(user.full_name)}
+                                        {user.avatar_url ? <img src={user.avatar_url} alt={`Foto de ${user.full_name}`} className="w-full h-full rounded-full object-cover" /> : getInitials(user.full_name)}
                                     </div>
                                     <div className="min-w-0">
                                         <p className="text-sm font-bold text-gray-800 uppercase truncate">{user.full_name}</p>
@@ -243,10 +243,11 @@ export const RessarcimentoUsersSettings: React.FC = () => {
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Buscar Usuário</label>
+                                <label htmlFor="ressarcimento-search-input" className="text-xs font-bold text-gray-500 uppercase tracking-wider">Buscar Usuário</label>
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                     <input 
+                                        id="ressarcimento-search-input"
                                         type="text" 
                                         value={searchQuery}
                                         onChange={(e) => handleSearchUsers(e.target.value)}

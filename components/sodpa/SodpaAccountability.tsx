@@ -52,7 +52,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: React.Rea
     'UNDER_ANALYSIS': { label: 'Em Análise', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: <Eye size={12} /> },
     'APPROVED': { label: 'Aprovada', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: <CheckCircle2 size={12} /> },
     'REJECTED': { label: 'Devolvida', color: 'bg-red-100 text-red-700 border-red-200', icon: <RotateCcw size={12} /> },
-    'PARTIAL_RETURN': { label: 'Restituição Parcial', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: <DollarSign size={12} /> },
+    'PARTIAL_RETURN': { label: 'Restituição Parcial', color: 'bg-teal-100 text-teal-700 border-teal-200', icon: <DollarSign size={12} /> },
 };
 
 const formatCurrency = (value: number) =>
@@ -234,8 +234,8 @@ export const SodpaAccountability: React.FC<SodpaAccountabilityProps> = ({ darkMo
                 </div>
                 <div className={`p-4 rounded-xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                            <DollarSign size={20} className="text-purple-600" />
+                        <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+                            <DollarSign size={20} className="text-teal-600" />
                         </div>
                         <div>
                             <p className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{formatCurrency(stats.totalToReturn)}</p>
@@ -320,7 +320,7 @@ export const SodpaAccountability: React.FC<SodpaAccountabilityProps> = ({ darkMo
                                     <div className="flex items-start justify-between">
                                         {/* Left: Main Info */}
                                         <div className="flex items-start gap-4">
-                                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center">
+                                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-500 to-teal-600 flex items-center justify-center">
                                                 <FileCheck size={24} className="text-white" />
                                             </div>
                                             <div>

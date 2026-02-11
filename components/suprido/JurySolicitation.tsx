@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Users, Calendar, DollarSign, FileText, CheckCircle2, ChevronRight, ChevronLeft, Minus, Plus, AlertCircle, AlertTriangle, ShieldAlert, Save, Sparkles, Loader2, UserCheck, Scale, Utensils, Coffee, Droplets } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { generateText } from '../../lib/gemini';
+import { generateText } from '../../lib/aiService';
+import { useExpenseElements } from '../../hooks/useExpenseElements';
 
 interface JurySolicitationProps {
     onNavigate: (page: string, processId?: string) => void;
@@ -59,7 +60,7 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
     });
 
     // Dados de Apoio
-    const [elementosOptions, setElementosOptions] = useState<ElementoDespesa[]>([]);
+    const { elements: elementosOptions } = useExpenseElements();
 
     // Etapa 1: Pessoas
     const [peopleCounts, setPeopleCounts] = useState<Record<string, number>>({});
@@ -139,7 +140,6 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
     useEffect(() => {
         const init = async () => {
             setLoading(true);
-            await fetchElementos();
             await fetchConfigAndInitItems();
             await fetchUserData();
             setLoading(false);
@@ -147,20 +147,6 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
         init();
     }, []);
 
-    const fetchElementos = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('delemento')
-                .select('*')
-                .eq('is_active', true)
-                .order('codigo');
-            
-            if (error) throw error;
-            setElementosOptions(data || []);
-        } catch (error) {
-            console.error("Erro ao buscar elementos:", error);
-        }
-    };
 
     const fetchConfigAndInitItems = async () => {
         let activeConfig = { ...config }; 
@@ -854,12 +840,12 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
             <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
                 <div className="flex justify-between items-center mb-4">
                     <h4 className="text-sm font-bold text-gray-700 uppercase flex items-center gap-2">
-                        <Sparkles size={16} className="text-purple-600" /> Justificativa do Pedido
+                        <Sparkles size={16} className="text-teal-600" /> Justificativa do Pedido
                     </h4>
                     <button 
                         onClick={handleGenerateAI}
                         disabled={isGeneratingAI}
-                        className="px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-100 text-xs font-bold rounded-lg hover:bg-purple-100 flex items-center gap-2 transition-all shadow-sm"
+                        className="px-3 py-1.5 bg-teal-50 text-teal-700 border border-teal-100 text-xs font-bold rounded-lg hover:bg-teal-100 flex items-center gap-2 transition-all shadow-sm"
                     >
                         {isGeneratingAI ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
                         Gerar com IA
@@ -869,7 +855,7 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
                     value={justification}
                     onChange={e => setJustification(e.target.value)}
                     rows={6}
-                    className="w-full p-4 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-100 focus:border-purple-300 outline-none resize-none bg-gray-50 focus:bg-white leading-relaxed text-gray-900 transition-all"
+                    className="w-full p-4 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-100 focus:border-teal-300 outline-none resize-none bg-gray-50 focus:bg-white leading-relaxed text-gray-900 transition-all"
                     placeholder="Descreva a necessidade da despesa..."
                 />
             </div>

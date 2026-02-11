@@ -76,7 +76,7 @@ interface UnidadeAdmin {
 }
 
 const TIPO_MARKER_COLORS: Record<string, string> = {
-    'Secretaria': '#9333ea',
+    'Secretaria': '#4F46E5',
     'Departamento': '#2563eb',
     'Coordenadoria': '#059669',
     'Serviço': '#d97706',
@@ -139,7 +139,7 @@ const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
                 <div>
                     <h3 className="font-black text-slate-800 uppercase text-sm leading-tight tracking-wide">{stat.comarca}</h3>
                     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                        <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold">{stat.entrancia}</span>
+                        <span className="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-bold">{stat.entrancia}</span>
                         <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">{stat.polo}</span>
                         <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-medium">{stat.regiao}</span>
                     </div>
@@ -228,7 +228,7 @@ const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
                     <tbody>
                         {stat.elementos.map((el, i) => (
                             <tr key={el.codigo} className={`${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} border-b border-slate-50 last:border-0`}>
-                                <td className="py-1.5 px-3 font-mono font-bold text-indigo-600">{el.codigo}</td>
+                                <td className="py-1.5 px-3 font-mono font-bold text-teal-600">{el.codigo}</td>
                                 <td className="py-1.5 px-2 text-slate-600">{el.descricao}</td>
                                 <td className="py-1.5 px-3 text-right font-bold text-slate-700">{CURRENCY_FULL.format(el.valor)}</td>
                             </tr>
@@ -567,7 +567,7 @@ export const SefinMapView: React.FC<SefinMapViewProps> = ({ darkMode = false }) 
                         <p className="text-[9px] text-slate-400 uppercase font-bold">Comarcas Ativas</p>
                     </div>
                     <div className="text-center px-4">
-                        <p className="text-lg font-black text-purple-600">{unidadesAdmin.length}</p>
+                        <p className="text-lg font-black text-teal-600">{unidadesAdmin.length}</p>
                         <p className="text-[9px] text-slate-400 uppercase font-bold">Unidades Admin.</p>
                     </div>
                 </div>
@@ -671,7 +671,7 @@ export const SefinMapView: React.FC<SefinMapViewProps> = ({ darkMode = false }) 
                             </label>
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" checked={showUnidades} onChange={() => setShowUnidades(v => !v)}
-                                    className="w-3 h-3 rounded accent-purple-600" />
+                                    className="w-3 h-3 rounded accent-teal-600" />
                                 <span className="text-[10px] text-gray-600 font-medium">Unidades Admin.</span>
                             </label>
                         </div>

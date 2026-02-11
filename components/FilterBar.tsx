@@ -46,7 +46,7 @@ export const FilterBar: React.FC = () => {
                         <BarChart3 size={12} />
                         INSS/Dev
                     </button>
-                    <button className="flex items-center gap-1 px-4 py-1.5 text-purple-600 bg-transparent hover:bg-purple-50 rounded-md text-xs font-semibold transition-colors">
+                    <button className="flex items-center gap-1 px-4 py-1.5 text-teal-600 bg-transparent hover:bg-teal-50 rounded-md text-xs font-semibold transition-colors">
                          <LayoutGrid size={12} />
                         Orçamento
                     </button>
@@ -65,7 +65,7 @@ export const FilterBar: React.FC = () => {
                          <Users size={12} />
                         Supridos
                     </button>
-                    <button className="flex items-center gap-1 px-4 py-1.5 text-purple-600 bg-purple-50 rounded-md text-xs font-semibold transition-colors">
+                    <button className="flex items-center gap-1 px-4 py-1.5 text-teal-600 bg-teal-50 rounded-md text-xs font-semibold transition-colors">
                          <FileText size={12} />
                         Ordinário
                     </button>

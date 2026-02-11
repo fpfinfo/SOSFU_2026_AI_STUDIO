@@ -403,8 +403,8 @@ export const PresidenciaDashboard: React.FC<PresidenciaDashboardProps> = ({ onNa
         return (
             <div className="flex flex-col items-center justify-center h-96 gap-4">
                 <div className="relative">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 animate-ping opacity-30" />
-                    <Loader2 className="w-10 h-10 text-indigo-600 animate-spin absolute top-3 left-3" />
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-teal-500 to-teal-500 animate-ping opacity-30" />
+                    <Loader2 className="w-10 h-10 text-teal-600 animate-spin absolute top-3 left-3" />
                 </div>
                 <p className="text-slate-500 font-medium">Carregando gabinete da Presidência...</p>
             </div>
@@ -416,9 +416,9 @@ export const PresidenciaDashboard: React.FC<PresidenciaDashboardProps> = ({ onNa
         <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
             {/* ===== WELCOME BANNER ===== */}
-            <div className="bg-gradient-to-r from-indigo-800 via-indigo-700 to-purple-800 rounded-2xl p-6 shadow-lg">
+            <div className="bg-gradient-to-r from-teal-800 via-teal-700 to-teal-800 rounded-2xl p-6 shadow-lg">
                 <h2 className="text-xl font-black text-white">Gabinete da Presidência</h2>
-                <p className="text-sm text-indigo-100 mt-1.5">
+                <p className="text-sm text-teal-100 mt-1.5">
                     Excelentíssimo(a) <span className="font-bold text-white">{userName}</span>. Gerencie aqui as homologações finais.
                 </p>
             </div>
@@ -432,10 +432,10 @@ export const PresidenciaDashboard: React.FC<PresidenciaDashboardProps> = ({ onNa
             
              {/* ACTIONS TOOLBAR */}
             <div className="flex gap-4">
-                 <button onClick={() => alert('Novo Documento Presidência - Modal')} className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow-sm hover:bg-indigo-700 transition-colors flex items-center gap-2">
+                 <button onClick={() => alert('Novo Documento Presidência - Modal')} className="px-4 py-2 bg-teal-600 text-white rounded-lg font-bold shadow-sm hover:bg-teal-700 transition-colors flex items-center gap-2">
                     <FileText size={18} /> Novo Ato
                 </button>
-                 <button onClick={() => alert('Consulta Global - Modal')} className="px-4 py-2 bg-purple-600 text-white rounded-lg font-bold shadow-sm hover:bg-purple-700 transition-colors flex items-center gap-2">
+                 <button onClick={() => alert('Consulta Global - Modal')} className="px-4 py-2 bg-teal-600 text-white rounded-lg font-bold shadow-sm hover:bg-teal-700 transition-colors flex items-center gap-2">
                     <Search size={18} /> Consulta Global
                 </button>
             </div>
@@ -458,7 +458,7 @@ export const PresidenciaDashboard: React.FC<PresidenciaDashboardProps> = ({ onNa
                             }}
                                 className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                                     queueTab === tab.id
-                                        ? 'bg-indigo-500 text-white shadow-sm'
+                                        ? 'bg-teal-500 text-white shadow-sm'
                                         : 'text-slate-500 hover:text-slate-700 hover:bg-white'
                                 }`}>
                                 {tab.icon}
@@ -482,22 +482,22 @@ export const PresidenciaDashboard: React.FC<PresidenciaDashboardProps> = ({ onNa
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input type="text" placeholder="Buscar..." value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300" />
+                            className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-300" />
                     </div>
                 </div>
 
                 {/* Batch Actions Toolbar */}
                 {listFilter === 'PENDING' && signingTasks.length > 0 && (
-                    <div className="flex items-center justify-between px-4 py-2.5 mt-2 mx-4 bg-indigo-50 rounded-xl border border-indigo-100">
+                    <div className="flex items-center justify-between px-4 py-2.5 mt-2 mx-4 bg-teal-50 rounded-xl border border-teal-100">
                         <div className="flex items-center gap-3">
                             <button onClick={handleSelectAll}
-                                className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-indigo-600 transition-colors font-medium">
-                                {selectedTaskIds.size > 0 ? <CheckSquare size={16} className="text-indigo-600" /> : <Square size={16} />}
+                                className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-teal-600 transition-colors font-medium">
+                                {selectedTaskIds.size > 0 ? <CheckSquare size={16} className="text-teal-600" /> : <Square size={16} />}
                                 {selectedTaskIds.size > 0 ? 'Desselecionar' : 'Selecionar Todos'}
                             </button>
                             {selectedTaskIds.size > 0 && (
                                 <>
-                                    <span className="text-sm font-bold text-indigo-600">{selectedTaskIds.size} selecionado(s)</span>
+                                    <span className="text-sm font-bold text-teal-600">{selectedTaskIds.size} selecionado(s)</span>
                                     <button onClick={() => setSelectedTaskIds(new Set())} className="text-slate-400 hover:text-slate-600">
                                         <X size={14} />
                                     </button>
@@ -506,7 +506,7 @@ export const PresidenciaDashboard: React.FC<PresidenciaDashboardProps> = ({ onNa
                         </div>
                         {selectedTaskIds.size > 0 && isGestor && (
                             <button onClick={() => setShowSignModal(true)} disabled={processing}
-                                className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 shadow-sm transition-all disabled:opacity-50">
+                                className="flex items-center gap-2 px-5 py-2 bg-teal-600 text-white text-sm font-bold rounded-xl hover:bg-teal-700 shadow-sm transition-all disabled:opacity-50">
                                 <Award size={16} />
                                 Homologar {selectedTaskIds.size} Itens
                             </button>
@@ -551,8 +551,8 @@ export const PresidenciaDashboard: React.FC<PresidenciaDashboardProps> = ({ onNa
                         })
                     ) : (
                         <div className="text-center py-16">
-                            <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <CheckCircle2 size={32} className="text-indigo-400" />
+                            <div className="w-16 h-16 bg-teal-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <CheckCircle2 size={32} className="text-teal-400" />
                             </div>
                             <p className="text-slate-600 font-bold">Nenhum processo pendente</p>
                             <p className="text-sm text-slate-400 mt-1">Gabinete da Presidência em dia.</p>
@@ -574,11 +574,11 @@ export const PresidenciaDashboard: React.FC<PresidenciaDashboardProps> = ({ onNa
                                 <div key={proc.id} onClick={() => onNavigate('process_detail', proc.id)}
                                     className="p-4 hover:bg-slate-50 transition-colors cursor-pointer flex items-center justify-between group">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                                        <div className="w-10 h-10 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center">
                                             <Award size={18} />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-bold text-gray-800 group-hover:text-indigo-700 transition-colors">{proc.process_number}</p>
+                                            <p className="text-sm font-bold text-gray-800 group-hover:text-teal-700 transition-colors">{proc.process_number}</p>
                                             <p className="text-xs text-gray-500">{proc.beneficiary}</p>
                                         </div>
                                     </div>

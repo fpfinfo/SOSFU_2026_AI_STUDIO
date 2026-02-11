@@ -46,8 +46,8 @@ interface DiariasProcess {
 const STATUS_MAP: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
     'WAITING_SODPA_ANALYSIS': { label: 'Aguardando Análise', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: <Clock size={12} /> },
     'WAITING_SODPA_CALC': { label: 'Cálculo Pendente', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: <DollarSign size={12} /> },
-    'WAITING_PASSAGE_ISSUE': { label: 'Emitir Passagem', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: <Plane size={12} /> },
-    'WAITING_SEFIN_SIGNATURE': { label: 'Aguardando SEFIN', color: 'bg-indigo-100 text-indigo-700 border-indigo-200', icon: <Send size={12} /> },
+    'WAITING_PASSAGE_ISSUE': { label: 'Emitir Passagem', color: 'bg-teal-100 text-teal-700 border-teal-200', icon: <Plane size={12} /> },
+    'WAITING_SEFIN_SIGNATURE': { label: 'Aguardando SEFIN', color: 'bg-teal-100 text-teal-700 border-teal-200', icon: <Send size={12} /> },
     'TRIP_IN_PROGRESS': { label: 'Viagem em Curso', color: 'bg-sky-100 text-sky-700 border-sky-200', icon: <Plane size={12} /> },
     'APPROVED': { label: 'Aprovado', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: <CheckCircle2 size={12} /> },
     'REJECTED': { label: 'Devolvido', color: 'bg-red-100 text-red-700 border-red-200', icon: <RotateCcw size={12} /> },
@@ -56,7 +56,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: React.Rea
 const REQUEST_TYPE_LABELS: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
     'DIARIAS': { label: 'Diárias', icon: <DollarSign size={14} />, color: 'text-emerald-600' },
     'PASSAGEM': { label: 'Passagem Aérea', icon: <Plane size={14} />, color: 'text-sky-600' },
-    'AMBOS': { label: 'Diárias + Passagem', icon: <FileText size={14} />, color: 'text-indigo-600' },
+    'AMBOS': { label: 'Diárias + Passagem', icon: <FileText size={14} />, color: 'text-teal-600' },
 };
 
 type FilterTab = 'all' | 'diarias' | 'passagens';
@@ -199,8 +199,8 @@ export const SodpaProcessManagement: React.FC<SodpaProcessManagementProps> = ({ 
                 </div>
                 <div className={`p-4 rounded-xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                            <DollarSign size={20} className="text-purple-600" />
+                        <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+                            <DollarSign size={20} className="text-teal-600" />
                         </div>
                         <div>
                             <p className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{stats.pendingCalc}</p>

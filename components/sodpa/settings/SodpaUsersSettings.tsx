@@ -218,7 +218,7 @@ export const SodpaUsersSettings: React.FC = () => {
                                 <div className="col-span-5 flex items-center gap-4">
                                     <div className="w-10 h-10 rounded-full bg-pink-600 flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0 border-2 border-white">
                                         {user.avatar_url ? (
-                                            <img src={user.avatar_url} className="w-full h-full rounded-full object-cover" />
+                                            <img src={user.avatar_url} alt={user.full_name} className="w-full h-full rounded-full object-cover" />
                                         ) : getInitials(user.full_name)}
                                     </div>
                                     <div className="min-w-0">
@@ -293,10 +293,11 @@ export const SodpaUsersSettings: React.FC = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Buscar Usuário</label>
+                                <label htmlFor="sodpa-search-input" className="text-xs font-bold text-gray-500 uppercase tracking-wider">Buscar Usuário</label>
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                     <input 
+                                        id="sodpa-search-input"
                                         type="text" 
                                         value={searchQuery}
                                         onChange={(e) => handleSearchUsers(e.target.value)}
@@ -342,7 +343,7 @@ export const SodpaUsersSettings: React.FC = () => {
                                 <div className="flex items-center justify-between p-3 bg-pink-50 border border-pink-100 rounded-lg animate-in fade-in slide-in-from-top-2">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-full bg-white text-pink-600 border border-pink-100 flex items-center justify-center font-bold text-sm overflow-hidden">
-                                            {selectedUser.avatar_url ? <img src={selectedUser.avatar_url} className="w-full h-full object-cover" /> : getInitials(selectedUser.full_name)}
+                                            {selectedUser.avatar_url ? <img src={selectedUser.avatar_url} alt={selectedUser.full_name} className="w-full h-full object-cover" /> : getInitials(selectedUser.full_name)}
                                         </div>
                                         <div>
                                             <p className="text-sm font-bold text-pink-900 line-clamp-1">{selectedUser.full_name}</p>

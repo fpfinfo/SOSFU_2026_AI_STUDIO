@@ -40,7 +40,7 @@ export const WorkloadModal: React.FC<WorkloadModalProps> = ({ isOpen, onClose, a
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm overflow-hidden border-2 border-white shadow-sm">
                             {analyst.avatar_url ? (
-                                <img src={analyst.avatar_url} className="w-full h-full object-cover" />
+                                <img src={analyst.avatar_url} alt={analyst.name} className="w-full h-full object-cover" />
                             ) : (
                                 analyst.name.charAt(0)
                             )}

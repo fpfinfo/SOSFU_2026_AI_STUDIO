@@ -399,7 +399,7 @@ export const ComarcasSettings: React.FC = () => {
                         <td className="px-4 py-3 font-bold text-gray-800">{c.comarca}</td>
                         <td className="px-4 py-3">
                           <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
-                            c.entrancia === '3ª Entrância' ? 'bg-indigo-100 text-indigo-700' :
+                            c.entrancia === '3ª Entrância' ? 'bg-teal-100 text-teal-700' :
                             c.entrancia === '2ª Entrância' ? 'bg-blue-100 text-blue-700' :
                             c.entrancia === '1ª Entrância' ? 'bg-emerald-100 text-emerald-700' :
                             'bg-gray-100 text-gray-600'
@@ -654,11 +654,11 @@ export const ComarcasSettings: React.FC = () => {
             <ProfileCard
               profile={gestorProfile}
               label="Gestor Responsável"
-              icon={<User size={14} className="text-indigo-600" />}
+              icon={<User size={14} className="text-teal-600" />}
               profiles={profiles}
               onSelect={(id) => setFormData({ ...formData, gestor_id: id })}
               onRemove={() => setFormData({ ...formData, gestor_id: null })}
-              colorScheme="indigo"
+              colorScheme="teal"
             />
 
             {/* Section: Suprido Titular */}

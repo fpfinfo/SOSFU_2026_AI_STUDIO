@@ -102,7 +102,7 @@ export const SodpaExecutionAnalytics: React.FC<SodpaExecutionAnalyticsProps> = (
                 <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-6 rounded-3xl border shadow-sm relative overflow-hidden group`}>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Volume de Diárias</p>
                     <p className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{countItems}</p>
-                    <div className="mt-4 flex items-center gap-1.5 text-indigo-600 font-bold text-[10px] bg-indigo-50 w-fit px-2 py-0.5 rounded-full">
+                    <div className="mt-4 flex items-center gap-1.5 text-teal-600 font-bold text-[10px] bg-teal-50 w-fit px-2 py-0.5 rounded-full">
                         <CheckCircle2 size={12} />
                         Processos Autorizados
                     </div>

@@ -23,7 +23,7 @@ interface FileUploaderProps {
   pathPrefix?: string;
   /** Unique ID for the file input element */
   inputId: string;
-  /** Theme color (amber, blue, emerald, indigo, purple) */
+  /** Theme color (amber, blue, emerald, teal, emerald) */
   color?: string;
   /** Accepted file types (default: PDF only) */
   accept?: string;

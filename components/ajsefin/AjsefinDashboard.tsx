@@ -257,8 +257,8 @@ const AjsefinTeamSection: React.FC<{
                                                 </div>
                                                 <div className="flex items-center justify-between gap-4 border-t pt-1 border-dotted">
                                                     <div className="flex items-center gap-1.5">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                                                        <span className={`text-[10px] font-bold ${darkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>Minutas / Trâmite</span>
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                                                        <span className={`text-[10px] font-bold ${darkMode ? 'text-teal-400' : 'text-teal-700'}`}>Minutas / Trâmite</span>
                                                     </div>
                                                     <span className={`text-[11px] font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{member.pc_count}</span>
                                                 </div>
@@ -438,7 +438,7 @@ export const AjsefinDashboard: React.FC<AjsefinDashboardProps> = ({ onNavigate, 
                     title="Novos Recebidos"
                     value={stats.inbox}
                     detail="Aguardando atualização"
-                    gradient="from-blue-500 to-indigo-500"
+                    gradient="from-blue-500 to-teal-500"
                     iconColor="text-blue-500"
                     darkMode={darkMode}
                 />
@@ -448,8 +448,8 @@ export const AjsefinDashboard: React.FC<AjsefinDashboardProps> = ({ onNavigate, 
                     title="Solicitações"
                     value={stats.my_tasks}
                     detail="Concessões atribuídas a mim"
-                    gradient="from-purple-500 to-fuchsia-500"
-                    iconColor="text-purple-500"
+                    gradient="from-teal-500 to-teal-500"
+                    iconColor="text-teal-500"
                     darkMode={darkMode}
                 />
                 <StatCard 
@@ -500,7 +500,7 @@ export const AjsefinDashboard: React.FC<AjsefinDashboardProps> = ({ onNavigate, 
                             >
                                 Minha Fila
                                 {stats.my_tasks > 0 && (
-                                    <span className="bg-purple-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{stats.my_tasks}</span>
+                                    <span className="bg-teal-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{stats.my_tasks}</span>
                                 )}
                             </button>
                             <button 

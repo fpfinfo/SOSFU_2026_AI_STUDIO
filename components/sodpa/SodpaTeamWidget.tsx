@@ -92,7 +92,7 @@ export const SodpaTeamWidget: React.FC<SodpaTeamWidgetProps> = ({ darkMode = fal
                                     {member.avatar_url ? (
                                         <img src={member.avatar_url} alt={member.name} className="w-10 h-10 rounded-full object-cover" />
                                     ) : (
-                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-400 to-indigo-500 flex items-center justify-center text-white font-bold shadow-sm">
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-400 to-teal-500 flex items-center justify-center text-white font-bold shadow-sm">
                                             {member.name.charAt(0)}
                                         </div>
                                     )}

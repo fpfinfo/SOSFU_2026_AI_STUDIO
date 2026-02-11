@@ -47,7 +47,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
     // FASE 3: EXECUÇÃO SOSFU
     'WAITING_SOSFU_EXECUTION': { 
       label: 'Em Execução (SOSFU)', 
-      color: 'bg-purple-50 text-purple-700 border-purple-200',
+      color: 'bg-teal-50 text-teal-700 border-teal-200',
       icon: FileText,
       tooltip: 'A SOSFU está gerando os documentos financeiros (Portaria SF, NE, DL e OB).'
     },
@@ -69,13 +69,13 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
     // FASE 4: APROVAÇÃO FINANCEIRA
     'WAITING_SEFIN_SIGNATURE': { 
       label: 'Aguardando Ordenador (SEFIN)', 
-      color: 'bg-purple-50 text-purple-700 border-purple-200',
+      color: 'bg-teal-50 text-teal-700 border-teal-200',
       icon: Scale,
       tooltip: 'Documentos enviados para assinatura do Ordenador de Despesa na SEFIN.'
     },
     'WAITING_SOSFU_PAYMENT': { 
       label: 'Processando Pagamento', 
-      color: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      color: 'bg-teal-50 text-teal-700 border-teal-200',
       icon: Wallet,
       tooltip: 'A SOSFU está processando o pagamento. Em breve os recursos serão liberados.'
     },

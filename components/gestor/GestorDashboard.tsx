@@ -233,11 +233,11 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-                        <Users size={18} className="text-indigo-600" />
+                    <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
+                        <Users size={18} className="text-teal-600" />
                     </div>
                     <h2 className="text-lg font-black text-slate-800">Gestão de Equipe</h2>
-                    <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">{members.length}</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-700 text-xs font-bold">{members.length}</span>
                 </div>
                 <div className="flex items-center gap-3">
                     {/* Table search filter */}
@@ -247,12 +247,12 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                             <input
                                 type="text" placeholder="Filtrar..."
                                 value={tableFilter} onChange={e => { setTableFilter(e.target.value); setCurrentPage(1); }}
-                                className="pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 w-44"
+                                className="pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-300 w-44"
                             />
                         </div>
                     )}
                     <button onClick={() => setShowAddModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white text-xs font-bold rounded-xl hover:bg-indigo-600 transition-all shadow-sm">
+                        className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-white text-xs font-bold rounded-xl hover:bg-teal-600 transition-all shadow-sm">
                         <UserPlus size={14} /> Adicionar Membro
                     </button>
                 </div>
@@ -296,7 +296,7 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                                         {/* Member Row */}
                                         <tr
                                             onClick={() => handleExpandMember(member.id)}
-                                            className={`cursor-pointer transition-all group ${isExpanded ? 'bg-indigo-50/50' : 'hover:bg-slate-50'}`}
+                                            className={`cursor-pointer transition-all group ${isExpanded ? 'bg-teal-50/50' : 'hover:bg-slate-50'}`}
                                         >
                                             {/* Col 1: Servidor */}
                                             <td className="px-5 py-3.5">
@@ -305,7 +305,7 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                                                         <img src={member.avatar_url} alt={member.full_name}
                                                             className="w-9 h-9 rounded-full object-cover border-2 border-white shadow-sm shrink-0" />
                                                     ) : (
-                                                        <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 shrink-0">
+                                                        <div className="w-9 h-9 rounded-full bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-600 shrink-0">
                                                             {getInitials(member.full_name)}
                                                         </div>
                                                     )}
@@ -313,7 +313,7 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                                                         <div className="flex items-center gap-2">
                                                             <p className="text-sm font-bold text-slate-800 truncate uppercase">{member.full_name}</p>
                                                             {isYou && (
-                                                                <span className="px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[8px] font-bold uppercase shrink-0">Você</span>
+                                                                <span className="px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 text-[8px] font-bold uppercase shrink-0">Você</span>
                                                             )}
                                                         </div>
                                                         <p className="text-[11px] text-slate-500">{member.funcao}</p>
@@ -324,7 +324,7 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                                             {/* Col 2: Processos count */}
                                             <td className="text-center px-4 py-3.5 hidden md:table-cell">
                                                 {isExpanded ? (
-                                                    <span className="text-sm font-bold text-indigo-600">
+                                                    <span className="text-sm font-bold text-teal-600">
                                                         {memberProcesses.length} Processo{memberProcesses.length !== 1 ? 's' : ''}
                                                     </span>
                                                 ) : (
@@ -371,7 +371,7 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                                                                 title="Remover membro">
                                                                 <Trash2 size={14} />
                                                             </button>
-                                                            <div className={`p-1 rounded-lg transition-colors ${isExpanded ? 'text-indigo-600' : 'text-slate-400'}`}>
+                                                            <div className={`p-1 rounded-lg transition-colors ${isExpanded ? 'text-teal-600' : 'text-slate-400'}`}>
                                                                 {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                                             </div>
                                                         </>
@@ -383,8 +383,8 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                                         {/* Expanded Row — Member Processes */}
                                         {isExpanded && (
                                             <tr>
-                                                <td colSpan={4} className="px-0 py-0 bg-indigo-50/30">
-                                                    <div className="px-6 py-4 border-t border-indigo-100 animate-in slide-in-from-top-2 duration-200">
+                                                <td colSpan={4} className="px-0 py-0 bg-teal-50/30">
+                                                    <div className="px-6 py-4 border-t border-teal-100 animate-in slide-in-from-top-2 duration-200">
                                                         {loadingMemberData ? (
                                                             <div className="flex items-center justify-center gap-2 py-6 text-slate-400 text-sm">
                                                                 <Loader2 size={16} className="animate-spin" /> Carregando processos...
@@ -394,7 +394,7 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                                                                 {/* Solicitações */}
                                                                 <div>
                                                                     <div className="flex items-center gap-2 mb-3">
-                                                                        <FileText size={14} className="text-indigo-600" />
+                                                                        <FileText size={14} className="text-teal-600" />
                                                                         <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide">
                                                                             Solicitações ({memberProcesses.length})
                                                                         </h4>
@@ -407,7 +407,7 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                                                                                 <div
                                                                                     key={proc.id}
                                                                                     onClick={(e) => { e.stopPropagation(); onNavigate('process_detail', proc.id); }}
-                                                                                    className="flex items-center justify-between gap-3 px-3 py-2.5 bg-white rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 cursor-pointer transition-all group/proc"
+                                                                                    className="flex items-center justify-between gap-3 px-3 py-2.5 bg-white rounded-xl border border-slate-200 hover:border-teal-300 hover:bg-teal-50/50 cursor-pointer transition-all group/proc"
                                                                                 >
                                                                                     <div className="flex items-center gap-2.5 min-w-0">
                                                                                         <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
@@ -423,7 +423,7 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                                                                                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proc.value || 0)}
                                                                                         </span>
                                                                                         <StatusBadge status={proc.status} size="sm" />
-                                                                                        <ChevronRight size={12} className="text-slate-300 group-hover/proc:text-indigo-500 transition-colors" />
+                                                                                        <ChevronRight size={12} className="text-slate-300 group-hover/proc:text-teal-500 transition-colors" />
                                                                                     </div>
                                                                                 </div>
                                                                             ))}
@@ -503,7 +503,7 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                                 >
                                     <ChevronLeft size={14} /> Anterior
                                 </button>
-                                <span className="px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-100 rounded-lg">{currentPage}/{totalPages}</span>
+                                <span className="px-3 py-1.5 text-xs font-bold text-teal-700 bg-teal-100 rounded-lg">{currentPage}/{totalPages}</span>
                                 <button
                                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                     disabled={currentPage === totalPages}
@@ -520,7 +520,7 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                     <Users size={32} className="text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-500 font-medium">Nenhum membro na equipe ainda</p>
                     <button onClick={() => setShowAddModal(true)}
-                        className="text-indigo-600 text-sm font-bold mt-2 hover:underline">+ Adicionar primeiro membro</button>
+                        className="text-teal-600 text-sm font-bold mt-2 hover:underline">+ Adicionar primeiro membro</button>
                 </div>
             )}
 
@@ -538,12 +538,16 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                         </div>
 
                         <div className="mb-4">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Buscar Servidor</label>
+                            <label htmlFor="gestor-search-member" className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Buscar Servidor</label>
                             <div className="relative">
                                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input type="text" placeholder="Digite nome, matrícula, CPF ou email..."
-                                    value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setSelectedUser(null); }}
-                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300"
+                                <input 
+                                    id="gestor-search-member"
+                                    type="text" 
+                                    placeholder="Digite nome, matrícula, CPF ou email..."
+                                    value={searchQuery} 
+                                    onChange={e => { setSearchQuery(e.target.value); setSelectedUser(null); }}
+                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-300"
                                     autoFocus />
                             </div>
 
@@ -557,9 +561,9 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                                         searchResults.map(user => (
                                             <button key={user.id}
                                                 onClick={() => { setSelectedUser(user); setSearchQuery(user.full_name); setSearchResults([]); if (user.cargo) setSelectedFuncao(user.cargo); }}
-                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 transition-colors text-left border-b border-slate-50 last:border-0">
+                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-teal-50 transition-colors text-left border-b border-slate-50 last:border-0">
                                                 {user.avatar_url ? (
-                                                    <img src={user.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
+                                                    <img src={user.avatar_url} alt={user.full_name} className="w-9 h-9 rounded-full object-cover" />
                                                 ) : (
                                                     <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">
                                                         {getInitials(user.full_name || '')}
@@ -581,9 +585,13 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                         </div>
 
                         <div className="mb-6">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Cargo / Função</label>
-                            <select value={selectedFuncao} onChange={e => setSelectedFuncao(e.target.value)}
-                                className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 appearance-none cursor-pointer">
+                            <label htmlFor="gestor-member-role" className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Cargo / Função</label>
+                            <select 
+                                id="gestor-member-role"
+                                value={selectedFuncao} 
+                                onChange={e => setSelectedFuncao(e.target.value)}
+                                className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-300 appearance-none cursor-pointer"
+                            >
                                 <option value="">Selecione o cargo...</option>
                                 {cargosFromDB.map(f => <option key={f} value={f}>{f}</option>)}
                             </select>
@@ -595,7 +603,7 @@ const GestorTeamSection: React.FC<{ userName: string; pendingCount: number; minu
                                 Cancelar
                             </button>
                             <button onClick={handleAddMember} disabled={!selectedUser || !selectedFuncao}
-                                className="flex-1 px-4 py-3 bg-indigo-500 text-white font-bold rounded-xl hover:bg-indigo-600 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                                className="flex-1 px-4 py-3 bg-teal-500 text-white font-bold rounded-xl hover:bg-teal-600 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed">
                                 Salvar
                             </button>
                         </div>
@@ -847,7 +855,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center h-96 gap-4">
-                <Loader2 className="w-10 h-10 text-indigo-800 animate-spin" />
+                <Loader2 className="w-10 h-10 text-teal-800 animate-spin" />
                 <p className="text-gray-500 font-medium">Carregando gabinete...</p>
             </div>
         );
@@ -870,7 +878,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                 </div>
                 <button 
                     onClick={() => onNavigate('solicitation_emergency')}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-indigo-200 transform hover:-translate-y-0.5"
+                    className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-3 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-teal-200 transform hover:-translate-y-0.5"
                 >
                     <Plus size={18} /> Novo Suprimento Próprio
                 </button>
@@ -890,12 +898,12 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                     <div className="space-y-1">
                         <div className="flex items-center justify-between text-[10px]">
                             <span className="text-amber-600 font-semibold flex items-center gap-1"><Clock size={10}/> {stats.pendingCount} Solicitações</span>
-                            <span className="text-purple-600 font-semibold flex items-center gap-1"><FileCheck size={10}/> {stats.pendingPcCount} PCs</span>
+                            <span className="text-teal-600 font-semibold flex items-center gap-1"><FileCheck size={10}/> {stats.pendingPcCount} PCs</span>
                         </div>
                         {(stats.pendingCount + stats.pendingPcCount) > 0 && (
                             <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden flex">
                                 <div className="bg-amber-400 h-full transition-all" style={{ width: `${stats.pendingCount / (stats.pendingCount + stats.pendingPcCount) * 100}%` }} />
-                                <div className="bg-purple-400 h-full transition-all" style={{ width: `${stats.pendingPcCount / (stats.pendingCount + stats.pendingPcCount) * 100}%` }} />
+                                <div className="bg-teal-400 h-full transition-all" style={{ width: `${stats.pendingPcCount / (stats.pendingCount + stats.pendingPcCount) * 100}%` }} />
                             </div>
                         )}
                     </div>
@@ -939,14 +947,14 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
                             <div className="flex items-center justify-between mb-3">
                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Meus Processos</p>
-                                <div className="p-2.5 rounded-lg bg-indigo-50 text-indigo-600">
+                                <div className="p-2.5 rounded-lg bg-teal-50 text-teal-600">
                                     <Wallet size={18} />
                                 </div>
                             </div>
-                            <h3 className="text-3xl font-bold text-indigo-600 mb-2">{totalMy}</h3>
+                            <h3 className="text-3xl font-bold text-teal-600 mb-2">{totalMy}</h3>
                             <div className="space-y-1">
                                 <div className="flex items-center justify-between text-[10px]">
-                                    <span className="text-indigo-600 font-semibold flex items-center gap-1"><Clock size={10}/> {stats.myActiveCount} Ativos</span>
+                                    <span className="text-teal-600 font-semibold flex items-center gap-1"><Clock size={10}/> {stats.myActiveCount} Ativos</span>
                                     <span className="text-green-600 font-semibold flex items-center gap-1"><CheckCircle2 size={10}/> {stats.myCompletedCount} Concluídos</span>
                                 </div>
                                 {totalMy > 0 && (
@@ -1073,7 +1081,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                     {/* Seção B: Prestação de Contas */}
                     {pendingAccountability.length > 0 && (
                         <div className="space-y-3 animate-in slide-in-from-left-4">
-                            <div className="flex items-center gap-2 px-1 text-purple-700">
+                            <div className="flex items-center gap-2 px-1 text-teal-700">
                                 <FileCheck size={20} />
                                 <h3 className="text-sm font-bold uppercase">Prestações de Contas para Atesto</h3>
                             </div>
@@ -1082,16 +1090,16 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                                 <div 
                                     key={pc.id} 
                                     onClick={() => onNavigate('process_accountability', pc.solicitation_id, pc.id)}
-                                    className="bg-white p-5 rounded-2xl border border-purple-200 border-l-4 border-l-purple-500 shadow-sm hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
+                                    className="bg-white p-5 rounded-2xl border border-teal-200 border-l-4 border-l-teal-500 shadow-sm hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
                                 >
                                     <div className="flex justify-between items-start mb-3">
                                         <div>
-                                            <h4 className="text-base font-bold text-gray-800 group-hover:text-purple-600 transition-colors flex items-center gap-2">
+                                            <h4 className="text-base font-bold text-gray-800 group-hover:text-teal-600 transition-colors flex items-center gap-2">
                                                 {pc.solicitation.process_number}
                                             </h4>
                                             <p className="text-xs text-gray-500 mt-1">Enviado por: {pc.requester?.full_name}</p>
                                         </div>
-                                        <span className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide flex items-center gap-1">
+                                        <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide flex items-center gap-1">
                                             <Clock size={12}/> Aguardando Atesto
                                         </span>
                                     </div>
@@ -1106,7 +1114,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                                                 label="Prazo Atesto"
                                                 compact
                                             />
-                                            <button className="text-xs font-bold text-purple-600 flex items-center gap-1 group-hover:gap-2 transition-all">
+                                            <button className="text-xs font-bold text-teal-600 flex items-center gap-1 group-hover:gap-2 transition-all">
                                                 Revisar Contas <ChevronRight size={14}/>
                                             </button>
                                         </div>
@@ -1139,7 +1147,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                                 >
                                     <div className="flex justify-between items-start mb-3">
                                         <div>
-                                            <h4 className="text-base font-bold text-gray-800 group-hover:text-indigo-600 transition-colors flex items-center gap-2">
+                                            <h4 className="text-base font-bold text-gray-800 group-hover:text-teal-600 transition-colors flex items-center gap-2">
                                                 {proc.process_number}
                                             </h4>
                                             <p className="text-xs text-gray-500 mt-1">{new Date(proc.created_at).toLocaleDateString()}</p>
@@ -1163,7 +1171,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                                         <span className="font-mono font-bold text-gray-800">
                                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proc.value)}
                                         </span>
-                                        <button className="text-sm font-bold text-indigo-600 flex items-center gap-1 group-hover:gap-2 transition-all">
+                                        <button className="text-sm font-bold text-teal-600 flex items-center gap-1 group-hover:gap-2 transition-all">
                                             Analisar <ChevronRight size={16}/>
                                         </button>
                                     </div>
@@ -1178,7 +1186,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                     
                     {/* PC tracking agora integrado na tabela de equipe acima */}
                     <div className="flex items-center gap-3 mb-4 px-1">
-                        <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg shadow-sm">
+                        <div className="p-2 bg-teal-100 text-teal-700 rounded-lg shadow-sm">
                             <FileText size={20} />
                         </div>
                         <div>
@@ -1191,13 +1199,13 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                         <div className="divide-y divide-gray-100">
                             {myRequests.length === 0 ? (
                                  <div className="p-12 text-center flex flex-col items-center justify-center h-full">
-                                    <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center mb-3 text-indigo-200">
+                                    <div className="w-12 h-12 bg-teal-50 rounded-full flex items-center justify-center mb-3 text-teal-200">
                                         <Plus size={24} />
                                     </div>
                                     <p className="text-sm text-gray-500">Você ainda não criou nenhuma solicitação.</p>
                                     <button 
                                         onClick={() => onNavigate('solicitation_emergency')}
-                                        className="mt-4 text-indigo-600 text-sm font-bold hover:underline"
+                                        className="mt-4 text-teal-600 text-sm font-bold hover:underline"
                                     >
                                         Criar primeira solicitação
                                     </button>
@@ -1206,11 +1214,11 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                                 myRequests.map(proc => (
                                     <div key={proc.id} onClick={() => onNavigate('process_detail', proc.id)} className="p-5 hover:bg-slate-50 transition-colors cursor-pointer flex items-center justify-between group">
                                         <div className="flex items-center gap-4">
-                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${proc.status === 'PAID' || proc.status === 'ARCHIVED' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600'}`}>
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${proc.status === 'PAID' || proc.status === 'ARCHIVED' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500 group-hover:bg-teal-100 group-hover:text-teal-600'}`}>
                                                 {(proc.status === 'PAID' || proc.status === 'ARCHIVED') ? <Wallet size={20} /> : <FileText size={20} />}
                                             </div>
                                             <div>
-                                                <p className="text-sm font-bold text-gray-800 group-hover:text-indigo-700 transition-colors">{proc.process_number}</p>
+                                                <p className="text-sm font-bold text-gray-800 group-hover:text-teal-700 transition-colors">{proc.process_number}</p>
                                                 <p className="text-xs text-gray-500 mt-0.5">{new Date(proc.created_at).toLocaleDateString()}</p>
                                             </div>
                                         </div>
@@ -1248,7 +1256,7 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                         placeholder="Buscar no histórico..."
                         value={historySearch}
                         onChange={(e) => setHistorySearch(e.target.value)}
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50/50 border border-slate-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400 font-medium"
+                        className="w-full pl-12 pr-4 py-4 bg-slate-50/50 border border-slate-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-100 transition-all placeholder:text-slate-400 font-medium"
                     />
                 </div>
 
@@ -1263,14 +1271,14 @@ export const GestorDashboard: React.FC<GestorDashboardProps> = ({ onNavigate }) 
                         <div 
                             key={item.id}
                             onClick={() => onNavigate('process_detail', item.id)}
-                            className="flex items-center justify-between p-5 bg-white border border-slate-50 rounded-2xl hover:border-indigo-100 hover:bg-indigo-50/20 transition-all cursor-pointer group shadow-sm hover:shadow-md"
+                            className="flex items-center justify-between p-5 bg-white border border-slate-50 rounded-2xl hover:border-teal-100 hover:bg-teal-50/20 transition-all cursor-pointer group shadow-sm hover:shadow-md"
                         >
                             <div className="flex items-center gap-5">
                                 <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform">
                                     <FileText size={20} />
                                 </div>
                                 <div>
-                                    <p className="text-base font-black text-slate-800 group-hover:text-indigo-700 transition-colors uppercase">
+                                    <p className="text-base font-black text-slate-800 group-hover:text-teal-700 transition-colors uppercase">
                                         {item.process_number}
                                     </p>
                                     <p className="text-xs text-slate-500 font-medium mt-0.5">

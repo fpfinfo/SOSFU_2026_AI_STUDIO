@@ -38,8 +38,8 @@ const ROLE_STYLES: Record<string, { label: string; color: string; ring: string }
   'AJSEFIN_EQUIPE': { label: 'Analista Jur.', color: 'text-orange-600', ring: 'ring-orange-100' },
 
   // SGP
-  'SGP_GESTOR': { label: 'Diretor SGP', color: 'text-purple-700', ring: 'ring-purple-200' },
-  'SGP_EQUIPE': { label: 'Analista SGP', color: 'text-purple-600', ring: 'ring-purple-100' },
+  'SGP_GESTOR': { label: 'Diretor SGP', color: 'text-teal-700', ring: 'ring-teal-200' },
+  'SGP_EQUIPE': { label: 'Analista SGP', color: 'text-teal-600', ring: 'ring-teal-100' },
 
   // SODPA
   'SODPA_GESTOR': { label: 'Diretor SODPA', color: 'text-pink-700', ring: 'ring-pink-200' },
@@ -54,7 +54,7 @@ const ROLE_STYLES: Record<string, { label: string; color: string; ring: string }
   'PRESIDENCIA_EQUIPE': { label: 'Assessor Pres.', color: 'text-slate-600', ring: 'ring-slate-200' },
 
   // STANDARD
-  'GESTOR': { label: 'Gestor Unidade', color: 'text-indigo-600', ring: 'ring-indigo-100' },
+  'GESTOR': { label: 'Gestor Unidade', color: 'text-teal-600', ring: 'ring-teal-100' },
   'USER': { label: 'Usuário', color: 'text-gray-600', ring: 'ring-gray-100' },
   'SERVIDOR': { label: 'Servidor', color: 'text-gray-500', ring: 'ring-gray-100' },
 };

@@ -196,18 +196,22 @@ export const SodpaParameters: React.FC<SodpaParametersProps> = ({ darkMode = fal
                                         <td className="py-3 pl-2 font-medium">{rate.cargoLabel}</td>
                                         <td className="py-3 text-right">
                                             <input
+                                                id={`nacional-${rate.cargo}`}
                                                 type="number"
                                                 value={rate.nacional}
                                                 onChange={e => updateDiariasRate(rate.cargo, 'nacional', parseFloat(e.target.value))}
                                                 className={`w-28 text-right px-2 py-1.5 rounded border text-sm ${inputClass}`}
+                                                aria-label={`Valor nacional para ${rate.cargoLabel}`}
                                             />
                                         </td>
                                         <td className="py-3 text-right pr-2">
                                             <input
+                                                id={`internacional-${rate.cargo}`}
                                                 type="number"
                                                 value={rate.internacional}
                                                 onChange={e => updateDiariasRate(rate.cargo, 'internacional', parseFloat(e.target.value))}
                                                 className={`w-28 text-right px-2 py-1.5 rounded border text-sm ${inputClass}`}
+                                                aria-label={`Valor internacional para ${rate.cargoLabel}`}
                                             />
                                         </td>
                                     </tr>
@@ -226,16 +230,16 @@ export const SodpaParameters: React.FC<SodpaParametersProps> = ({ darkMode = fal
                             </h4>
                             <div className="grid grid-cols-3 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 mb-1.5">Max. Dias / Viagem</label>
-                                    <input type="number" value={limites.max_dias_viagem} onChange={e => updateLimite('max_dias_viagem', parseInt(e.target.value))} className={`w-full px-3 py-2 rounded-lg border ${inputClass}`} />
+                                    <label htmlFor="max_dias_viagem" className="block text-xs font-bold text-slate-500 mb-1.5">Max. Dias / Viagem</label>
+                                    <input id="max_dias_viagem" type="number" value={limites.max_dias_viagem} onChange={e => updateLimite('max_dias_viagem', parseInt(e.target.value))} className={`w-full px-3 py-2 rounded-lg border ${inputClass}`} />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 mb-1.5">Antecedência Mín. (Dias)</label>
-                                    <input type="number" value={limites.antecedencia_minima_dias} onChange={e => updateLimite('antecedencia_minima_dias', parseInt(e.target.value))} className={`w-full px-3 py-2 rounded-lg border ${inputClass}`} />
+                                    <label htmlFor="antecedencia_minima_dias" className="block text-xs font-bold text-slate-500 mb-1.5">Antecedência Mín. (Dias)</label>
+                                    <input id="antecedencia_minima_dias" type="number" value={limites.antecedencia_minima_dias} onChange={e => updateLimite('antecedencia_minima_dias', parseInt(e.target.value))} className={`w-full px-3 py-2 rounded-lg border ${inputClass}`} />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 mb-1.5">Prazo Prest. Contas</label>
-                                    <input type="number" value={limites.prazo_prestacao_contas_dias} onChange={e => updateLimite('prazo_prestacao_contas_dias', parseInt(e.target.value))} className={`w-full px-3 py-2 rounded-lg border ${inputClass}`} />
+                                    <label htmlFor="prazo_prestacao_contas_dias" className="block text-xs font-bold text-slate-500 mb-1.5">Prazo Prest. Contas</label>
+                                    <input id="prazo_prestacao_contas_dias" type="number" value={limites.prazo_prestacao_contas_dias} onChange={e => updateLimite('prazo_prestacao_contas_dias', parseInt(e.target.value))} className={`w-full px-3 py-2 rounded-lg border ${inputClass}`} />
                                 </div>
                             </div>
                         </div>
@@ -246,12 +250,12 @@ export const SodpaParameters: React.FC<SodpaParametersProps> = ({ darkMode = fal
                             </h4>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 mb-1.5">Valor Máx. Passagem (R$)</label>
-                                    <input type="number" step="0.01" value={limites.valor_maximo_passagem} onChange={e => updateLimite('valor_maximo_passagem', parseFloat(e.target.value))} className={`w-full px-3 py-2 rounded-lg border ${inputClass}`} />
+                                    <label htmlFor="valor_maximo_passagem" className="block text-xs font-bold text-slate-500 mb-1.5">Valor Máx. Passagem (R$)</label>
+                                    <input id="valor_maximo_passagem" type="number" step="0.01" value={limites.valor_maximo_passagem} onChange={e => updateLimite('valor_maximo_passagem', parseFloat(e.target.value))} className={`w-full px-3 py-2 rounded-lg border ${inputClass}`} />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 mb-1.5">Aprovação Especial Acima De (R$)</label>
-                                    <input type="number" step="0.01" value={limites.requer_aprovacao_acima} onChange={e => updateLimite('requer_aprovacao_acima', parseFloat(e.target.value))} className={`w-full px-3 py-2 rounded-lg border ${inputClass}`} />
+                                    <label htmlFor="requer_aprovacao_acima" className="block text-xs font-bold text-slate-500 mb-1.5">Aprovação Especial Acima De (R$)</label>
+                                    <input id="requer_aprovacao_acima" type="number" step="0.01" value={limites.requer_aprovacao_acima} onChange={e => updateLimite('requer_aprovacao_acima', parseFloat(e.target.value))} className={`w-full px-3 py-2 rounded-lg border ${inputClass}`} />
                                 </div>
                             </div>
                         </div>
@@ -261,8 +265,8 @@ export const SodpaParameters: React.FC<SodpaParametersProps> = ({ darkMode = fal
                                 <Plane size={14} /> Política de Viagem
                             </h4>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1.5">Permite Classe Executiva (Voos acima de X horas)</label>
-                                <input type="number" value={limites.permite_classe_executiva_acima_horas} onChange={e => updateLimite('permite_classe_executiva_acima_horas', parseInt(e.target.value))} className={`w-full px-3 py-2 rounded-lg border ${inputClass}`} />
+                                <label htmlFor="permite_classe_executiva_acima_horas" className="block text-xs font-bold text-slate-500 mb-1.5">Permite Classe Executiva (Voos acima de X horas)</label>
+                                <input id="permite_classe_executiva_acima_horas" type="number" value={limites.permite_classe_executiva_acima_horas} onChange={e => updateLimite('permite_classe_executiva_acima_horas', parseInt(e.target.value))} className={`w-full px-3 py-2 rounded-lg border ${inputClass}`} />
                             </div>
                         </div>
                     </div>
@@ -273,16 +277,16 @@ export const SodpaParameters: React.FC<SodpaParametersProps> = ({ darkMode = fal
                     <div className="space-y-4">
                         <div className="grid grid-cols-12 gap-2 p-3 bg-slate-50 rounded-lg border border-slate-100">
                             <div className="col-span-3">
-                                <input placeholder="Cidade" value={newDestino.cidade || ''} onChange={e => setNewDestino({...newDestino, cidade: e.target.value})} className={`w-full px-3 py-2 rounded border text-sm ${inputClass}`} />
+                                <input id="new-destino-cidade" placeholder="Cidade" aria-label="Cidade do destino" value={newDestino.cidade || ''} onChange={e => setNewDestino({...newDestino, city: e.target.value})} className={`w-full px-3 py-2 rounded border text-sm ${inputClass}`} />
                             </div>
                             <div className="col-span-2">
-                                <input placeholder="UF" maxLength={2} value={newDestino.uf || ''} onChange={e => setNewDestino({...newDestino, uf: e.target.value.toUpperCase()})} className={`w-full px-3 py-2 rounded border text-sm ${inputClass}`} />
+                                <input id="new-destino-uf" placeholder="UF" aria-label="UF do destino" maxLength={2} value={newDestino.uf || ''} onChange={e => setNewDestino({...newDestino, uf: e.target.value.toUpperCase()})} className={`w-full px-3 py-2 rounded border text-sm ${inputClass}`} />
                             </div>
                             <div className="col-span-3">
-                                <input placeholder="Aeroporto" value={newDestino.aeroporto || ''} onChange={e => setNewDestino({...newDestino, aeroporto: e.target.value})} className={`w-full px-3 py-2 rounded border text-sm ${inputClass}`} />
+                                <input id="new-destino-aeroporto" placeholder="Aeroporto" aria-label="Nome do aeroporto" value={newDestino.aeroporto || ''} onChange={e => setNewDestino({...newDestino, aeroporto: e.target.value})} className={`w-full px-3 py-2 rounded border text-sm ${inputClass}`} />
                             </div>
                             <div className="col-span-2">
-                                <input placeholder="IATA" maxLength={3} value={newDestino.codigo_iata || ''} onChange={e => setNewDestino({...newDestino, codigo_iata: e.target.value.toUpperCase()})} className={`w-full px-3 py-2 rounded border text-sm ${inputClass}`} />
+                                <input id="new-destino-iata" placeholder="IATA" aria-label="Código IATA" maxLength={3} value={newDestino.codigo_iata || ''} onChange={e => setNewDestino({...newDestino, codigo_iata: e.target.value.toUpperCase()})} className={`w-full px-3 py-2 rounded border text-sm ${inputClass}`} />
                             </div>
                             <div className="col-span-2">
                                 <button onClick={addDestino} disabled={!newDestino.cidade} className="w-full h-full bg-sky-600 text-white rounded font-bold text-xs hover:bg-sky-700 disabled:opacity-50">Adicionar</button>

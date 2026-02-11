@@ -262,7 +262,16 @@ export const SmartReceiptCapture: React.FC<SmartReceiptCaptureProps> = ({
           </div>
         </div>
 
-        <input type="file" ref={fileInputRef} className="hidden" accept="image/*,.pdf" capture="environment" onChange={handleFileSelect} />
+        <input 
+          id="camera-capture-input"
+          type="file" 
+          ref={fileInputRef} 
+          className="hidden" 
+          accept="image/*,.pdf" 
+          capture="environment" 
+          onChange={handleFileSelect} 
+          aria-label="Capturar imagem do comprovante"
+        />
       </div>
     );
   }
@@ -324,7 +333,7 @@ export const SmartReceiptCapture: React.FC<SmartReceiptCaptureProps> = ({
                 <Crop size={14} /> Recortar
               </button>
             </div>
-            <button onClick={confirmAndSend} className="px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg shadow-md hover:shadow-lg flex items-center gap-1.5 active:scale-95 transition-all">
+            <button onClick={confirmAndSend} className="px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-teal-600 rounded-lg shadow-md hover:shadow-lg flex items-center gap-1.5 active:scale-95 transition-all">
               <ScanLine size={14} /> Ler com IA
             </button>
           </div>
@@ -341,10 +350,10 @@ export const SmartReceiptCapture: React.FC<SmartReceiptCaptureProps> = ({
       {/* Primary: Camera or Native Capture */}
       <button
         onClick={isMobile ? () => fileInputRef.current?.click() : startCamera}
-        className="w-full relative border-2 border-dashed border-blue-300 rounded-2xl p-6 text-center cursor-pointer transition-all duration-300 group overflow-hidden bg-gradient-to-br from-blue-50/80 to-indigo-50/80 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-100 active:scale-[0.98]"
+        className="w-full relative border-2 border-dashed border-blue-300 rounded-2xl p-6 text-center cursor-pointer transition-all duration-300 group overflow-hidden bg-gradient-to-br from-blue-50/80 to-teal-50/80 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-100 active:scale-[0.98]"
       >
         <div className="flex flex-col items-center">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-3 shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-teal-600 flex items-center justify-center mb-3 shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform">
             {isMobile ? <Smartphone size={24} className="text-white" /> : <Camera size={24} className="text-white" />}
           </div>
           <h3 className="text-base font-bold text-slate-700">
@@ -372,12 +381,14 @@ export const SmartReceiptCapture: React.FC<SmartReceiptCaptureProps> = ({
       </button>
 
       <input
+        id="file-gallery-input"
         type="file"
         ref={fileInputRef}
         className="hidden"
         accept="image/*,.pdf"
         capture={isMobile ? 'environment' : undefined}
         onChange={handleFileSelect}
+        aria-label="Selecionar comprovante da galeria ou arquivo"
       />
       <canvas ref={canvasRef} className="hidden" />
     </div>

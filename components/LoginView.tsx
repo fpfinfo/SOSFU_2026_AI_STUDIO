@@ -87,7 +87,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onPostLoginNavigate }) => 
                 
                 {/* Decorative Circles */}
                 <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl" />
-                <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-3xl transform translate-x-1/3 translate-y-1/3" />
+                <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-teal-500/10 rounded-full blur-3xl transform translate-x-1/3 translate-y-1/3" />
 
                 {/* Content */}
                 <div className="relative z-10 h-full flex flex-col">
@@ -118,7 +118,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onPostLoginNavigate }) => 
                             {[
                                 { id: 'suprimento', tab: 'solicitation_emergency', icon: Wallet, label: 'Suprimento de Fundos', desc: 'Gestão de adiantamentos e prestação de contas', color: 'blue' },
                                 { id: 'diarias', tab: 'solicitation_diarias', icon: Receipt, label: 'Diárias e Passagens', desc: 'Controle de deslocamentos e indenizações', color: 'emerald' },
-                                { id: 'ressarcimento', tab: 'solicitation_ressarcimento', icon: ShieldCheck, label: 'Ressarcimentos', desc: 'Solicitação e acompanhamento de reembolsos', color: 'purple' },
+                                { id: 'ressarcimento', tab: 'solicitation_ressarcimento', icon: ShieldCheck, label: 'Ressarcimentos', desc: 'Solicitação e acompanhamento de reembolsos', color: 'teal' },
                             ].map(mod => (
                                 <button
                                     key={mod.id}
@@ -193,12 +193,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onPostLoginNavigate }) => 
 
                         {isSignUp && (
                             <div className="space-y-2">
-                                <label className="text-sm font-semibold text-gray-700 ml-1">Nome Completo</label>
+                                    <label htmlFor="full-name-input" className="text-sm font-semibold text-gray-700 ml-1">Nome Completo</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                                         <User size={18} />
                                     </div>
                                     <input
+                                        id="full-name-input"
                                         type="text"
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
@@ -210,12 +211,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onPostLoginNavigate }) => 
                         )}
 
                         <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700 ml-1">E-mail</label>
+                            <label htmlFor="login-email-input" className="text-sm font-semibold text-gray-700 ml-1">E-mail</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                                     <Mail size={18} />
                                 </div>
                                 <input
+                                    id="login-email-input"
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
@@ -227,7 +229,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onPostLoginNavigate }) => 
 
                         <div className="space-y-2">
                             <div className="flex justify-between items-center">
-                                <label className="text-sm font-semibold text-gray-700 ml-1">Senha</label>
+                                <label htmlFor="login-password-input" className="text-sm font-semibold text-gray-700 ml-1">Senha</label>
                                 {!isSignUp && (
                                     <a href="#" className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline">
                                         Esqueceu a senha?
@@ -239,6 +241,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onPostLoginNavigate }) => 
                                     <Lock size={18} />
                                 </div>
                                 <input
+                                    id="login-password-input"
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}

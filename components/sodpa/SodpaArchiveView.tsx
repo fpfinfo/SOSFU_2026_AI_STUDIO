@@ -247,7 +247,7 @@ export const SodpaArchiveView: React.FC<SodpaArchiveViewProps> = ({ onNavigate }
                                             {p.process_number}
                                             {p.request_type && (
                                                 <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded font-bold ${
-                                                    p.request_type === 'PASSAGEM' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'
+                                                    p.request_type === 'PASSAGEM' ? 'bg-teal-100 text-teal-700' : 'bg-emerald-100 text-emerald-700'
                                                 }`}>
                                                     {p.request_type === 'PASSAGEM' ? 'PASS' : 'DIÁRIA'}
                                                 </span>

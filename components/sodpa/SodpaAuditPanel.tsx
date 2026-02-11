@@ -9,7 +9,7 @@ import {
     ClipboardCheck, Plane, MapPin, Receipt, Clock, User
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { generateWithRole } from '../../lib/gemini';
+import { generateWithRole } from '../../lib/aiService';
 
 // ==================== TYPES ====================
 

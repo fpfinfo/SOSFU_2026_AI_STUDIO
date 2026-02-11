@@ -6,7 +6,7 @@ import {
     Briefcase, Building2
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { generateWithRole } from '../../lib/gemini';
+import { generateWithRole } from '../../lib/aiService';
 import { Tooltip } from '../ui/Tooltip';
 
 interface DiariasSolicitationProps {
@@ -725,13 +725,13 @@ export const DiariasSolicitation: React.FC<DiariasSolicitationProps> = ({ onNavi
             <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                 <div className="flex justify-between items-center mb-4">
                     <h4 className="text-sm font-bold text-gray-700 uppercase flex items-center gap-2">
-                        <Sparkles size={16} className="text-purple-600" /> Justificativa do Deslocamento
+                        <Sparkles size={16} className="text-teal-600" /> Justificativa do Deslocamento
                     </h4>
                     <Tooltip content="Usar IA para gerar justificativa formal baseada nos dados preenchidos" position="left">
                         <button
                             onClick={handleGenerateAI}
                             disabled={isGeneratingAI}
-                            className="px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-100 text-xs font-bold rounded-lg hover:bg-purple-100 flex items-center gap-2 transition-all shadow-sm"
+                            className="px-3 py-1.5 bg-teal-50 text-teal-700 border border-teal-100 text-xs font-bold rounded-lg hover:bg-teal-100 flex items-center gap-2 transition-all shadow-sm"
                         >
                             {isGeneratingAI ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
                             Gerar com IA

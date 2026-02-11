@@ -95,15 +95,15 @@ export const ExecutionAnalytics: React.FC = () => {
                 <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative overflow-hidden group">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Volume de Notas</p>
                     <p className="text-2xl font-black text-slate-800">{countItems}</p>
-                    <div className="mt-4 flex items-center gap-1.5 text-indigo-600 font-bold text-[10px] bg-indigo-50 w-fit px-2 py-0.5 rounded-full">
+                    <div className="mt-4 flex items-center gap-1.5 text-teal-600 font-bold text-[10px] bg-teal-50 w-fit px-2 py-0.5 rounded-full">
                         <CheckCircle2 size={12} />
                         Documentos Auditados
                     </div>
                 </div>
 
-                <div className="bg-indigo-600 p-6 rounded-3xl shadow-xl shadow-indigo-600/20 text-white flex flex-col justify-between">
+                <div className="bg-teal-600 p-6 rounded-3xl shadow-xl shadow-teal-600/20 text-white flex flex-col justify-between">
                     <div className="flex justify-between items-start">
-                        <BarChart3 size={24} className="text-indigo-200" />
+                        <BarChart3 size={24} className="text-teal-200" />
                         <span className="text-[10px] font-black bg-white/20 px-2.5 py-1 rounded-full uppercase">Meta Mensal</span>
                     </div>
                     <div>
@@ -127,7 +127,7 @@ export const ExecutionAnalytics: React.FC = () => {
                             <input 
                                 type="text" 
                                 placeholder="Filtrar por fornecedor, processo ou item..."
-                                className="pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-2xl text-sm w-80 focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium"
+                                className="pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-2xl text-sm w-80 focus:ring-2 focus:ring-teal-500/20 transition-all font-medium"
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                             />
@@ -139,7 +139,7 @@ export const ExecutionAnalytics: React.FC = () => {
                     <div className="flex items-center gap-2">
                         <button 
                             onClick={fetchAnalytics}
-                            className={`p-2.5 bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all ${loading ? 'animate-spin' : ''}`}
+                            className={`p-2.5 bg-slate-50 text-slate-400 hover:bg-teal-50 hover:text-teal-600 rounded-xl transition-all ${loading ? 'animate-spin' : ''}`}
                         >
                             <RefreshCw size={18} />
                         </button>
@@ -168,7 +168,7 @@ export const ExecutionAnalytics: React.FC = () => {
                                 <tr>
                                     <td colSpan={7} className="px-6 py-20 text-center">
                                         <div className="flex flex-col items-center gap-3">
-                                            <Loader2 className="animate-spin text-indigo-600" size={32} />
+                                            <Loader2 className="animate-spin text-teal-600" size={32} />
                                             <p className="text-sm font-bold text-slate-400 uppercase">Processando Big Data...</p>
                                         </div>
                                     </td>
@@ -184,7 +184,7 @@ export const ExecutionAnalytics: React.FC = () => {
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col">
                                             <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
-                                                <Calendar size={12} className="text-indigo-500" />
+                                                <Calendar size={12} className="text-teal-500" />
                                                 {item.item_date ? new Date(item.item_date).toLocaleDateString() : '-'}
                                             </span>
                                             <span className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tight truncate max-w-[120px]">
@@ -231,7 +231,7 @@ export const ExecutionAnalytics: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <button className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
+                                        <button className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all">
                                             <ChevronRight size={18} />
                                         </button>
                                     </td>
@@ -251,7 +251,7 @@ export const ExecutionAnalytics: React.FC = () => {
                         <span className="text-slate-500 font-medium">Mostrando <span className="text-slate-800 font-black">{filteredStats.length}</span> de <span className="text-slate-800 font-black">{countItems}</span> registros</span>
                         <div className="flex gap-1">
                             <button className="px-3 py-1 bg-white border border-slate-200 rounded-md shadow-sm disabled:opacity-50" disabled>Ant</button>
-                            <button className="px-3 py-1 bg-white border border-slate-200 rounded-md shadow-sm hover:border-indigo-400 hover:text-indigo-600 transition-all">Próx</button>
+                            <button className="px-3 py-1 bg-white border border-slate-200 rounded-md shadow-sm hover:border-teal-400 hover:text-teal-600 transition-all">Próx</button>
                         </div>
                     </div>
                 </div>

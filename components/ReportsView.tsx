@@ -60,7 +60,7 @@ export const ReportsView: React.FC = () => {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
-                            <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
+                            <div className="w-6 h-6 bg-teal-600 rounded-lg flex items-center justify-center text-white">
                                 <PieChart size={14} />
                             </div>
                             <h2 className="text-xl font-black text-slate-800 tracking-tight">Portal de Inteligência SOSFU</h2>
@@ -80,19 +80,19 @@ export const ReportsView: React.FC = () => {
                                     onClick={() => setActiveTab(tab.id)}
                                     className={`relative px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 flex items-center gap-2 ${
                                         activeTab === tab.id 
-                                            ? 'bg-white text-indigo-600 shadow-lg scale-[1.02]' 
+                                            ? 'bg-white text-teal-600 shadow-lg scale-[1.02]' 
                                             : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
                                     }`}
                                 >
                                     {tab.icon}
                                     <span className="hidden md:block">{tab.label}</span>
                                     {activeTab === tab.id && (
-                                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-indigo-600 rounded-full" />
+                                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-teal-600 rounded-full" />
                                     )}
                                 </button>
                             ))}
                         </div>
-                        <button className="hidden lg:flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold transition-all hover:bg-indigo-700 shadow-lg shadow-indigo-200">
+                        <button className="hidden lg:flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-xl text-xs font-bold transition-all hover:bg-teal-700 shadow-lg shadow-teal-200">
                              <Download size={14} /> Exportar Tudo
                         </button>
                     </div>
@@ -127,7 +127,7 @@ export const ReportsView: React.FC = () => {
                         <ShieldCheck size={12} /> Compliance em 92.4%
                     </div>
                 </div>
-                <div className="flex items-center gap-2 text-[10px] font-black text-indigo-500 hover:text-indigo-700 cursor-pointer transition-colors">
+                <div className="flex items-center gap-2 text-[10px] font-black text-teal-500 hover:text-teal-700 cursor-pointer transition-colors">
                      Ver Detalhes do NUP Online <ArrowUpRight size={12} />
                 </div>
             </div>

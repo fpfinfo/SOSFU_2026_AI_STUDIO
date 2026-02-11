@@ -47,7 +47,7 @@ export const RessarcimentoGeneralSettings: React.FC<RessarcimentoGeneralSettings
                     onClick={() => setActiveTab('comarcas')}
                     className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-t-lg border-b-2 transition-all ${
                         activeTab === 'comarcas'
-                            ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
+                            ? 'border-teal-600 text-teal-600 bg-teal-50/50'
                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                     }`}
                 >

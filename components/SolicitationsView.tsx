@@ -217,7 +217,7 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
           className="fixed top-20 right-6 z-50 animate-in slide-in-from-right-5 duration-300"
           onClick={() => setShowNotification(false)}
         >
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 cursor-pointer hover:shadow-xl transition-shadow">
+          <div className="bg-gradient-to-r from-blue-600 to-teal-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 cursor-pointer hover:shadow-xl transition-shadow">
             <div className="p-2 bg-white/20 rounded-lg">
               <Bell size={18} className="animate-bounce" />
             </div>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Siren, Calendar, DollarSign, Bookmark, AlertTriangle, User, Mail, Loader2, CheckCircle2, Link as LinkIcon, AlertCircle, ChevronDown, Sparkles, Pencil, ShieldCheck, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { generateText } from '../../lib/gemini';
+import { generateText } from '../../lib/aiService';
+import { useExpenseElements } from '../../hooks/useExpenseElements';
 import { Tooltip } from '../ui/Tooltip';
 
 interface EmergencySolicitationProps {
@@ -30,7 +31,7 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
     
     // Data Loading
-    const [elementos, setElementos] = useState<ElementoDespesa[]>([]);
+    const { elements: elementos, loading: loadingElements } = useExpenseElements();
     const [loadingData, setLoadingData] = useState(true);
 
     // Form Fields
@@ -77,14 +78,6 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
     const fetchInitialData = async () => {
         setLoadingData(true);
         try {
-            // 1. Elementos
-            const { data: elData } = await supabase
-                .from('delemento')
-                .select('*')
-                .eq('is_active', true)
-                .order('codigo');
-            setElementos(elData || []);
-
             // 2. Dados do Usuário Logado
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
@@ -302,11 +295,11 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                 </div>
 
                 {/* Section: Gestor */}
-                <div className={`p-6 rounded-xl border shadow-sm relative overflow-hidden ${isGestorSolicitante ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-gray-200'}`}>
+                <div className={`p-6 rounded-xl border shadow-sm relative overflow-hidden ${isGestorSolicitante ? 'bg-teal-50 border-teal-200' : 'bg-white border-gray-200'}`}>
                     
                     {/* Indicador de Auto-Gestão */}
                     {isGestorSolicitante && (
-                         <div className="absolute top-0 right-0 bg-indigo-100 px-3 py-1 rounded-bl-xl border-b border-l border-indigo-200 flex items-center gap-1.5 text-xs font-bold text-indigo-700">
+                         <div className="absolute top-0 right-0 bg-teal-100 px-3 py-1 rounded-bl-xl border-b border-l border-teal-200 flex items-center gap-1.5 text-xs font-bold text-teal-700">
                             <ShieldCheck size={14} />
                             Auto-Atesto (Gestor)
                          </div>
@@ -362,7 +355,7 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                         </div>
                     </div>
                     {isGestorSolicitante && (
-                        <p className="text-xs text-indigo-600 mt-3 flex items-center gap-1 font-medium">
+                        <p className="text-xs text-teal-600 mt-3 flex items-center gap-1 font-medium">
                             <CheckCircle2 size={12} />
                             Como você é Gestor, a Certidão de Atesto será gerada automaticamente.
                         </p>
@@ -528,7 +521,7 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                                 <button
                                     type="button"
                                     onClick={handleGenerateAI}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-bold hover:bg-purple-100 transition-colors border border-purple-100 mb-1 shadow-sm"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 text-teal-700 rounded-lg text-xs font-bold hover:bg-teal-100 transition-colors border border-teal-100 mb-1 shadow-sm"
                                 >
                                     {isGeneratingAI ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
                                     Sugerir com IA

@@ -265,7 +265,9 @@ export const ProfileView: React.FC = () => {
             </div>
             
             {/* Input de arquivo oculto */}
+            <label htmlFor="avatar-file-input" className="sr-only">Alterar foto de perfil</label>
             <input 
+                id="avatar-file-input"
                 type="file" 
                 ref={fileInputRef} 
                 onChange={handleAvatarUpload} 
@@ -284,7 +286,7 @@ export const ProfileView: React.FC = () => {
         </div>
         
         <div className="flex-1 text-center md:text-left">
-            <h1 className="text-xl font-bold text-gray-800">{formData.full_name || 'Usuário Sem Nome'}</h1>
+            <h2 className="text-xl font-bold text-gray-800">{formData.full_name || 'Usuário Sem Nome'}</h2>
             <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 mt-2 text-sm text-gray-500">
                 <div className="flex items-center gap-1.5">
                     <Mail size={14} />
@@ -330,8 +332,9 @@ export const ProfileView: React.FC = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2 space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Nome Completo</label>
+                <label htmlFor="p-full_name" className="text-xs font-bold text-gray-500 uppercase ml-1">Nome Completo</label>
                 <input 
+                    id="p-full_name"
                     type="text" 
                     name="full_name"
                     value={formData.full_name}
@@ -341,8 +344,9 @@ export const ProfileView: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1">E-mail</label>
+                <label htmlFor="p-email" className="text-xs font-bold text-gray-500 uppercase ml-1">E-mail</label>
                 <input 
+                    id="p-email"
                     type="email" 
                     name="email"
                     value={formData.email}
@@ -352,8 +356,9 @@ export const ProfileView: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1"># CPF</label>
+                <label htmlFor="p-cpf" className="text-xs font-bold text-gray-500 uppercase ml-1"># CPF</label>
                 <input 
+                    id="p-cpf"
                     type="text" 
                     name="cpf"
                     value={formData.cpf}
@@ -364,8 +369,9 @@ export const ProfileView: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1"># Matrícula</label>
+                <label htmlFor="p-matricula" className="text-xs font-bold text-gray-500 uppercase ml-1"># Matrícula</label>
                 <input 
+                    id="p-matricula"
                     type="text" 
                     name="matricula"
                     value={formData.matricula}
@@ -375,8 +381,9 @@ export const ProfileView: React.FC = () => {
             </div>
 
              <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Cargo / Função</label>
+                <label htmlFor="p-cargo" className="text-xs font-bold text-gray-500 uppercase ml-1">Cargo / Função</label>
                 <input 
+                    id="p-cargo"
                     type="text" 
                     name="cargo"
                     value={formData.cargo}
@@ -386,9 +393,10 @@ export const ProfileView: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Tipo de Vínculo</label>
+                <label htmlFor="p-vinculo" className="text-xs font-bold text-gray-500 uppercase ml-1">Tipo de Vínculo</label>
                 <div className="relative">
                     <select 
+                        id="p-vinculo"
                         name="vinculo"
                         value={formData.vinculo}
                         onChange={handleChange}
@@ -408,8 +416,9 @@ export const ProfileView: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Telefone</label>
+                <label htmlFor="p-telefone" className="text-xs font-bold text-gray-500 uppercase ml-1">Telefone</label>
                 <input 
+                    id="p-telefone"
                     type="text" 
                     name="telefone"
                     value={formData.telefone}
@@ -430,8 +439,9 @@ export const ProfileView: React.FC = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Lotação (Setor/Comarca)</label>
+                <label htmlFor="p-lotacao" className="text-xs font-bold text-gray-500 uppercase ml-1">Lotação (Setor/Comarca)</label>
                 <input 
+                    id="p-lotacao"
                     type="text" 
                     name="lotacao"
                     value={formData.lotacao}
@@ -441,8 +451,9 @@ export const ProfileView: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Município</label>
+                <label htmlFor="p-municipio" className="text-xs font-bold text-gray-500 uppercase ml-1">Município</label>
                 <input 
+                    id="p-municipio"
                     type="text" 
                     name="municipio"
                     value={formData.municipio}
@@ -456,14 +467,15 @@ export const ProfileView: React.FC = () => {
        {/* Section: Gestor Imediato */}
        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
         <h3 className="text-gray-800 font-bold text-lg mb-6 flex items-center gap-2">
-            <Users className="text-purple-600" size={20} />
+            <Users className="text-teal-600" size={20} />
             Gestor Imediato
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Nome do Gestor</label>
+                <label htmlFor="p-gestor_nome" className="text-xs font-bold text-gray-500 uppercase ml-1">Nome do Gestor</label>
                 <input 
+                    id="p-gestor_nome"
                     type="text" 
                     name="gestor_nome"
                     placeholder="Nome completo"
@@ -474,8 +486,9 @@ export const ProfileView: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1">E-mail do Gestor</label>
+                <label htmlFor="p-gestor_email" className="text-xs font-bold text-gray-500 uppercase ml-1">E-mail do Gestor</label>
                 <input 
+                    id="p-gestor_email"
                     type="email" 
                     name="gestor_email"
                     value={formData.gestor_email}
@@ -496,8 +509,9 @@ export const ProfileView: React.FC = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Nome do Banco</label>
+                <label htmlFor="p-nome_banco" className="text-xs font-bold text-gray-500 uppercase ml-1">Nome do Banco</label>
                 <input 
+                    id="p-nome_banco"
                     type="text" 
                     name="nome_banco"
                     value={formData.nome_banco}
@@ -508,8 +522,9 @@ export const ProfileView: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Código do Banco</label>
+                <label htmlFor="p-banco" className="text-xs font-bold text-gray-500 uppercase ml-1">Código do Banco</label>
                 <input 
+                    id="p-banco"
                     type="text" 
                     name="banco"
                     value={formData.banco}
@@ -522,8 +537,9 @@ export const ProfileView: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Agência</label>
+                <label htmlFor="p-agencia" className="text-xs font-bold text-gray-500 uppercase ml-1">Agência</label>
                 <input 
+                    id="p-agencia"
                     type="text" 
                     name="agencia"
                     value={formData.agencia}
@@ -534,8 +550,9 @@ export const ProfileView: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Conta Corrente</label>
+                <label htmlFor="p-conta_corrente" className="text-xs font-bold text-gray-500 uppercase ml-1">Conta Corrente</label>
                 <input 
+                    id="p-conta_corrente"
                     type="text" 
                     name="conta_corrente"
                     value={formData.conta_corrente}

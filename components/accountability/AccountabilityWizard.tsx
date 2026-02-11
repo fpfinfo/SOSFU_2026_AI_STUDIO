@@ -4,11 +4,12 @@ import {
     FileCheck, CheckCircle2, Wallet, Loader2, ScanLine, X, Sparkles, FileText, CloudLightning, PenTool, Ticket, ScrollText, AlertCircle, Plane, UserCheck
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { generateWithParts } from '../../lib/gemini';
+import { generateWithParts } from '../../lib/aiService';
 import { SmartReceiptCapture } from './SmartReceiptCapture';
 import { OfflineStatusBanner } from './OfflineStatusBanner';
 import { JuriExceptionInlineAlert } from '../ui/JuriExceptionInlineAlert';
 import { useOfflineDrafts } from '../../hooks/useOfflineDrafts';
+import { useExpenseElements } from '../../hooks/useExpenseElements';
 import { Tooltip } from '../ui/Tooltip';
 
 interface AccountabilityWizardProps {
@@ -86,6 +87,9 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
     // Offline drafts
     const { isOnline, syncStatus, pendingCount, saveLocalDraft, loadLocalDraft, markSynced } = useOfflineDrafts(accountabilityId);
     
+    // Dynamic Expense Elements
+    const { elements: expenseElements } = useExpenseElements();
+    
     const [pcData, setPcData] = useState<any>(null);
     const [items, setItems] = useState<ExpenseItem[]>([]);
     const [grantedValue, setGrantedValue] = useState(0);
@@ -138,6 +142,13 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
             return () => clearTimeout(timer);
         }
     }, [notification]);
+
+    // Initialize newItem with first available element
+    useEffect(() => {
+        if (expenseElements.length > 0 && newItem.element_code === '3.3.90.30.01' && !expenseElements.find(e => e.codigo === '3.3.90.30.01')) {
+            setNewItem(prev => ({ ...prev, element_code: expenseElements[0].codigo }));
+        }
+    }, [expenseElements]);
 
     const showToast = (type: 'success' | 'error', message: string) => {
         setNotification({ type, message });
@@ -535,12 +546,12 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
     const getDocTypeInfo = (type: DocumentType) => {
         switch (type) {
             case 'NFE': return { label: 'Nota Fiscal', icon: FileCheck, color: 'text-blue-600', bg: 'bg-blue-50' };
-            case 'NFS': return { label: 'Nota Serviço', icon: FileText, color: 'text-indigo-600', bg: 'bg-indigo-50' };
+            case 'NFS': return { label: 'Nota Serviço', icon: FileText, color: 'text-teal-600', bg: 'bg-teal-50' };
             case 'CUPOM': return { label: 'Cupom Fiscal', icon: ScrollText, color: 'text-orange-600', bg: 'bg-orange-50' };
             case 'RECIBO': return { label: 'Recibo', icon: PenTool, color: 'text-gray-600', bg: 'bg-gray-100' };
             case 'BILHETE': return { label: 'Passagem', icon: Ticket, color: 'text-sky-600', bg: 'bg-sky-50' };
             case 'BOARDING_PASS': return { label: 'Emb.', icon: Plane, color: 'text-emerald-600', bg: 'bg-emerald-50' };
-            case 'REPORT': return { label: 'Relatório', icon: FileText, color: 'text-purple-600', bg: 'bg-purple-50' };
+            case 'REPORT': return { label: 'Relatório', icon: FileText, color: 'text-teal-600', bg: 'bg-teal-50' };
             default: return { label: 'Outros', icon: Receipt, color: 'text-slate-600', bg: 'bg-slate-50' };
         }
     };
@@ -679,9 +690,10 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                         />
                                     </div>
                                     <div className="col-span-12 md:col-span-4">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Valor Total</label>
+                                        <label htmlFor="item-value" className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Valor Total</label>
                                         <div className="relative">
                                             <input 
+                                                id="item-value"
                                                 type="number" 
                                                 step="0.01" 
                                                 value={newItem.value} 
@@ -706,12 +718,13 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
 
                                     <div className="col-span-12 md:col-span-6">
                                         <div className="flex items-center justify-between mb-1">
-                                            <label className="text-[10px] font-bold text-gray-500 uppercase block">Fornecedor / Razão Social</label>
+                                            <label htmlFor="item-supplier" className="text-[10px] font-bold text-gray-500 uppercase block">Fornecedor / Razão Social</label>
                                             {newItem.ai_metadata?.cnpj && (
                                                 <span className="text-[9px] font-mono text-slate-400 bg-slate-50 px-1.5 rounded">{newItem.ai_metadata.cnpj}</span>
                                             )}
                                         </div>
                                         <input 
+                                            id="item-supplier"
                                             type="text" 
                                             value={newItem.supplier} 
                                             onChange={e => setNewItem({...newItem, supplier: e.target.value})} 
@@ -750,13 +763,14 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                             }}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all font-medium"
                                         >
-                                            <option value="3.3.90.30.01">3.3.90.30.01 - Combustíveis</option>
-                                            <option value="3.3.90.30.07">3.3.90.30.07 - Alimentação</option>
-                                            <option value="3.3.90.30.16">3.3.90.30.16 - Mat. Expediente</option>
-                                            <option value="3.3.90.33.01">3.3.90.33.01 - Passagens</option>
-                                            <option value="3.3.90.36.01">3.3.90.36.01 - Serviços PF (INSS/ISS)</option>
-                                            <option value="3.3.90.39.05">3.3.90.39.05 - Serviços Técnicos PJ</option>
-                                            <option value="3.3.90.39.99">3.3.90.39.99 - Outros Serviços PJ</option>
+                                            {expenseElements.map(el => (
+                                                <option key={el.id} value={el.codigo}>
+                                                    {el.codigo} - {el.descricao}
+                                                </option>
+                                            ))}
+                                            {expenseElements.length === 0 && (
+                                                <option value="3.3.90.30.01">3.3.90.30.01 - Material de Consumo</option>
+                                            )}
                                         </select>
                                     </div>
 
@@ -846,9 +860,9 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(newItem.valor_liquido || 0)}
                                                         </span>
                                                     </div>
-                                                    <div className="bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
-                                                        <span className="text-[9px] font-bold text-indigo-600 block mb-1">Cota Patronal (20%)</span>
-                                                        <span className="text-sm font-black text-indigo-700">
+                                                    <div className="bg-teal-50 p-2.5 rounded-lg border border-teal-100">
+                                                        <span className="text-[9px] font-bold text-teal-600 block mb-1">Cota Patronal (20%)</span>
+                                                        <span className="text-sm font-black text-teal-700">
                                                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(newItem.value * 0.20)}
                                                         </span>
                                                     </div>
@@ -1012,8 +1026,9 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
 
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Número da GDR / Autenticação</label>
+                                        <label htmlFor="gdr-number" className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Número da GDR / Autenticação</label>
                                         <input 
+                                            id="gdr-number"
                                             type="text" 
                                             placeholder="Ex: 2026.0401.001"
                                             value={gdrData.numero}

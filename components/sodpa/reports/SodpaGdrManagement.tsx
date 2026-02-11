@@ -205,7 +205,7 @@ export const SodpaGdrManagement: React.FC<SodpaGdrManagementProps> = ({ darkMode
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col">
-                                            <span className={`text-xs font-black ${darkMode ? 'text-sky-600' : 'text-indigo-600'}`}>{item.solicitation?.nup || 'Sem NUP'}</span>
+                                            <span className={`text-xs font-black ${darkMode ? 'text-sky-600' : 'text-teal-600'}`}>{item.solicitation?.nup || 'Sem NUP'}</span>
                                             <span className="text-[9px] text-slate-400 mt-1 font-mono">GDR ID: {item.numero_gdr || '---'}</span>
                                         </div>
                                     </td>

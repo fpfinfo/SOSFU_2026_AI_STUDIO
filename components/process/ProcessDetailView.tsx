@@ -776,7 +776,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                         <Shield size={16} /> Gestor Responsável
                     </h4>
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-bold">
+                        <div className="w-10 h-10 bg-teal-50 text-teal-600 rounded-full flex items-center justify-center font-bold">
                             {processData.manager_name?.charAt(0) || 'G'}
                         </div>
                         <div>
@@ -1132,8 +1132,8 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
       // Documentos internos (auto-assinados SOSFU, ficam no dossiê)
       const internalDocs = [
-          { type: 'LIQUIDACAO', label: 'Doc. de Liquidação (DL)', subtitle: 'PDF Original → Dossiê', icon: FileCheck, color: 'text-fuchsia-600', bg: 'bg-fuchsia-50' },
-          { type: 'ORDEM_BANCARIA', label: 'Ordem Bancária (OB)', subtitle: 'PDF Original → Dossiê', icon: DollarSign, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+          { type: 'LIQUIDACAO', label: 'Doc. de Liquidação (DL)', subtitle: 'PDF Original → Dossiê', icon: FileCheck, color: 'text-teal-600', bg: 'bg-teal-50' },
+          { type: 'ORDEM_BANCARIA', label: 'Ordem Bancária (OB)', subtitle: 'PDF Original → Dossiê', icon: DollarSign, color: 'text-teal-600', bg: 'bg-teal-50' },
       ];
 
       const allDocs = [...sefinDocs, ...internalDocs];
@@ -1216,7 +1216,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
               )}
 
               {/* Header Card */}
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg">
+              <div className="bg-gradient-to-r from-blue-600 to-teal-600 rounded-2xl p-6 text-white shadow-lg">
                   <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                           <div className="p-3 bg-white/15 rounded-xl backdrop-blur">
@@ -1256,9 +1256,9 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
               {/* ═══ SECTION 2: Documentos internos (Dossiê) ═══ */}
               <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
-                      <Archive size={14} className="text-indigo-600" />
+                      <Archive size={14} className="text-teal-600" />
                       <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest">Dossiê Digital</h4>
-                      <span className="text-[9px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md font-bold border border-indigo-100">Auto-assinado SOSFU</span>
+                      <span className="text-[9px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded-md font-bold border border-teal-100">Auto-assinado SOSFU</span>
                   </div>
                   <p className="text-[10px] text-gray-400 mb-4">DL e OB — PDFs originais do SIAFE, anexados automaticamente ao dossiê</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1332,7 +1332,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
                   {/* Extra-Júri Review Button (SOSFU only) */}
                   {isExtraJuri && currentUserRole === 'SOSFU' && (
-                      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-5 text-white shadow-lg">
+                      <div className="bg-gradient-to-r from-blue-600 to-teal-600 rounded-xl p-5 text-white shadow-lg">
                           <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                   <div className="p-2.5 bg-white/15 rounded-lg backdrop-blur">

@@ -116,13 +116,13 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({ process, onAction })
                         <div className="flex justify-between text-[9px] font-black uppercase tracking-widest px-1">
                             <span className={progress >= 10 ? 'text-sky-600' : 'text-slate-300'}>Solicitado</span>
                             <span className={progress >= 25 ? 'text-sky-600' : 'text-slate-300'}>Análise</span>
-                            <span className={progress >= 50 ? 'text-indigo-600' : 'text-slate-300'}>Execução</span>
-                            <span className={progress >= 75 ? 'text-indigo-600' : 'text-slate-300'}>Prestação</span>
+                            <span className={progress >= 50 ? 'text-teal-600' : 'text-slate-300'}>Execução</span>
+                            <span className={progress >= 75 ? 'text-teal-600' : 'text-slate-300'}>Prestação</span>
                             <span className={progress >= 100 ? 'text-emerald-600' : 'text-slate-300'}>Homologado</span>
                         </div>
                         <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden flex">
                             <div 
-                                className="h-full bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-500 transition-all duration-1000 ease-out shadow-lg shadow-sky-200"
+                                className="h-full bg-gradient-to-r from-sky-500 via-teal-500 to-emerald-500 transition-all duration-1000 ease-out shadow-lg shadow-sky-200"
                                 style={{ width: `${progress}%` }}
                             />
                         </div>

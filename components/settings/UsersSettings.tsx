@@ -41,7 +41,7 @@ const MODULE_CONFIGS: Record<string, { label: string; roles: string[]; color: st
     'SEFIN': {
         label: 'Equipe Financeira (SEFIN)',
         roles: ['SEFIN_GESTOR', 'SEFIN_EQUIPE'],
-        color: 'indigo',
+        color: 'teal',
         funcoes: ['Secretário de Finanças', 'Diretor Financeiro', 'Técnico Financeiro', 'Analista de Contas']
     }
 };
@@ -270,7 +270,7 @@ export const UsersSettings: React.FC<{ userProfile?: any }> = ({ userProfile }) 
                                 <div className="col-span-6 flex items-center gap-4">
                                     <div className={`w-10 h-10 rounded-full bg-${themeColor}-100 flex items-center justify-center text-${themeColor}-600 font-bold text-xs shadow-sm flex-shrink-0 border-2 border-white`}>
                                         {member.avatar_url ? (
-                                            <img src={member.avatar_url} className="w-full h-full rounded-full object-cover" />
+                                            <img src={member.avatar_url} alt={member.full_name} className="w-full h-full rounded-full object-cover" />
                                         ) : getInitials(member.full_name)}
                                     </div>
                                     <div className="min-w-0">
@@ -333,10 +333,11 @@ export const UsersSettings: React.FC<{ userProfile?: any }> = ({ userProfile }) 
                         <div className="p-6 space-y-6">
                             {/* Busca */}
                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Buscar Usuário</label>
+                                <label htmlFor="user-search-input" className="text-xs font-bold text-gray-500 uppercase tracking-wider">Buscar Usuário</label>
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                     <input 
+                                        id="user-search-input"
                                         type="text" 
                                         value={searchQuery}
                                         onChange={(e) => handleSearchUsers(e.target.value)}
@@ -381,7 +382,9 @@ export const UsersSettings: React.FC<{ userProfile?: any }> = ({ userProfile }) 
                                 <div className={`flex items-center justify-between p-3 bg-${themeColor}-50 border border-${themeColor}-100 rounded-lg animate-in fade-in slide-in-from-top-2`}>
                                     <div className="flex items-center gap-3">
                                         <div className={`w-10 h-10 rounded-full bg-white text-${themeColor}-600 border border-${themeColor}-100 flex items-center justify-center font-bold text-sm overflow-hidden`}>
-                                            {selectedUser.avatar_url ? <img src={selectedUser.avatar_url} className="w-full h-full object-cover" /> : getInitials(selectedUser.full_name)}
+                                            {selectedUser.avatar_url ? (
+                                                <img src={selectedUser.avatar_url} alt={selectedUser.full_name} className="w-full h-full object-cover" />
+                                            ) : getInitials(selectedUser.full_name)}
                                         </div>
                                         <div>
                                             <p className={`text-sm font-bold text-${themeColor}-900 line-clamp-1`}>{selectedUser.full_name}</p>
@@ -396,8 +399,9 @@ export const UsersSettings: React.FC<{ userProfile?: any }> = ({ userProfile }) 
 
                             {/* Função Selection */}
                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Selecione a Função</label>
+                                <label htmlFor="funcao-select" className="text-xs font-bold text-gray-500 uppercase tracking-wider">Selecione a Função</label>
                                 <select 
+                                    id="funcao-select"
                                     value={selectedFuncao}
                                     onChange={(e) => setSelectedFuncao(e.target.value)}
                                     className={`w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-${themeColor}-500/20 focus:border-${themeColor}-500 transition-all`}

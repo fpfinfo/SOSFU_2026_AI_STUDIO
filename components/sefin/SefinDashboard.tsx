@@ -145,9 +145,11 @@ const SignatureConfirmModal: React.FC<SignatureModalProps> = ({
                     <div className="flex items-center justify-center gap-3 mb-3">
                         {pin.map((digit, i) => (
                             <input key={i} ref={el => { inputsRef.current[i] = el; }}
+                                id={`pin-digit-${i}`}
                                 type="password" inputMode="numeric" maxLength={1} value={digit}
                                 onChange={e => handleChange(i, e.target.value)}
                                 onKeyDown={e => handleKeyDown(i, e)}
+                                aria-label={`Dígito ${i + 1} do PIN`}
                                 className={`w-14 h-16 text-center text-2xl font-black border-2 rounded-xl
                                     focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition-all
                                     ${error ? 'border-red-300 bg-red-50' : 'border-slate-200'}`}
@@ -372,8 +374,10 @@ const GestaoEquipeSection: React.FC<GestaoEquipeSectionProps> = ({ signingTasks,
                     {/* Table search filter */}
                     {members.length > 3 && (
                         <div className="relative">
+                            <label htmlFor="team-filter-input" className="sr-only">Filtrar equipe</label>
                             <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`} />
                             <input
+                                id="team-filter-input"
                                 type="text" placeholder="Filtrar..."
                                 value={tableFilter} onChange={e => { setTableFilter(e.target.value); setCurrentPage(1); }}
                                 className={`pl-8 pr-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-2 w-44 ${
@@ -1014,7 +1018,7 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({
 
             {/* ===== WELCOME BANNER ===== */}
             <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 rounded-2xl p-6 shadow-lg">
-                <h2 className="text-xl font-black text-white">Gabinete SEFIN</h2>
+                <h1 className="text-xl font-black text-white">Gabinete SEFIN</h1>
                 <p className="text-sm text-emerald-100 mt-1.5">
                     Olá, <span className="font-bold text-white">{userName}</span>. Gerencie aqui as autorizações de despesa e atos de concessão pendentes de assinatura.
                 </p>
@@ -1075,8 +1079,9 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({
 
                     {/* Search */}
                     <div className="relative">
+                        <label htmlFor="inbox-search-input" className="sr-only">Buscar no histórico</label>
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input type="text" placeholder="Buscar no histórico..." value={searchTerm}
+                        <input id="inbox-search-input" type="text" placeholder="Buscar no histórico..." value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-300" />
                     </div>
@@ -1137,7 +1142,8 @@ export const SefinDashboard: React.FC<SefinDashboardProps> = ({
                                 return (
                                     <div key={task.id} className="mx-4 my-2 bg-red-50 border-2 border-red-200 rounded-2xl p-5">
                                         <p className="text-sm font-bold text-red-800 mb-3">Devolver: {task.title}</p>
-                                        <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+                                        <label htmlFor={`reject-reason-${task.id}`} className="sr-only">Motivo da devolução</label>
+                                        <textarea id={`reject-reason-${task.id}`} value={rejectReason} onChange={e => setRejectReason(e.target.value)}
                                             placeholder="Motivo da devolução..."
                                             className="w-full p-3 border border-red-200 rounded-xl text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-red-300" autoFocus />
                                         <div className="flex gap-2 mt-3">

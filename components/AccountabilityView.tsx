@@ -200,12 +200,12 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
           className="fixed top-20 right-6 z-50 animate-in slide-in-from-right-5 duration-300"
           onClick={() => setShowNotification(false)}
         >
-          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 cursor-pointer hover:shadow-xl transition-shadow">
+          <div className="bg-gradient-to-r from-teal-600 to-teal-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 cursor-pointer hover:shadow-xl transition-shadow">
             <div className="p-2 bg-white/20 rounded-lg">
               <Bell size={18} className="animate-bounce" />
             </div>
             <div>
-              <p className="text-xs font-bold text-purple-100">NOVA PRESTAÇÃO DE CONTAS</p>
+              <p className="text-xs font-bold text-teal-100">NOVA PRESTAÇÃO DE CONTAS</p>
               <p className="text-sm font-bold">{newPCNumber}</p>
             </div>
             <Sparkles size={16} className="text-yellow-300 animate-pulse" />
@@ -216,7 +216,7 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-            <div className="p-2 bg-purple-600 rounded-lg text-white shadow-sm">
+            <div className="p-2 bg-teal-600 rounded-lg text-white shadow-sm">
                 <CheckSquare size={18} />
             </div>
             Painel de Controle SOSFU
@@ -239,7 +239,7 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
                         onClick={() => handleTabClick(tab.id)}
                         className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                             activeTab === tab.id 
-                            ? 'bg-purple-600 text-white shadow-sm' 
+                            ? 'bg-teal-600 text-white shadow-sm' 
                             : 'text-slate-500 hover:text-slate-700 hover:bg-white'
                         }`}
                     >
@@ -264,16 +264,16 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
                     placeholder="Buscar..." 
                     value={filter} 
                     onChange={e => setFilter(e.target.value)} 
-                    className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-300" 
+                    className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-300" 
                 />
             </div>
         </div>
 
         {/* Toolbar Info */}
         {(activeTab === 'NEW' || activeTab === 'ANALYSIS') && (
-             <div className="px-6 py-2 bg-purple-50/50 border-b border-purple-100/50 flex items-center gap-2">
-                <Sparkles size={12} className="text-purple-400" />
-                <span className="text-xs font-medium text-purple-700">
+             <div className="px-6 py-2 bg-teal-50/50 border-b border-teal-100/50 flex items-center gap-2">
+                <Sparkles size={12} className="text-teal-400" />
+                <span className="text-xs font-medium text-teal-700">
                     {activeTab === 'NEW' ? 'Processos aguardando triagem ou análise inicial.' : 'Processos em sua fila de trabalho.'}
                 </span>
              </div>
@@ -297,7 +297,7 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
                    <tr>
                       <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                           <div className="flex flex-col items-center justify-center h-48 gap-3">
-                              <Loader2 className="animate-spin text-purple-600" size={32} /> 
+                              <Loader2 className="animate-spin text-teal-600" size={32} /> 
                               <p className="font-medium">Carregando contas...</p>
                           </div>
                       </td>
@@ -306,8 +306,8 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
                   <tr>
                       <td colSpan={7} className="px-6 py-24 text-center">
                           <div className="flex flex-col items-center justify-center">
-                              <div className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center mb-4">
-                                <CheckCircle2 size={32} className="text-purple-400" />
+                              <div className="w-16 h-16 bg-teal-50 rounded-full flex items-center justify-center mb-4">
+                                <CheckCircle2 size={32} className="text-teal-400" />
                               </div>
                               <p className="text-slate-600 font-bold text-lg">Nenhum processo nesta fila</p>
                               <p className="text-sm text-slate-400 mt-1">Tudo em dia para a SOSFU.</p>
@@ -324,7 +324,7 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
                             onClick={() => handleViewDetails(item)}
                         >
                         <td className="px-6 py-4">
-                            <span className="font-bold text-gray-800 text-sm group-hover:text-purple-600 transition-colors">{item.process_number}</span>
+                            <span className="font-bold text-gray-800 text-sm group-hover:text-teal-600 transition-colors">{item.process_number}</span>
                         </td>
                         <td className="px-6 py-4">
                             <div className="text-sm font-medium text-gray-800">{item.profiles?.full_name || 'Desconhecido'}</div>
@@ -346,7 +346,7 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
                             <span className={`
                             inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase
                             ${item.status === 'APPROVED' ? 'bg-green-100 text-green-700' : ''}
-                            ${item.status === 'WAITING_SOSFU' ? 'bg-purple-100 text-purple-700' : ''}
+                            ${item.status === 'WAITING_SOSFU' ? 'bg-teal-100 text-teal-700' : ''}
                             ${item.status === 'CORRECTION' ? 'bg-orange-100 text-orange-700' : ''}
                             ${item.status === 'LATE' ? 'bg-red-100 text-red-700' : ''}
                             ${item.status === 'DRAFT' || item.status === 'WAITING_MANAGER' ? 'bg-gray-100 text-gray-600' : ''}
@@ -363,13 +363,13 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
                                 onClick={(e) => { e.stopPropagation(); openAssignModal(item.id, item.analyst_id); }}
                                 className={`flex items-center gap-2 px-2 py-1 rounded-full border text-xs transition-all ${
                                     item.analyst 
-                                    ? 'bg-white border-gray-200 text-gray-700 hover:border-purple-300' 
-                                    : 'bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:text-purple-600 hover:border-purple-300'
+                                    ? 'bg-white border-gray-200 text-gray-700 hover:border-teal-300' 
+                                    : 'bg-gray-50 border-dashed border-gray-300 text-gray-400 hover:text-teal-600 hover:border-teal-300'
                                 }`}
                             >
                                 {item.analyst ? (
                                     <>
-                                        <div className="w-5 h-5 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-[10px]">
+                                        <div className="w-5 h-5 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center font-bold text-[10px]">
                                             {item.analyst.full_name.charAt(0)}
                                         </div>
                                         <span className="max-w-[100px] truncate">{item.analyst.full_name.split(' ')[0]}</span>
@@ -385,7 +385,7 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
                         <td className="px-6 py-4 text-right">
                             <button 
                                 onClick={(e) => { e.stopPropagation(); handleViewDetails(item); }}
-                                className="text-purple-600 hover:bg-purple-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ml-auto"
+                                className="text-teal-600 hover:bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ml-auto"
                             >
                                 {item.status === 'WAITING_SOSFU' ? 'Analisar' : 'Detalhes'} 
                                 <ArrowRight size={14} />

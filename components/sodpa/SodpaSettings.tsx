@@ -5,24 +5,27 @@ import {
     Users,
     Shield,
     Bell,
-    Clock
+    Clock,
+    Tag
 } from 'lucide-react';
 import { UsersSettings } from '../settings/UsersSettings';
 import { SodpaProfileSettings } from './settings/SodpaProfileSettings';
 import { SodpaGeneralSettings } from './settings/SodpaGeneralSettings';
+import { SodpaExpenseElementsSettings } from './settings/SodpaExpenseElementsSettings';
 
 interface SodpaSettingsProps {
     darkMode?: boolean;
     userProfile?: any;
 }
 
-type SettingsTab = 'general' | 'users' | 'roles' | 'prazos' | 'notifications';
+type SettingsTab = 'general' | 'elementos' | 'users' | 'roles' | 'prazos' | 'notifications';
 
 export const SodpaSettings: React.FC<SodpaSettingsProps> = ({ darkMode = false, userProfile }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('general');
 
     const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
         { id: 'general', label: 'Geral', icon: <Settings size={18} /> },
+        { id: 'elementos', label: 'Elementos de Despesa', icon: <Tag size={18} /> },
         { id: 'users', label: 'Usuários e Permissões', icon: <Users size={18} /> },
         { id: 'roles', label: 'Gestão de Perfis', icon: <Shield size={18} /> },
         { id: 'prazos', label: 'Prazos e SLA', icon: <Clock size={18} /> },
@@ -87,6 +90,11 @@ export const SodpaSettings: React.FC<SodpaSettingsProps> = ({ darkMode = false, 
                         {/* TAB: GERAL */}
                         {activeTab === 'general' && (
                             <SodpaGeneralSettings darkMode={darkMode} />
+                        )}
+
+                        {/* TAB: ELEMENTOS */}
+                        {activeTab === 'elementos' && (
+                            <SodpaExpenseElementsSettings darkMode={darkMode} />
                         )}
 
                         {/* TAB: USUÁRIOS */}

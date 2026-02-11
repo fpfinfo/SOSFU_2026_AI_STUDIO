@@ -17,7 +17,7 @@ export const DASHBOARD_STATS: StatCardData[] = [
     subtitle: 'SOLICITAÇÕES',
     count: 0, // Será atualizado via API
     details: ['Concessões atribuídas a mim'],
-    color: 'purple',
+    color: 'teal',
     iconType: 'file'
   },
   {

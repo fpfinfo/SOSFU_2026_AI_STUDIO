@@ -6,7 +6,7 @@ import {
     Briefcase, Receipt, Image, Clock
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { generateText, generateWithParts } from '../../lib/gemini';
+import { generateText, generateWithParts } from '../../lib/aiService';
 import { Tooltip } from '../ui/Tooltip';
 
 interface RessarcimentoSolicitationProps {
@@ -333,7 +333,7 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center h-96">
-                <Loader2 className="w-10 h-10 text-purple-600 animate-spin mb-4" />
+                <Loader2 className="w-10 h-10 text-teal-600 animate-spin mb-4" />
                 <p className="text-gray-500 font-medium">Carregando formulário...</p>
             </div>
         );
@@ -341,11 +341,11 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
 
     const renderStep1 = () => (
         <div className="animate-in fade-in slide-in-from-right-8 duration-300 space-y-6">
-            <div className="bg-purple-50 p-6 rounded-xl border border-purple-100 flex items-start gap-4">
-                <div className="p-3 bg-white rounded-full text-purple-600 shadow-sm"><ShieldCheck size={24} /></div>
+            <div className="bg-teal-50 p-6 rounded-xl border border-teal-100 flex items-start gap-4">
+                <div className="p-3 bg-white rounded-full text-teal-600 shadow-sm"><ShieldCheck size={24} /></div>
                 <div>
-                    <h4 className="text-lg font-bold text-purple-800">Solicitação de Ressarcimento</h4>
-                    <p className="text-sm text-purple-700 mt-1">
+                    <h4 className="text-lg font-bold text-teal-800">Solicitação de Ressarcimento</h4>
+                    <p className="text-sm text-teal-700 mt-1">
                         Utilize este formulário para solicitar o ressarcimento de despesas realizadas com recursos próprios. 
                         Todos os comprovantes deverão ser anexados ao Dossiê Digital.
                     </p>
@@ -392,8 +392,8 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                     <div className="space-y-2">
                         <label className="text-sm font-bold text-gray-700">Tipo</label>
                         <div className="flex gap-2">
-                            <button onClick={() => setTipoConta('CORRENTE')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold border ${tipoConta === 'CORRENTE' ? 'bg-purple-50 border-purple-200 text-purple-600' : 'bg-white text-gray-500'}`}>Corrente</button>
-                            <button onClick={() => setTipoConta('POUPANCA')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold border ${tipoConta === 'POUPANCA' ? 'bg-purple-50 border-purple-200 text-purple-600' : 'bg-white text-gray-500'}`}>Poupança</button>
+                            <button onClick={() => setTipoConta('CORRENTE')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold border ${tipoConta === 'CORRENTE' ? 'bg-teal-50 border-teal-200 text-teal-600' : 'bg-white text-gray-500'}`}>Corrente</button>
+                            <button onClick={() => setTipoConta('POUPANCA')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold border ${tipoConta === 'POUPANCA' ? 'bg-teal-50 border-teal-200 text-teal-600' : 'bg-white text-gray-500'}`}>Poupança</button>
                         </div>
                     </div>
                 </div>
@@ -420,7 +420,7 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
             <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2"><Receipt size={16} /> Itens para Ressarcimento</h3>
-                    <button onClick={addItem} className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-bold border border-purple-200"><Plus size={14} /> Adicionar Item</button>
+                    <button onClick={addItem} className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 text-teal-700 rounded-lg text-xs font-bold border border-teal-200"><Plus size={14} /> Adicionar Item</button>
                 </div>
 
                 <div className="space-y-4">
@@ -461,7 +461,7 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                                                 const file = e.target.files?.[0];
                                                 if (file) handleSmartCapture(item.id, file);
                                             }} />
-                                            <label htmlFor={`file-${item.id}`} className={`flex items-center justify-between px-3 py-2 bg-white border border-dashed rounded-lg cursor-pointer transition-all ${item.sentinelaRisk ? 'border-purple-300' : 'border-slate-200'}`}>
+                                            <label htmlFor={`file-${item.id}`} className={`flex items-center justify-between px-3 py-2 bg-white border border-dashed rounded-lg cursor-pointer transition-all ${item.sentinelaRisk ? 'border-teal-300' : 'border-slate-200'}`}>
                                                 <div className="flex items-center gap-2 text-slate-500 text-[10px]">
                                                     {item.isAnalyzing ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
                                                     {item.arquivo ? item.arquivo.name.substring(0, 15) + '...' : 'Subir Comprovante'}
@@ -502,32 +502,32 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
                     <p className="text-gray-400 text-xs">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue)}</p>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={() => setUrgency('NORMAL')} className={`px-4 py-2 rounded-lg text-xs font-bold border ${urgency === 'NORMAL' ? 'bg-purple-600 border-transparent' : 'bg-slate-800'}`}>Normal</button>
+                    <button onClick={() => setUrgency('NORMAL')} className={`px-4 py-2 rounded-lg text-xs font-bold border ${urgency === 'NORMAL' ? 'bg-teal-600 border-transparent' : 'bg-slate-800'}`}>Normal</button>
                     <button onClick={() => setUrgency('URGENTE')} className={`px-4 py-2 rounded-lg text-xs font-bold border ${urgency === 'URGENTE' ? 'bg-red-600 border-transparent' : 'bg-slate-800'}`}>Urgente</button>
                 </div>
             </div>
 
             <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                 <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-sm font-bold text-gray-700 uppercase flex items-center gap-2"><Sparkles size={16} className="text-purple-600" /> Justificativa</h4>
-                    <button onClick={handleGenerateAI} disabled={isGeneratingAI} className="px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-bold rounded-lg flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-gray-700 uppercase flex items-center gap-2"><Sparkles size={16} className="text-teal-600" /> Justificativa</h4>
+                    <button onClick={handleGenerateAI} disabled={isGeneratingAI} className="px-3 py-1.5 bg-teal-50 text-teal-700 text-xs font-bold rounded-lg flex items-center gap-2">
                         {isGeneratingAI ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} IA Assistente
                     </button>
                 </div>
                 <textarea value={justification} onChange={e => setJustification(e.target.value)} rows={5} className="w-full p-4 border rounded-xl text-sm outline-none bg-gray-50 focus:bg-white" placeholder="Descreva o motivo das despesas..." required />
             </div>
 
-            <div className="bg-purple-50 p-6 rounded-xl border border-purple-200 shadow-sm flex flex-col items-center">
-                <h4 className="text-base font-bold text-purple-800 mb-4">Assinatura Digital</h4>
-                <div className="w-full max-w-md bg-white p-4 rounded-lg border border-dashed border-purple-300 mb-6 flex items-center gap-3">
-                    <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center font-bold">{userName.charAt(0)}</div>
+            <div className="bg-teal-50 p-6 rounded-xl border border-teal-200 shadow-sm flex flex-col items-center">
+                <h4 className="text-base font-bold text-teal-800 mb-4">Assinatura Digital</h4>
+                <div className="w-full max-w-md bg-white p-4 rounded-lg border border-dashed border-teal-300 mb-6 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center font-bold">{userName.charAt(0)}</div>
                     <div className="text-left flex-1">
                         <p className="font-bold text-sm">{userName}</p>
                         <p className="text-[10px] text-gray-500">{userMatricula}</p>
                     </div>
                     <div className="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-1 rounded border border-green-100 flex items-center gap-1"><CheckCircle2 size={10} /> Validado</div>
                 </div>
-                <button onClick={handleSubmit} disabled={isSubmitting || !justification || totalValue <= 0} className="w-full max-w-sm py-3.5 bg-purple-600 text-white font-bold rounded-xl shadow-lg flex justify-center items-center gap-2 disabled:opacity-50">
+                <button onClick={handleSubmit} disabled={isSubmitting || !justification || totalValue <= 0} className="w-full max-w-sm py-3.5 bg-teal-600 text-white font-bold rounded-xl shadow-lg flex justify-center items-center gap-2 disabled:opacity-50">
                     {isSubmitting ? <Loader2 className="animate-spin" /> : <Save size={18} />} Enviar Solicitação
                 </button>
             </div>
@@ -536,17 +536,17 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
 
     return (
         <div className="max-w-5xl mx-auto pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans">
-            <div className="bg-gradient-to-r from-purple-900 to-purple-700 rounded-2xl p-8 mb-8 text-white flex justify-between items-center shadow-xl">
+            <div className="bg-gradient-to-r from-teal-900 to-teal-700 rounded-2xl p-8 mb-8 text-white flex justify-between items-center shadow-xl">
                 <div className="flex items-center gap-3">
                     <button onClick={() => onNavigate('suprido_dashboard')} className="p-2 hover:bg-white/10 rounded-lg"><ArrowLeft size={20} /></button>
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight">Ressarcimento</h1>
-                        <p className="text-purple-200 text-xs">Módulo de Reembolso de Despesas Próprias</p>
+                        <p className="text-teal-200 text-xs">Módulo de Reembolso de Despesas Próprias</p>
                     </div>
                 </div>
                 <div className="flex gap-2">
                     {[1, 2, 3].map(s => (
-                        <div key={s} className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border ${step === s ? 'bg-white text-purple-900' : 'bg-purple-800 text-purple-300 border-purple-700'}`}>{s}</div>
+                        <div key={s} className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border ${step === s ? 'bg-white text-teal-900' : 'bg-teal-800 text-teal-300 border-teal-700'}`}>{s}</div>
                     ))}
                 </div>
             </div>
@@ -560,7 +560,7 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
             <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t p-4 z-50">
                 <div className="max-w-5xl mx-auto flex justify-between">
                     <button onClick={() => step === 1 ? onNavigate('suprido_dashboard') : setStep(s => s - 1)} className="px-6 py-2.5 text-sm font-bold text-gray-600 rounded-xl hover:bg-gray-100">{step === 1 ? 'Cancelar' : 'Voltar'}</button>
-                    {step < 3 && <button onClick={() => setStep(s => s + 1)} className="px-8 py-3 bg-purple-600 text-white text-sm font-bold rounded-xl shadow-lg hover:bg-purple-700">Próximo</button>}
+                    {step < 3 && <button onClick={() => setStep(s => s + 1)} className="px-8 py-3 bg-teal-600 text-white text-sm font-bold rounded-xl shadow-lg hover:bg-teal-700">Próximo</button>}
                 </div>
             </div>
         </div>

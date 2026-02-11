@@ -84,7 +84,7 @@ export const InssManagement: React.FC = () => {
 
                 <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                     <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                        <div className="w-10 h-10 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center">
                             <Building2 size={20} />
                         </div>
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Patronal (20%)</span>
@@ -127,7 +127,7 @@ export const InssManagement: React.FC = () => {
                             <input 
                                 type="text" 
                                 placeholder="Buscar Prestador ou NUP..."
-                                className="pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-2xl text-sm w-72 focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium"
+                                className="pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-2xl text-sm w-72 focus:ring-2 focus:ring-teal-500/20 transition-all font-medium"
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                             />
@@ -224,7 +224,7 @@ export const InssManagement: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex flex-col items-end">
-                                                <span className="text-xs font-black text-indigo-600">
+                                                <span className="text-xs font-black text-teal-600">
                                                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.inss_patronal_20)}
                                                 </span>
                                                 <span className="text-[8px] font-bold text-slate-300 uppercase">Pat. 20%</span>
