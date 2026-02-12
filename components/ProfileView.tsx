@@ -29,7 +29,7 @@ interface UserProfile {
   };
 }
 
-export const ProfileView: React.FC = () => {
+export const ProfileView: React.FC<{ darkMode?: boolean }> = ({ darkMode = false }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -241,12 +241,12 @@ export const ProfileView: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
+    <div className={`space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10 ${darkMode ? 'text-slate-100' : ''}`}>
       
       {/* Header Profile Card */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row items-center md:items-start gap-6">
+      <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-2xl p-6 shadow-sm border flex flex-col md:flex-row items-center md:items-start gap-6`}>
         <div className="relative group">
-            <div className="w-24 h-24 rounded-full p-1 bg-white shadow-md border border-gray-100 flex items-center justify-center bg-gray-100 overflow-hidden relative">
+            <div className={`w-24 h-24 rounded-full p-1 shadow-md border flex items-center justify-center overflow-hidden relative ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-100 text-gray-400'}`}>
                 {uploadingAvatar ? (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
                         <Loader2 className="w-8 h-8 text-white animate-spin" />
@@ -260,7 +260,7 @@ export const ProfileView: React.FC = () => {
                         className="w-full h-full rounded-full object-cover"
                     />
                 ) : (
-                    <span className="text-2xl font-bold text-gray-400">{getInitials(formData.full_name)}</span>
+                    <span className={`text-2xl font-bold ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>{getInitials(formData.full_name)}</span>
                 )}
             </div>
             
@@ -286,7 +286,7 @@ export const ProfileView: React.FC = () => {
         </div>
         
         <div className="flex-1 text-center md:text-left">
-            <h2 className="text-xl font-bold text-gray-800">{formData.full_name || 'Usuário Sem Nome'}</h2>
+            <h2 className={`text-xl font-bold ${darkMode ? 'text-slate-100' : 'text-gray-800'}`}>{formData.full_name || 'Usuário Sem Nome'}</h2>
             <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 mt-2 text-sm text-gray-500">
                 <div className="flex items-center gap-1.5">
                     <Mail size={14} />
@@ -324,8 +324,8 @@ export const ProfileView: React.FC = () => {
       )}
 
       {/* Section: Dados Pessoais */}
-      <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-        <h3 className="text-gray-800 font-bold text-lg mb-6 flex items-center gap-2">
+      <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-2xl p-8 shadow-sm border`}>
+        <h3 className={`font-bold text-lg mb-6 flex items-center gap-2 ${darkMode ? 'text-slate-100' : 'text-gray-800'}`}>
             <User className="text-blue-600" size={20} />
             Dados Pessoais
         </h3>
@@ -339,7 +339,11 @@ export const ProfileView: React.FC = () => {
                     name="full_name"
                     value={formData.full_name}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
+                    className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${
+                        darkMode 
+                        ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' 
+                        : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+                    }`}
                 />
             </div>
 
@@ -351,7 +355,11 @@ export const ProfileView: React.FC = () => {
                     name="email"
                     value={formData.email}
                     disabled
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-500 cursor-not-allowed"
+                    className={`w-full px-4 py-3 border rounded-xl text-sm cursor-not-allowed ${
+                        darkMode 
+                        ? 'bg-slate-900/50 border-slate-700 text-slate-500' 
+                        : 'bg-gray-50 border-gray-200 text-gray-500'
+                    }`}
                 />
             </div>
 
@@ -364,7 +372,11 @@ export const ProfileView: React.FC = () => {
                     value={formData.cpf}
                     onChange={handleChange}
                     placeholder="000.000.000-00"
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
+                    className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${
+                        darkMode 
+                        ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' 
+                        : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+                    }`}
                 />
             </div>
 
@@ -376,7 +388,11 @@ export const ProfileView: React.FC = () => {
                     name="matricula"
                     value={formData.matricula}
                     disabled
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-500 cursor-not-allowed"
+                    className={`w-full px-4 py-3 border rounded-xl text-sm cursor-not-allowed ${
+                        darkMode 
+                        ? 'bg-slate-900/50 border-slate-700 text-slate-500' 
+                        : 'bg-gray-50 border-gray-200 text-gray-500'
+                    }`}
                 />
             </div>
 
@@ -388,7 +404,11 @@ export const ProfileView: React.FC = () => {
                     name="cargo"
                     value={formData.cargo}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
+                    className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${
+                        darkMode 
+                        ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' 
+                        : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+                    }`}
                 />
             </div>
 
@@ -400,7 +420,11 @@ export const ProfileView: React.FC = () => {
                         name="vinculo"
                         value={formData.vinculo}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 appearance-none cursor-pointer"
+                        className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none cursor-pointer ${
+                            darkMode 
+                            ? 'bg-slate-900 border-slate-700 text-slate-100' 
+                            : 'bg-white border-gray-200 text-gray-800'
+                        }`}
                     >
                         <option value="">Selecione...</option>
                         <option value="efetivo">Efetivo</option>
@@ -424,15 +448,19 @@ export const ProfileView: React.FC = () => {
                     value={formData.telefone}
                     onChange={handleChange}
                     placeholder="(00) 00000-0000"
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
+                    className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${
+                        darkMode 
+                        ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' 
+                        : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+                    }`}
                 />
             </div>
         </div>
       </div>
 
       {/* Section: Localização */}
-      <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-        <h3 className="text-gray-800 font-bold text-lg mb-6 flex items-center gap-2">
+      <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-2xl p-8 shadow-sm border`}>
+        <h3 className={`font-bold text-lg mb-6 flex items-center gap-2 ${darkMode ? 'text-slate-100' : 'text-gray-800'}`}>
             <MapPin className="text-green-600" size={20} />
             Localização
         </h3>
@@ -446,7 +474,11 @@ export const ProfileView: React.FC = () => {
                     name="lotacao"
                     value={formData.lotacao}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
+                    className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${
+                        darkMode 
+                        ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' 
+                        : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+                    }`}
                 />
             </div>
 
@@ -458,15 +490,19 @@ export const ProfileView: React.FC = () => {
                     name="municipio"
                     value={formData.municipio}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
+                    className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${
+                        darkMode 
+                        ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' 
+                        : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+                    }`}
                 />
             </div>
         </div>
       </div>
 
        {/* Section: Gestor Imediato */}
-       <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-        <h3 className="text-gray-800 font-bold text-lg mb-6 flex items-center gap-2">
+       <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-2xl p-8 shadow-sm border`}>
+        <h3 className={`font-bold text-lg mb-6 flex items-center gap-2 ${darkMode ? 'text-slate-100' : 'text-gray-800'}`}>
             <Users className="text-teal-600" size={20} />
             Gestor Imediato
         </h3>
@@ -481,7 +517,11 @@ export const ProfileView: React.FC = () => {
                     placeholder="Nome completo"
                     value={formData.gestor_nome}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
+                    className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${
+                        darkMode 
+                        ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' 
+                        : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+                    }`}
                 />
             </div>
 
@@ -494,15 +534,19 @@ export const ProfileView: React.FC = () => {
                     value={formData.gestor_email}
                     onChange={handleChange}
                     placeholder="gestor@tjpa.jus.br"
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
+                    className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${
+                        darkMode 
+                        ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' 
+                        : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+                    }`}
                 />
             </div>
         </div>
       </div>
 
       {/* Section: Dados Bancários */}
-      <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-        <h3 className="text-gray-800 font-bold text-lg mb-6 flex items-center gap-2">
+      <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-2xl p-8 shadow-sm border`}>
+        <h3 className={`font-bold text-lg mb-6 flex items-center gap-2 ${darkMode ? 'text-slate-100' : 'text-gray-800'}`}>
             <CreditCard className="text-orange-600" size={20} />
             Dados Bancários
         </h3>
@@ -517,7 +561,11 @@ export const ProfileView: React.FC = () => {
                     value={formData.nome_banco}
                     onChange={handleChange}
                     placeholder="Ex: Banco Bradesco"
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
+                    className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${
+                        darkMode 
+                        ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' 
+                        : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+                    }`}
                 />
             </div>
 
@@ -530,7 +578,11 @@ export const ProfileView: React.FC = () => {
                     value={formData.banco}
                     onChange={handleChange}
                     placeholder="Ex: 037"
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
+                    className={`w-full px-4 py-3 border rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${
+                        darkMode 
+                        ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' 
+                        : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+                    }`}
                 />
             </div>
         </div>
@@ -545,7 +597,11 @@ export const ProfileView: React.FC = () => {
                     value={formData.agencia}
                     onChange={handleChange}
                     placeholder="0000-0"
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
+                    className={`w-full px-4 py-3 border rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${
+                        darkMode 
+                        ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' 
+                        : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+                    }`}
                 />
             </div>
 
@@ -558,7 +614,11 @@ export const ProfileView: React.FC = () => {
                     value={formData.conta_corrente}
                     onChange={handleChange}
                     placeholder="00000-0"
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 placeholder-gray-400"
+                    className={`w-full px-4 py-3 border rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${
+                        darkMode 
+                        ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' 
+                        : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+                    }`}
                 />
             </div>
         </div>

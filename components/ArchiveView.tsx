@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 
 interface ArchiveViewProps {
     onNavigate: (page: string, processId?: string) => void;
+    darkMode?: boolean;
 }
 
 interface ArchivedProcess {
@@ -31,7 +32,7 @@ const formatDate = (dateStr: string | null) => {
 type SortField = 'process_number' | 'beneficiary' | 'value' | 'nl_siafe' | 'data_baixa' | 'created_at';
 type SortDir = 'asc' | 'desc';
 
-export const ArchiveView: React.FC<ArchiveViewProps> = ({ onNavigate }) => {
+export const ArchiveView: React.FC<ArchiveViewProps> = ({ onNavigate, darkMode = false }) => {
     // Data
     const [processes, setProcesses] = useState<ArchivedProcess[]>([]);
     const [totalCount, setTotalCount] = useState(0);
@@ -149,19 +150,19 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ onNavigate }) => {
     const years = Array.from({ length: 5 }, (_, i) => (currentYear - i).toString());
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className={`space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 ${darkMode ? 'text-slate-100' : ''}`}>
 
             {/* Header */}
             <div className="bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 rounded-2xl p-8 text-white relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10"></div>
                 <div className="relative z-10">
                     <div className="flex items-center gap-4 mb-6">
-                        <div className="w-14 h-14 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center border border-white/10">
+                        <div className={`w-14 h-14 backdrop-blur rounded-xl flex items-center justify-center border ${darkMode ? 'bg-slate-700/50 border-white/5' : 'bg-white/10 border-white/10'}`}>
                             <Archive size={28} className="text-emerald-400" />
                         </div>
                         <div>
                             <h1 className="text-2xl font-bold">Arquivo de Processos</h1>
-                            <p className="text-slate-400 text-sm mt-0.5">Processos baixados no SIAFE — Consulta e rastreabilidade</p>
+                            <p className={`${darkMode ? 'text-slate-500' : 'text-slate-400'} text-sm mt-0.5`}>Processos baixados no SIAFE — Consulta e rastreabilidade</p>
                         </div>
                     </div>
 
@@ -188,7 +189,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ onNavigate }) => {
             </div>
 
             {/* Toolbar */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'} rounded-xl shadow-sm border p-4`}>
                 <div className="flex flex-col md:flex-row items-center gap-4">
                     {/* Search */}
                     <div className="relative flex-1 w-full">
@@ -196,7 +197,11 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ onNavigate }) => {
                         <input
                             type="text"
                             placeholder="Buscar por NUP, suprido, NL, comarca..."
-                            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:bg-white focus:border-blue-500 outline-none transition-all"
+                            className={`w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm outline-none transition-all ${
+                                darkMode 
+                                ? 'bg-slate-900 border-slate-700 text-slate-100 focus:bg-slate-900 focus:border-blue-500' 
+                                : 'bg-gray-50 border-gray-200 text-gray-800 focus:bg-white focus:border-blue-500'
+                            }`}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -213,7 +218,11 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ onNavigate }) => {
                         <select
                             value={yearFilter}
                             onChange={(e) => { setYearFilter(e.target.value); setCurrentPage(1); }}
-                            className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 cursor-pointer focus:border-blue-500 outline-none"
+                            className={`px-3 py-2.5 border rounded-lg text-sm font-medium cursor-pointer outline-none ${
+                                darkMode 
+                                ? 'bg-slate-900 border-slate-700 text-slate-300 focus:border-blue-500' 
+                                : 'bg-gray-50 border-gray-200 text-gray-700 focus:border-blue-500'
+                            }`}
                         >
                             <option value="">Todos os anos</option>
                             {years.map(y => <option key={y} value={y}>{y}</option>)}
@@ -228,7 +237,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ onNavigate }) => {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'} rounded-xl shadow-sm border overflow-hidden`}>
                 {loading ? (
                     <div className="flex flex-col items-center justify-center h-96">
                         <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-4" />
@@ -247,7 +256,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ onNavigate }) => {
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="bg-slate-50 border-b border-gray-200">
+                                    <tr className={`border-b ${darkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50 border-gray-200'}`}>
                                         <th className="text-left px-5 py-3.5">
                                             <button onClick={() => handleSort('process_number')} className="flex items-center gap-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider hover:text-gray-700 transition-colors">
                                                 Nº do Processo <SortIcon field="process_number" />
@@ -286,24 +295,24 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ onNavigate }) => {
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100">
+                                <tbody className={`divide-y ${darkMode ? 'divide-slate-700' : 'divide-gray-100'}`}>
                                     {filteredProcesses.map((process) => (
                                         <tr
                                             key={process.id}
                                             onClick={() => handleRowClick(process.id)}
-                                            className="hover:bg-blue-50/50 cursor-pointer transition-colors group"
+                                            className={`transition-colors cursor-pointer group ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-blue-50/50'}`}
                                         >
                                             <td className="px-5 py-4">
-                                                <span className="font-mono font-bold text-gray-800 text-xs">{process.process_number}</span>
+                                                <span className={`font-mono font-bold text-xs ${darkMode ? 'text-slate-300' : 'text-gray-800'}`}>{process.process_number}</span>
                                             </td>
                                             <td className="px-5 py-4">
-                                                <span className="text-gray-700 font-medium text-sm">{process.beneficiary}</span>
+                                                <span className={`font-medium text-sm ${darkMode ? 'text-slate-400' : 'text-gray-700'}`}>{process.beneficiary}</span>
                                             </td>
                                             <td className="px-5 py-4 hidden lg:table-cell">
                                                 <span className="text-gray-500 text-xs">{process.unit?.split('[')[0]?.trim() || '---'}</span>
                                             </td>
                                             <td className="px-5 py-4 text-right">
-                                                <span className="font-mono font-bold text-gray-800 text-sm">{formatCurrency(process.value)}</span>
+                                                <span className={`font-mono font-bold text-sm ${darkMode ? 'text-slate-300' : 'text-gray-800'}`}>{formatCurrency(process.value)}</span>
                                             </td>
                                             <td className="px-5 py-4">
                                                 {process.nl_siafe ? (
@@ -316,7 +325,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ onNavigate }) => {
                                                 )}
                                             </td>
                                             <td className="px-5 py-4">
-                                                <span className="text-gray-600 text-xs font-medium">{formatDate(process.data_baixa)}</span>
+                                                <span className={`text-xs font-medium ${darkMode ? 'text-slate-500' : 'text-gray-600'}`}>{formatDate(process.data_baixa)}</span>
                                             </td>
                                             <td className="px-5 py-4 hidden md:table-cell">
                                                 <span className="text-gray-400 text-xs">{formatDate(process.created_at)}</span>

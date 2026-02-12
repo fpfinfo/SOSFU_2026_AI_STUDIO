@@ -209,7 +209,8 @@ export const EmergencySolicitation: React.FC<EmergencySolicitationProps> = ({ on
                 event_end_date: endDate,
                 manager_name: managerName,
                 manager_email: managerEmail,
-                justification: description
+                justification: description,
+                type: 'EXTRA-EMERGENCIAL'
             }).select('id').single();
 
             if (error) throw error;

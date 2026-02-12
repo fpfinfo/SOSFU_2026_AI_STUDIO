@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback, memo, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { GoogleMapPremium } from '../ui/Map/GoogleMapPremium';
+import { GoogleMapPremium, type GoogleMapPremiumHandle } from '../ui/Map/GoogleMapPremium';
 import {
     geocodeAddress,
     getRouteFromSede,
@@ -13,6 +13,7 @@ import {
     type OrsIsochroneResult,
     type OrsTileConfig,
 } from '../../lib/openRouteService';
+import { CURRENCY_COMPACT, CURRENCY_FULL } from '../../lib/utils';
 import {
     Search,
     MapPin,
@@ -60,9 +61,6 @@ const UNIDADE_COLORS: Record<string, string> = {
     'Outro': '#6b7280',
 };
 
-const CURRENCY_COMPACT = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' });
-const CURRENCY_FULL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-
 // ── Types ──
 interface ElementoDespesa {
     codigo: string;
@@ -101,12 +99,6 @@ interface UnidadeAdmin {
     lat: number;
     lng: number;
 }
-
-// Remoção do MapController Leaflet
-
-
-
-// Remoção dos componentes de marcador do Leaflet
 
 // ── Popup Content ──
 const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
@@ -207,8 +199,6 @@ const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
         </div>
     );
 });
-
-// Remoção do marcador de Unidade Admin do Leaflet
 
 // ── Sidebar Item ──
 const SidebarItem = memo(({ stat, isSelected, onClick }: { stat: ComarcaStats; isSelected: boolean; onClick: () => void; }) => {
@@ -368,6 +358,11 @@ export const GeographicMap: React.FC = () => {
     const [isoLoading, setIsoLoading] = useState(false);
     const [routesLoaded, setRoutesLoaded] = useState(false);
     const [routeProgress, setRouteProgress] = useState({ done: 0, total: 0 });
+    const [showStreetView, setShowStreetView] = useState(false);
+    
+    const mapRef = useRef<GoogleMapPremiumHandle>(null);
+    const streetViewRef = useRef<HTMLDivElement>(null);
+    const panoramaRef = useRef<any>(null);
 
     const activeTile = ORS_TILE_LAYERS[activeTileKey];
 
@@ -514,7 +509,6 @@ export const GeographicMap: React.FC = () => {
     const handleComarcaClick = useCallback(async (stat: ComarcaStats) => {
         setMapFocus({ center: [stat.lat, stat.lng], zoom: 10 });
         setSelectedComarca(stat.comarca);
-        setIsExpanded(false);
         setSelectedUnidade(null);
 
         // Calculate route to this comarca
@@ -537,7 +531,23 @@ export const GeographicMap: React.FC = () => {
         } else {
             setActiveRoute(stat.route);
         }
-    }, []);
+
+        // Logic for Street View in Sidebar
+        if (showStreetView) {
+            setTimeout(() => {
+                if (streetViewRef.current && window.google) {
+                    const panorama = new window.google.maps.StreetViewPanorama(streetViewRef.current, {
+                        position: { lat: stat.lat, lng: stat.lng },
+                        pov: { heading: 165, pitch: 0 },
+                        zoom: 1,
+                        addressControl: false,
+                        enableCloseButton: false
+                    });
+                    panoramaRef.current = panorama;
+                }
+            }, 100);
+        }
+    }, [showStreetView]);
 
     const handleUnidadeClick = useCallback((unidade: UnidadeAdmin) => {
         setMapFocus({ center: [unidade.lat, unidade.lng], zoom: 13 });
@@ -628,7 +638,11 @@ export const GeographicMap: React.FC = () => {
     }
 
     return (
-        <div className={`flex flex-col animate-in fade-in duration-500 gap-3 ${isExpanded ? 'h-[calc(100vh-100px)]' : 'h-full'}`}>
+        <div className={`flex flex-col animate-in fade-in duration-500 gap-3 
+            ${isExpanded 
+                ? 'fixed top-16 left-0 right-0 bottom-0 z-[40] bg-white p-0' 
+                : 'h-full transition-all duration-300'
+            }`}>
             {/* Header / Stats Badge - Hidden in Expanded Mode */}
             {!isExpanded && (
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3 shrink-0">
@@ -695,24 +709,7 @@ export const GeographicMap: React.FC = () => {
                 {/* ═══ Sidebar ═══ */}
                 {/* Hide sidebar in expanded mode if on mobile, or just shrink it? Let's hide it for full focus */}
                 <div className={`w-full lg:w-80 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden shrink-0 transition-all duration-300 ${isExpanded ? 'hidden' : 'block'}`}>
-                    {selectedComarca ? (
-                        (() => {
-                            const stat = stats.find(s => s.comarca === selectedComarca);
-                            if (!stat) return null;
-                            return (
-                                <MapDetailCard 
-                                    data={stat} 
-                                    onClose={() => {
-                                        setSelectedComarca(null);
-                                        // Optional: Reset map view?
-                                        setMapFocus({ center: INITIAL_CENTER, zoom: 7 }); 
-                                    }} 
-                                />
-                            );
-                        })()
-                    ) : (
-                        <>
-                            <div className="p-4 pb-3 border-b border-gray-100 bg-white">
+                    <div className="p-4 pb-3 border-b border-gray-100 bg-white">
                                 <div className="flex items-center gap-2 mb-1">
                                     <div className="w-6 h-6 bg-teal-600 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0">
                                         <PieChart size={14} />
@@ -807,14 +804,26 @@ export const GeographicMap: React.FC = () => {
                                     </button>
                                 </div>
 
-                                {/* Expand Map Toggle Button (In Sidebar) */}
-                                <button
-                                    onClick={() => setIsExpanded(!isExpanded)}
-                                    className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-slate-800 text-white text-[10px] font-bold uppercase hover:bg-slate-900 transition-colors shadow-sm"
-                                >
-                                    {isExpanded ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
-                                    {isExpanded ? 'Restaurar Visualização' : 'Expandir Mapa'}
-                                </button>
+                                    <button
+                                        onClick={() => setShowStreetView(!showStreetView)}
+                                        className={`w-full flex items-center justify-center gap-2 py-2 mb-2 rounded-xl text-[10px] font-bold uppercase transition-all border ${
+                                            showStreetView
+                                                ? 'bg-orange-500 text-white border-orange-500'
+                                                : 'bg-white text-orange-600 border-orange-200 hover:bg-orange-50'
+                                        }`}
+                                    >
+                                        <MapPin size={12} />
+                                        {showStreetView ? 'Desativar Street View' : 'Ativar Street View'}
+                                    </button>
+
+                                    {/* Expand Map Toggle Button (In Sidebar) */}
+                                    <button
+                                        onClick={() => setIsExpanded(!isExpanded)}
+                                        className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-slate-800 text-white text-[10px] font-bold uppercase hover:bg-slate-900 transition-colors shadow-sm"
+                                    >
+                                        {isExpanded ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+                                        {isExpanded ? 'Restaurar Visualização' : 'Expandir Mapa'}
+                                    </button>
 
                                 {/* Tile Picker */}
                                 {showTilePicker && (
@@ -880,15 +889,15 @@ export const GeographicMap: React.FC = () => {
                                     </>
                                 )}
                             </div>
-                        </>
-                    )}
                 </div>
 
                 {/* ═══ Map ═══ */}
-                <div className={`flex-1 bg-slate-100 rounded-3xl shadow-xl border border-slate-200 overflow-hidden relative z-0 transition-all duration-300 ${isExpanded ? 'h-full' : 'min-h-[600px]'}`}>
+                <div className={`flex-1 bg-slate-100 overflow-hidden relative z-0 transition-all duration-500
+                    ${isExpanded ? 'h-full w-full rounded-none' : 'min-h-[600px] rounded-3xl shadow-xl border border-slate-200'}
+                `}>
                     
                     {/* Expand/Restore Button (Floating on Map) */}
-                    <div className="absolute top-4 left-4 z-[1000] flex gap-2">
+                    <div className="absolute top-4 left-4 z-1000 flex gap-2">
                          {isExpanded && (
                             <button
                                 onClick={() => setIsExpanded(false)}
@@ -908,13 +917,59 @@ export const GeographicMap: React.FC = () => {
                          )}
                     </div>
 
+                    {/* Floating Immersive Dashboard (Modal Overlay) */}
+                    {selectedComarca && (
+                        <div className="absolute inset-0 z-2000 flex items-center justify-center p-[2.5%] animate-in zoom-in-95 duration-300 pointer-events-none">
+                            <div className="w-[95%] h-[95%] bg-white/95 backdrop-blur-xl rounded-[40px] shadow-2xl border border-white/50 flex flex-col overflow-hidden pointer-events-auto">
+                                <div className="p-1.5 flex justify-end">
+                                    <button 
+                                        onClick={() => {
+                                            setSelectedComarca(null);
+                                            setMapFocus({ center: INITIAL_CENTER, zoom: 7 });
+                                        }}
+                                        className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all shadow-sm"
+                                    >
+                                        <X size={20} />
+                                    </button>
+                                </div>
+                                <div className="flex-1 overflow-y-auto px-4 pb-8">
+                                    {(() => {
+                                        const stat = stats.find(s => s.comarca === selectedComarca);
+                                        return stat ? (
+                                            <div className="space-y-6">
+                                                <MapDetailCard 
+                                                    data={stat} 
+                                                    onClose={() => {
+                                                        setSelectedComarca(null);
+                                                        setMapFocus({ center: INITIAL_CENTER, zoom: 7 });
+                                                    }}
+                                                    isDashboard={true}
+                                                />
+                                                {showStreetView && (
+                                                    <div className="h-64 rounded-3xl overflow-hidden border-2 border-slate-100 bg-slate-100 flex flex-col group relative">
+                                                        <div className="absolute top-4 left-4 z-10 px-3 py-1.5 bg-slate-900/80 backdrop-blur text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 rounded-full">
+                                                            <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                                                            Exploração Street View 360°
+                                                        </div>
+                                                        <div ref={streetViewRef} className="flex-1" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : null;
+                                    })()}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <GoogleMapPremium
+                        ref={mapRef}
                         center={mapFocus?.center || INITIAL_CENTER}
                         zoom={mapFocus?.zoom || 7}
                         className="h-full w-full"
                         mapType={activeTileKey === 'satellite' ? 'satellite' : 'roadmap'}
                         origin={TJPA_SEDE}
-                        destination={activeRoute ? [activeRoute.geometry[activeRoute.geometry.length-1][1], activeRoute.geometry[activeRoute.geometry.length-1][0]] : undefined}
+                        destination={activeRoute ? activeRoute.geometry[activeRoute.geometry.length - 1] as [number, number] : undefined}
                         isochrones={showIsochrones ? isochrones.map((iso, i) => ({
                             points: (iso.geometry.coordinates[0] as number[][]).map(c => ({ lat: c[1], lng: c[0] })),
                             color: ISOCHRONE_COLORS[i] || ISOCHRONE_COLORS[0],
@@ -962,7 +1017,7 @@ export const GeographicMap: React.FC = () => {
                     />
 
                     {/* Legend Floating */}
-                    <div className="absolute bottom-6 left-4 md:left-auto md:right-16 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-slate-100 z-[1000] text-xs max-w-[200px]">
+                    <div className="absolute bottom-6 left-4 md:left-auto md:right-16 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-slate-100 z-1000 text-xs max-w-[200px]">
                         <div className="flex items-center gap-2 mb-3">
                             <BarChart3 size={14} className="text-teal-600" />
                             <span className="font-black text-slate-800 uppercase text-[10px] tracking-wider">Investimento</span>
@@ -1001,7 +1056,7 @@ export const GeographicMap: React.FC = () => {
                     </div>
 
                     {/* Tile Layer Badge */}
-                    <div className="absolute top-4 right-4 z-[1000]">
+                    <div className="absolute top-4 right-4 z-1000">
                         <div className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-lg border border-slate-200 text-[9px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
                             <Layers size={10} className="text-teal-500" />
                             {activeTile.name}

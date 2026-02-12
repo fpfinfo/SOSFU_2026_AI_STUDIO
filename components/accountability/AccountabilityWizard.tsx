@@ -19,6 +19,7 @@ interface AccountabilityWizardProps {
     onClose?: () => void;
     onSuccess: () => void;
     isEmbedded?: boolean;
+    darkMode?: boolean;
 }
 
 type DocumentType = 'NFE' | 'NFS' | 'CUPOM' | 'RECIBO' | 'BILHETE' | 'BOARDING_PASS' | 'REPORT' | 'OUTROS';
@@ -48,23 +49,27 @@ interface ExpenseItem {
 
 // --- COMPONENTES AUXILIARES PARA SUBSTITUIR ALERT/CONFIRM ---
 
-const NotificationToast = ({ type, message, onClose }: { type: 'success' | 'error', message: string, onClose: () => void }) => (
-    <div className={`fixed bottom-4 right-4 z-[100] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 fade-in duration-300 border ${type === 'error' ? 'bg-white border-red-200 text-red-700' : 'bg-gray-900 border-gray-800 text-white'}`}>
+const NotificationToast = ({ type, message, onClose, darkMode = false }: { type: 'success' | 'error', message: string, onClose: () => void, darkMode?: boolean }) => (
+    <div className={`fixed bottom-4 right-4 z-[100] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 fade-in duration-300 border ${
+        type === 'error' 
+        ? (darkMode ? 'bg-slate-800 border-red-900/50 text-red-400' : 'bg-white border-red-200 text-red-700') 
+        : (darkMode ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-gray-900 border-gray-800 text-white')
+    }`}>
         {type === 'error' ? <AlertCircle size={20} className="text-red-600" /> : <CheckCircle2 size={20} className="text-emerald-400" />}
         <p className="text-sm font-bold">{message}</p>
         <button onClick={onClose} className="ml-2 hover:opacity-70"><X size={14}/></button>
     </div>
 );
 
-const ConfirmationModal = ({ isOpen, title, message, onConfirm, onCancel, isDestructive = false }: any) => {
+const ConfirmationModal = ({ isOpen, title, message, onConfirm, onCancel, isDestructive = false, darkMode = false }: any) => {
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in zoom-in-95 duration-200 border border-gray-100">
-                <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
-                <p className="text-sm text-gray-600 mb-6 leading-relaxed">{message}</p>
+            <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in zoom-in-95 duration-200 border`}>
+                <h3 className={`text-lg font-bold mb-2 ${darkMode ? 'text-slate-100' : 'text-gray-900'}`}>{title}</h3>
+                <p className={`text-sm mb-6 leading-relaxed ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>{message}</p>
                 <div className="flex justify-end gap-3">
-                    <button onClick={onCancel} className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                    <button onClick={onCancel} className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${darkMode ? 'text-slate-400 hover:bg-slate-700' : 'text-gray-600 hover:bg-gray-100'}`}>
                         Cancelar
                     </button>
                     <button onClick={onConfirm} className={`px-4 py-2 text-sm font-bold text-white rounded-lg shadow-md transition-colors ${isDestructive ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
@@ -78,7 +83,7 @@ const ConfirmationModal = ({ isOpen, title, message, onConfirm, onCancel, isDest
 
 // --- COMPONENTE PRINCIPAL ---
 
-export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ processId, accountabilityId, role, onClose, onSuccess, isEmbedded = false }) => {
+export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ processId, accountabilityId, role, onClose, onSuccess, isEmbedded = false, darkMode = false }) => {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -565,10 +570,10 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
     const canEdit = (role === 'USER' || role === 'GESTOR') && (pcData.status === 'DRAFT' || pcData.status === 'CORRECTION');
 
     return (
-        <div className={`flex flex-col h-full bg-[#F8FAFC] ${isEmbedded ? 'rounded-xl' : ''} relative`}>
+        <div className={`flex flex-col h-full ${darkMode ? 'bg-slate-900' : 'bg-[#F8FAFC]'} ${isEmbedded ? 'rounded-xl' : ''} relative`}>
             
             {/* Componentes de Overlay */}
-            {notification && <NotificationToast type={notification.type} message={notification.message} onClose={() => setNotification(null)} />}
+            {notification && <NotificationToast type={notification.type} message={notification.message} onClose={() => setNotification(null)} darkMode={darkMode} />}
             
             <ConfirmationModal 
                 isOpen={confirmModal.isOpen} 
@@ -577,17 +582,18 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                 onConfirm={confirmModal.action} 
                 onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} 
                 isDestructive={confirmModal.isDestructive}
+                darkMode={darkMode}
             />
 
             {!isEmbedded && (
-                <div className="bg-white border-b border-gray-200 px-8 py-5 flex justify-between items-center shadow-sm sticky top-0 z-20">
+                <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'} border-b px-8 py-5 flex justify-between items-center shadow-sm sticky top-0 z-20`}>
                     <div>
-                        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <h2 className={`text-xl font-bold flex items-center gap-2 ${darkMode ? 'text-slate-100' : 'text-gray-800'}`}>
                             <Sparkles className="text-blue-600" size={24} /> 
                             Prestação de Contas {isSodpa && '(SODPA)'}
                         </h2>
                     </div>
-                    {onClose && <button onClick={onClose}><X size={20}/></button>}
+                    {onClose && <button onClick={onClose} className={darkMode ? 'text-slate-400 hover:text-slate-200' : 'text-gray-500'}><X size={20}/></button>}
                 </div>
             )}
 
@@ -624,8 +630,8 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                             />
 
                             {/* Editor de Lançamento */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden p-5">
-                                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-4 flex items-center justify-between">
+                            <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'} rounded-2xl shadow-sm border overflow-hidden p-5`}>
+                                <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 flex items-center justify-between ${darkMode ? 'text-slate-400' : 'text-gray-700'}`}>
                                     <div className="flex items-center gap-2">
                                         <FileText size={14} /> Dados do Lançamento
                                     </div>
@@ -656,7 +662,11 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                             <select 
                                                 value={newItem.doc_type} 
                                                 onChange={e => setNewItem({...newItem, doc_type: e.target.value as DocumentType})}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 font-medium outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all appearance-none cursor-pointer"
+                                                className={`w-full px-3 py-2 border rounded-lg text-sm font-medium outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all appearance-none cursor-pointer ${
+                                                    darkMode 
+                                                    ? 'bg-slate-900 border-slate-700 text-slate-100' 
+                                                    : 'bg-white border-gray-300 text-gray-900'
+                                                }`}
                                             >
                                                 {!isSodpa ? (
                                                     <>
@@ -686,7 +696,11 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                             type="date" 
                                             value={newItem.item_date} 
                                             onChange={e => setNewItem({...newItem, item_date: e.target.value})} 
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all" 
+                                            className={`w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all ${
+                                                darkMode 
+                                                ? 'bg-slate-900 border-slate-700 text-slate-100' 
+                                                : 'bg-white border-gray-300 text-gray-900'
+                                            }`} 
                                         />
                                     </div>
                                     <div className="col-span-12 md:col-span-4">
@@ -710,7 +724,11 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                                         valor_liquido: val - inss - iss
                                                     });
                                                 }} 
-                                                className="w-full px-3 py-2 pl-8 border border-gray-300 rounded-lg text-sm font-bold text-gray-900 bg-white outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all" 
+                                                className={`w-full px-3 py-2 pl-8 border rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all ${
+                                                    darkMode 
+                                                    ? 'bg-slate-900 border-slate-700 text-slate-100' 
+                                                    : 'bg-white border-gray-300 text-gray-900'
+                                                }`} 
                                             />
                                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">R$</span>
                                         </div>
@@ -728,7 +746,11 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                             type="text" 
                                             value={newItem.supplier} 
                                             onChange={e => setNewItem({...newItem, supplier: e.target.value})} 
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all placeholder-gray-400" 
+                                            className={`w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all placeholder-gray-400 ${
+                                                darkMode 
+                                                ? 'bg-slate-900 border-slate-700 text-slate-100' 
+                                                : 'bg-white border-gray-300 text-gray-900'
+                                            }`} 
                                             placeholder="Nome da empresa ou pessoa" 
                                         />
                                     </div>
@@ -738,7 +760,11 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                             type="text" 
                                             value={newItem.description} 
                                             onChange={e => setNewItem({...newItem, description: e.target.value})} 
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all placeholder-gray-400" 
+                                            className={`w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all placeholder-gray-400 ${
+                                                darkMode 
+                                                ? 'bg-slate-900 border-slate-700 text-slate-100' 
+                                                : 'bg-white border-gray-300 text-gray-900'
+                                            }`} 
                                             placeholder="Ex: Almoço, Passagem, Material..." 
                                         />
                                     </div>
@@ -761,7 +787,11 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                                     valor_liquido: grossValue - inss - iss
                                                 });
                                             }}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all font-medium"
+                                            className={`w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all font-medium ${
+                                                darkMode 
+                                                ? 'bg-slate-900 border-slate-700 text-slate-100' 
+                                                : 'bg-white border-gray-300 text-gray-900'
+                                            }`}
                                         >
                                             {expenseElements.map(el => (
                                                 <option key={el.id} value={el.codigo}>
@@ -776,7 +806,9 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
 
                                     {/* Campos Extras para Pessoa Física (3.3.90.36) */}
                                     {newItem.element_code.includes('3.3.90.36') && (
-                                        <div className="col-span-12 grid grid-cols-12 gap-4 bg-amber-50/50 p-4 rounded-xl border border-amber-100 animate-in fade-in slide-in-from-top-2">
+                                        <div className={`col-span-12 grid grid-cols-12 gap-4 p-4 rounded-xl border animate-in fade-in slide-in-from-top-2 ${
+                                            darkMode ? 'bg-amber-900/10 border-amber-900/50' : 'bg-amber-50/50 border-amber-100'
+                                        }`}>
                                             <div className="col-span-12 flex items-center gap-2 mb-2">
                                                 <UserCheck size={16} className="text-amber-600" />
                                                 <h4 className="text-xs font-black text-amber-800 uppercase tracking-wider">Dados do Prestador PF</h4>
@@ -789,7 +821,9 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                                     type="text" 
                                                     value={newItem.prestador_pf_dados?.cpf_cnpj}
                                                     onChange={e => setNewItem({...newItem, prestador_pf_dados: {...newItem.prestador_pf_dados!, cpf_cnpj: e.target.value}})}
-                                                    className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-amber-200"
+                                                    className={`w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-200 ${
+                                                        darkMode ? 'bg-slate-900 border-amber-900/30 text-amber-200' : 'bg-white border-amber-200 text-slate-900'
+                                                    }`}
                                                     placeholder="000.000.000-00"
                                                 />
                                             </div>
@@ -799,7 +833,9 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                                     type="text" 
                                                     value={newItem.prestador_pf_dados?.rg}
                                                     onChange={e => setNewItem({...newItem, prestador_pf_dados: {...newItem.prestador_pf_dados!, rg: e.target.value}})}
-                                                    className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-amber-200"
+                                                    className={`w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-200 ${
+                                                        darkMode ? 'bg-slate-900 border-amber-900/30 text-amber-200' : 'bg-white border-amber-200 text-slate-900'
+                                                    }`}
                                                 />
                                             </div>
                                             <div className="col-span-12 md:col-span-4">
@@ -808,7 +844,9 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                                     type="text" 
                                                     value={newItem.prestador_pf_dados?.pis_nit}
                                                     onChange={e => setNewItem({...newItem, prestador_pf_dados: {...newItem.prestador_pf_dados!, pis_nit: e.target.value}})}
-                                                    className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-amber-200"
+                                                    className={`w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-200 ${
+                                                        darkMode ? 'bg-slate-900 border-amber-900/30 text-amber-200' : 'bg-white border-amber-200 text-slate-900'
+                                                    }`}
                                                     placeholder="000.00000.00-0"
                                                 />
                                             </div>
@@ -819,7 +857,9 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                                     type="text" 
                                                     value={newItem.prestador_pf_dados?.endereco}
                                                     onChange={e => setNewItem({...newItem, prestador_pf_dados: {...newItem.prestador_pf_dados!, endereco: e.target.value}})}
-                                                    className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-amber-200"
+                                                    className={`w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-200 ${
+                                                        darkMode ? 'bg-slate-900 border-amber-900/30 text-amber-200' : 'bg-white border-amber-200 text-slate-900'
+                                                    }`}
                                                     placeholder="Rua, Número, Bairro, Cidade - UF"
                                                 />
                                             </div>
@@ -842,15 +882,15 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
 
                                             <div className="col-span-12 pt-2 mt-2 border-t border-amber-100">
                                                 <div className="grid grid-cols-4 gap-4">
-                                                    <div className="bg-white p-2.5 rounded-lg border border-amber-100">
+                                                    <div className={`${darkMode ? 'bg-slate-900' : 'bg-white'} p-2.5 rounded-lg border border-amber-100`}>
                                                         <span className="text-[9px] font-bold text-amber-600 block mb-1">INSS Prestador (11%)</span>
-                                                        <span className="text-sm font-black text-amber-900">
+                                                        <span className={`text-sm font-black ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
                                                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(newItem.inss_retido || 0)}
                                                         </span>
                                                     </div>
-                                                    <div className="bg-white p-2.5 rounded-lg border border-amber-100">
+                                                    <div className={`${darkMode ? 'bg-slate-900' : 'bg-white'} p-2.5 rounded-lg border border-amber-100`}>
                                                         <span className="text-[9px] font-bold text-amber-600 block mb-1">ISS Retido (5%)</span>
-                                                        <span className="text-sm font-black text-amber-900">
+                                                        <span className={`text-sm font-black ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
                                                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(newItem.iss_retido || 0)}
                                                         </span>
                                                     </div>
@@ -874,7 +914,9 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                     <div className="col-span-12 pt-2">
                                         <button 
                                             onClick={handleAddItem} 
-                                            className="w-full py-2.5 bg-slate-900 text-white rounded-lg font-bold text-sm hover:bg-black transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform active:scale-95"
+                                            className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform active:scale-95 ${
+                                                darkMode ? 'bg-slate-100 text-slate-900 hover:bg-white' : 'bg-slate-900 text-white hover:bg-black'
+                                            }`}
                                         >
                                             <Plus size={16} /> Confirmar Lançamento
                                         </button>
@@ -891,7 +933,7 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                         </h3>
                         <div className="space-y-3">
                             {items.length === 0 ? (
-                                <div className="text-center py-8 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400">
+                                <div className={`text-center py-8 rounded-xl border border-dashed text-gray-400 ${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-gray-300'}`}>
                                     <Receipt size={24} className="mx-auto mb-2 opacity-30"/>
                                     <p className="text-xs">Nenhum comprovante lançado.</p>
                                 </div>
@@ -899,13 +941,13 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                 items.map((item) => {
                                     const typeInfo = getDocTypeInfo(item.doc_type || 'OUTROS');
                                     return (
-                                        <div key={item.id} className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex justify-between items-center hover:border-blue-200 transition-colors">
+                                        <div key={item.id} className={`${darkMode ? 'bg-slate-800 border-slate-700 hover:border-blue-500/50' : 'bg-white border-gray-200 hover:border-blue-200'} p-3 rounded-lg border shadow-sm flex justify-between items-center transition-colors`}>
                                             <div className="flex items-start gap-3">
-                                                <div className={`w-8 h-8 ${typeInfo.bg} ${typeInfo.color} rounded-md flex items-center justify-center font-bold text-xs`}>
+                                                <div className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs ${typeInfo.bg} ${typeInfo.color}`}>
                                                     <typeInfo.icon size={16} />
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-gray-800 text-sm">{item.description}</p>
+                                                    <p className={`font-bold text-sm ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>{item.description}</p>
                                                     <p className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-wide">
                                                         {item.supplier} • {(() => {
                                                             const [y, m, d] = item.item_date.split('-').map(Number);
@@ -915,13 +957,13 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
-                                                <p className="font-mono font-bold text-gray-800 text-sm">
+                                                <p className={`font-mono font-bold text-sm ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>
                                                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
                                                 </p>
                                                 {canEdit && (
                                                     <button 
                                                         onClick={() => item.id && requestDeleteItem(item.id)} 
-                                                        className="text-gray-300 hover:text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors"
+                                                        className={`p-1.5 rounded transition-colors ${darkMode ? 'text-slate-600 hover:text-red-400 hover:bg-red-900/20' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
                                                         title="Excluir item"
                                                     >
                                                         <Trash2 size={16} />
@@ -937,24 +979,24 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                 </div>
 
                 {/* DIREITA: Painel de Saldo */}
-                <div className="w-full xl:w-80 bg-white border-l border-gray-200 p-6 shadow-sm z-10 flex flex-col">
+                <div className={`w-full xl:w-80 border-l p-6 shadow-sm z-10 flex flex-col ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
                     <div className="flex-1">
-                        <h3 className="font-bold text-gray-800 mb-4 uppercase text-xs tracking-wider flex items-center gap-2">
+                        <h3 className={`font-bold mb-4 uppercase text-xs tracking-wider flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>
                             <Wallet size={14} className="text-blue-600"/> Balanço do Recurso
                         </h3>
                         
-                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-3 mb-6">
+                        <div className={`rounded-xl p-4 border space-y-3 mb-6 ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
                             <div className="flex justify-between text-xs">
                                 <span className="text-gray-500 font-medium">Recebido</span>
-                                <span className="font-bold text-gray-800">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(grantedValue)}</span>
+                                <span className={`font-bold ${darkMode ? 'text-slate-300' : 'text-gray-800'}`}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(grantedValue)}</span>
                             </div>
                             <div className="flex justify-between text-xs">
                                 <span className="text-gray-500 font-medium">Gasto</span>
                                 <span className="font-bold text-blue-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSpent)}</span>
                             </div>
-                            <div className="h-px bg-slate-200 my-1"></div>
+                            <div className={`h-px my-1 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
                             <div className="flex justify-between items-center">
-                                <span className="font-bold text-slate-700 text-xs">Saldo</span>
+                                <span className={`font-bold text-xs ${darkMode ? 'text-slate-400' : 'text-slate-700'}`}>Saldo</span>
                                 <span className={`font-bold text-base ${balance < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(balance)}
                                 </span>
@@ -967,7 +1009,11 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                             <>
                                 <button 
                                     onClick={onClose}
-                                    className="w-full py-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-50 transition-all flex items-center justify-center gap-2 text-sm"
+                                    className={`w-full py-2.5 border rounded-lg font-bold transition-all flex items-center justify-center gap-2 text-sm ${
+                                        darkMode 
+                                        ? 'bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600' 
+                                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                                    }`}
                                 >
                                     Continuar Depois
                                 </button>
@@ -995,7 +1041,7 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                 {/* Modal de GDR (Devolução de Saldo) */}
                 {showGdrModal && (
                     <div className="fixed inset-0 z-[110] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
-                        <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-white/20 animate-in zoom-in-95 duration-300">
+                        <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-white/20'} rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border animate-in zoom-in-95 duration-300`}>
                             <div className="bg-gradient-to-br from-emerald-600 to-teal-700 p-6 text-white relative">
                                 <button 
                                     onClick={() => setShowGdrModal(false)}
@@ -1033,7 +1079,11 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                             placeholder="Ex: 2026.0401.001"
                                             value={gdrData.numero}
                                             onChange={e => setGdrData({...gdrData, numero: e.target.value})}
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all"
+                                            className={`w-full px-4 py-3 border rounded-2xl text-sm font-bold outline-none transition-all ${
+                                                darkMode 
+                                                ? 'bg-slate-900 border-slate-700 text-slate-100 focus:ring-emerald-500/20 focus:border-emerald-500' 
+                                                : 'bg-slate-50 border-slate-200 text-slate-900 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500'
+                                            }`}
                                         />
                                     </div>
 
@@ -1044,12 +1094,18 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                                 type="date" 
                                                 value={gdrData.data_pagamento}
                                                 onChange={e => setGdrData({...gdrData, data_pagamento: e.target.value})}
-                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 outline-none"
+                                                className={`w-full px-4 py-3 border rounded-2xl text-sm font-bold outline-none ${
+                                                    darkMode 
+                                                    ? 'bg-slate-900 border-slate-700 text-slate-100' 
+                                                    : 'bg-slate-50 border-slate-200 text-slate-900'
+                                                }`}
                                             />
                                         </div>
                                         <div>
                                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Valor Devolvido</label>
-                                            <div className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-2xl text-sm font-black text-slate-500">
+                                            <div className={`w-full px-4 py-3 border rounded-2xl text-sm font-black ${
+                                                darkMode ? 'bg-slate-900 border-slate-700 text-slate-500' : 'bg-slate-100 border-slate-200 text-slate-500'
+                                            }`}>
                                                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(balance)}
                                             </div>
                                         </div>
@@ -1064,19 +1120,23 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                                 onChange={e => setGdrData({...gdrData, file: e.target.files?.[0] || null})}
                                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                             />
-                                            <div className={`w-full p-6 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center gap-2 transition-all ${gdrData.file ? 'bg-emerald-50 border-emerald-500' : 'bg-slate-50 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/30'}`}>
+                                            <div className={`w-full p-6 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center gap-2 transition-all ${
+                                                gdrData.file 
+                                                ? (darkMode ? 'bg-emerald-900/20 border-emerald-500' : 'bg-emerald-50 border-emerald-500') 
+                                                : (darkMode ? 'bg-slate-900 border-slate-700 hover:border-emerald-500/50 hover:bg-emerald-500/5' : 'bg-slate-50 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/30')
+                                            }`}>
                                                 {gdrData.file ? (
                                                     <>
                                                         <FileCheck size={32} className="text-emerald-500" />
-                                                        <span className="text-xs font-bold text-emerald-700">{gdrData.file.name}</span>
+                                                        <span className={`text-xs font-bold ${darkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>{gdrData.file.name}</span>
                                                         <span className="text-[10px] text-emerald-600/60 uppercase font-black">Clique para alterar</span>
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <div className="p-3 bg-white rounded-2xl shadow-sm">
+                                                        <div className={`p-3 rounded-2xl shadow-sm ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
                                                             <Plus size={24} className="text-slate-400" />
                                                         </div>
-                                                        <span className="text-xs font-bold text-slate-500 mt-2">Selecionar Arquivo</span>
+                                                        <span className={`text-xs font-bold mt-2 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Selecionar Arquivo</span>
                                                         <span className="text-[10px] text-slate-400 uppercase tracking-tighter">Guia ou Comprovante Pago</span>
                                                     </>
                                                 )}
@@ -1086,7 +1146,7 @@ export const AccountabilityWizard: React.FC<AccountabilityWizardProps> = ({ proc
                                 </div>
                             </div>
 
-                            <div className="p-6 bg-slate-50 border-t border-slate-100">
+                            <div className={`p-6 border-t ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
                                 <button 
                                     onClick={handleGdrUpload}
                                     disabled={submitting || !gdrData.numero || !gdrData.file}

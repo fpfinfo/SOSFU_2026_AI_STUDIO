@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", "Inter", ui-sans-serif, system-ui, sans-serif;
+  
+  /* Custom colors if needed */
+  --color-tjpa-blue: #1e40af;
+}
+
+:root {
+  --fluid-base: clamp(14px, 1vw + 10px, 16px);
+}
+
+body {
+  background-color: #f8fafc;
+  font-size: var(--fluid-base);
+}
+
+/* Accessibility: Respect motion preferences with reasonable defaults */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 50ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 50ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Skip to Content link for keyboard users */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 9999;
+  padding: 8px 16px;
+  background: #1e40af;
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  border-radius: 0 0 8px 8px;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 0;
+}

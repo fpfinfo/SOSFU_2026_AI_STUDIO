@@ -18,6 +18,7 @@ import {
     CheckCircle2,
     Timer
 } from 'lucide-react';
+import { formatCurrency } from '../../lib/utils';
 
 export const ExecutionAnalytics: React.FC = () => {
     const [loading, setLoading] = useState(true);
@@ -76,7 +77,7 @@ export const ExecutionAnalytics: React.FC = () => {
                     </div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Processado</p>
                     <p className="text-2xl font-black text-slate-800">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValor)}
+                        {formatCurrency(totalValor)}
                     </p>
                     <div className="mt-4 flex items-center gap-1.5 text-emerald-600 font-bold text-[10px] bg-emerald-50 w-fit px-2 py-0.5 rounded-full">
                         <ArrowUpRight size={12} />
@@ -87,7 +88,7 @@ export const ExecutionAnalytics: React.FC = () => {
                 <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative overflow-hidden group">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ticket Médio</p>
                     <p className="text-2xl font-black text-slate-800">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(avgValue)}
+                        {formatCurrency(avgValue)}
                     </p>
                     <p className="text-[10px] text-slate-400 mt-4 font-bold uppercase">Por Comprovante</p>
                 </div>
@@ -221,7 +222,7 @@ export const ExecutionAnalytics: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <span className="text-xs font-black text-slate-900 font-mono">
-                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
+                                            {formatCurrency(item.value)}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-center">
