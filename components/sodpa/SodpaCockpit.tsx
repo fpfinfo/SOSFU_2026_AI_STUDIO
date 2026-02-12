@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { SodpaHeader } from './SodpaHeader';
 import type { SodpaViewType } from './SodpaHeader';
 import { SodpaDashboard } from './SodpaDashboard';
+import { SodpaWorkstation } from './SodpaWorkstation';
 import { SodpaProcessManagement } from './SodpaProcessManagement';
 import { SodpaAccountability } from './SodpaAccountability';
 import { SodpaSettings } from './SodpaSettings';
@@ -85,7 +86,7 @@ export const SodpaCockpit: React.FC<SodpaCockpitProps> = ({ onNavigate, userProf
     const renderActiveView = () => {
         switch (activeView) {
             case 'control':
-                return <SodpaDashboard onNavigate={onNavigate} darkMode={darkMode} userProfile={userProfile} />;
+                return <SodpaWorkstation onNavigate={onNavigate} userProfile={userProfile} darkMode={darkMode} />;
             case 'processes':
                 return <SodpaProcessManagement darkMode={darkMode} onNavigate={onNavigate} />;
             case 'accountability':
@@ -97,7 +98,7 @@ export const SodpaCockpit: React.FC<SodpaCockpitProps> = ({ onNavigate, userProf
             case 'settings':
                 return <SodpaSettings darkMode={darkMode} userProfile={userProfile} />;
             default:
-                return <SodpaDashboard onNavigate={onNavigate} darkMode={darkMode} userProfile={userProfile} />;
+                return <SodpaWorkstation onNavigate={onNavigate} userProfile={userProfile} darkMode={darkMode} />;
         }
     };
 
@@ -115,6 +116,7 @@ export const SodpaCockpit: React.FC<SodpaCockpitProps> = ({ onNavigate, userProf
                 onAcknowledgeNew={handleAcknowledgeNew}
                 darkMode={darkMode}
                 onToggleDarkMode={onToggleDarkMode}
+                userProfile={userProfile}
             />
 
             {/* Main Content */}

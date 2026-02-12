@@ -6,7 +6,7 @@ interface SosfuStatCardProps {
     value: string | number;
     subtitle?: string;
     icon: LucideIcon;
-    color: 'blue' | 'teal' | 'amber' | 'emerald' | 'rose' | 'slate';
+    color: 'blue' | 'teal' | 'amber' | 'emerald' | 'rose' | 'slate' | 'sky';
     badge?: string;
     progress?: number; // 0 to 100
     progressLabel?: string;
@@ -66,6 +66,13 @@ export const SosfuStatCard: React.FC<SosfuStatCardProps> = ({
             border: 'border-slate-100',
             iconBg: 'bg-slate-500/10',
             progress: 'bg-slate-500'
+        },
+        sky: {
+            bg: 'bg-sky-50',
+            text: 'text-sky-600',
+            border: 'border-sky-100',
+            iconBg: 'bg-sky-500/10',
+            progress: 'bg-sky-500'
         }
     };
 

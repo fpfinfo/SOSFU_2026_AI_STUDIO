@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { RessarcimentoHeader } from './RessarcimentoHeader';
 import type { RessarcimentoViewType } from './RessarcimentoHeader';
 import { RessarcimentoDashboard } from './RessarcimentoDashboard';
+import { RessarcimentoWorkstation } from './RessarcimentoWorkstation';
 import { RessarcimentoPayments } from './RessarcimentoPayments';
 import { RessarcimentoArchive } from './RessarcimentoArchive';
 import { RessarcimentoReports } from './RessarcimentoReports';
@@ -80,7 +81,7 @@ export const RessarcimentoCockpit: React.FC<RessarcimentoCockpitProps> = ({ onNa
     const renderActiveView = () => {
         switch (activeView) {
             case 'control':
-                return <RessarcimentoDashboard onNavigate={onNavigate} darkMode={darkMode} userProfile={userProfile} />;
+                return <RessarcimentoWorkstation onNavigate={onNavigate} userProfile={userProfile} darkMode={darkMode} />;
             case 'requests':
                 // Reusing Dashboard view but could be just the Inbox component full screen
                 // For simplicity, let's keep Dashboard as main entry and allow navigation to specific full views if needed
@@ -96,7 +97,7 @@ export const RessarcimentoCockpit: React.FC<RessarcimentoCockpitProps> = ({ onNa
             case 'settings':
                 return <RessarcimentoSettings darkMode={darkMode} userProfile={userProfile} />;
             default:
-                return <RessarcimentoDashboard onNavigate={onNavigate} darkMode={darkMode} userProfile={userProfile} />;
+                return <RessarcimentoWorkstation onNavigate={onNavigate} userProfile={userProfile} darkMode={darkMode} />;
         }
     };
 
@@ -111,6 +112,7 @@ export const RessarcimentoCockpit: React.FC<RessarcimentoCockpitProps> = ({ onNa
                 urgentCount={urgentCount}
                 darkMode={darkMode}
                 onToggleDarkMode={onToggleDarkMode}
+                userProfile={userProfile}
             />
 
             <main className="flex-1 overflow-auto">

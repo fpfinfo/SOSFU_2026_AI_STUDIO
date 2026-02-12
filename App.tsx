@@ -441,6 +441,7 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary fallbackTitle="Erro no Sistema SOSFU">
     <div className="min-h-screen bg-[#F8FAFC]">
+      {!['sodpa_dashboard', 'ressarcimento_dashboard'].includes(activeTab || '') && (
       <Header 
         activeTab={activeTab} 
         onTabChange={(tab) => handleNavigation(tab)}
@@ -450,6 +451,7 @@ const App: React.FC = () => {
         darkMode={darkMode}
         onToggleDarkMode={toggleDarkMode}
       />
+      )}
       
       {['dashboard', 'sefin_dashboard', 'ajsefin_dashboard', 'sodpa_dashboard', 'ressarcimento_dashboard', 'sgp_dashboard', 'sead_dashboard', 'presidencia_dashboard'].includes(activeTab || '') ? (
         <div id="main-content">{renderContent()}</div>
