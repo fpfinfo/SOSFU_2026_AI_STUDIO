@@ -12,12 +12,13 @@ const DARK_MODE_KEY = 'ajsefin_dark_mode';
 interface AjsefinCockpitProps {
     onNavigate: (page: string, processId?: string) => void;
     userProfile: any;
+    darkMode?: boolean;
+    onToggleDarkMode?: () => void;
 }
 
-export const AjsefinCockpit: React.FC<AjsefinCockpitProps> = ({ onNavigate, userProfile }) => {
+export const AjsefinCockpit: React.FC<AjsefinCockpitProps> = ({ onNavigate, userProfile, darkMode = false, onToggleDarkMode }) => {
     const [activeView, setActiveView] = useState<AjsefinViewType>('painel');
     const [lastSeenCount, setLastSeenCount] = useState(0);
-    const [darkMode, setDarkMode] = useState(false);
     const [pendingCount, setPendingCount] = useState(0);
     const [urgentCount, setUrgentCount] = useState(0);
 
@@ -25,9 +26,6 @@ export const AjsefinCockpit: React.FC<AjsefinCockpitProps> = ({ onNavigate, user
     useEffect(() => {
         const savedCount = localStorage.getItem(SEEN_COUNT_KEY);
         if (savedCount) setLastSeenCount(parseInt(savedCount, 10) || 0);
-
-        const savedDark = localStorage.getItem(DARK_MODE_KEY);
-        if (savedDark) setDarkMode(savedDark === 'true');
     }, []);
 
     // Fetch counts — Processos aguardando análise AJSEFIN
@@ -66,25 +64,19 @@ export const AjsefinCockpit: React.FC<AjsefinCockpitProps> = ({ onNavigate, user
         setLastSeenCount(pendingCount);
     }, [pendingCount]);
 
-    const handleToggleDarkMode = useCallback(() => {
-        setDarkMode(prev => {
-            const next = !prev;
-            localStorage.setItem(DARK_MODE_KEY, next.toString());
-            return next;
-        });
-    }, []);
+
 
     // Keyboard shortcut for dark mode (D)
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
             if (e.key === 'd' || e.key === 'D') {
-                handleToggleDarkMode();
+                onToggleDarkMode?.();
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [handleToggleDarkMode]);
+    }, [onToggleDarkMode]);
 
     const renderActiveView = () => {
         const isGestor = userProfile?.dperfil?.slug === 'AJSEFIN_GESTOR';
@@ -114,7 +106,7 @@ export const AjsefinCockpit: React.FC<AjsefinCockpitProps> = ({ onNavigate, user
                 newCount={newCount}
                 onAcknowledgeNew={handleAcknowledgeNew}
                 darkMode={darkMode}
-                onToggleDarkMode={handleToggleDarkMode}
+                onToggleDarkMode={onToggleDarkMode}
             />
 
             {/* Main Content */}

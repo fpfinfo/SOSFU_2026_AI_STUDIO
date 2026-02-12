@@ -7,11 +7,12 @@ import { useRealtimeInbox } from '../hooks/useRealtimeInbox';
 
 interface SolicitationsViewProps {
     onNavigate?: (page: string, processId?: string) => void;
+    darkMode?: boolean;
 }
 
 type TabType = 'ALL' | 'NEW' | 'ANALYSIS' | 'DONE';
 
-export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate }) => {
+export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate, darkMode = false }) => {
   const [activeTab, setActiveTab] = useState<TabType>('NEW');
   const [solicitations, setSolicitations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,8 +190,8 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
         onClick={() => handleTabClick(id)}
         className={`relative pb-3 px-4 text-sm font-bold transition-all ${
             activeTab === id 
-            ? 'text-blue-600 border-b-2 border-blue-600' 
-            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-t-lg'
+            ? (darkMode ? 'text-blue-400 border-b-2 border-blue-400' : 'text-blue-600 border-b-2 border-blue-600') 
+            : (darkMode ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800 rounded-t-lg' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-t-lg')
         }`}
       >
           {label}
@@ -209,7 +210,7 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className={`space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 ${darkMode ? 'text-slate-100' : ''}`}>
       
       {/* 🔔 Notification Toast */}
       {showNotification && (
@@ -237,45 +238,49 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
       
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <div className="p-1.5 bg-blue-100 rounded-md text-blue-600">
+          <h2 className={`text-xl font-bold flex items-center gap-2 ${darkMode ? 'text-slate-100' : 'text-gray-800'}`}>
+            <div className={`p-1.5 rounded-md ${darkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
                 <FileText size={20} />
             </div>
             Gestão de Solicitações (Concessão)
           </h2>
-          <p className="text-gray-500 text-sm mt-1">Análise técnica de pedidos de suprimento.</p>
+          <p className={`${darkMode ? 'text-slate-400' : 'text-gray-500'} text-sm mt-1`}>Análise técnica de pedidos de suprimento.</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'} rounded-xl shadow-sm border overflow-hidden`}>
         
         {/* New Tabs System */}
-        <div className="flex items-center gap-2 px-4 pt-4 border-b border-gray-200 overflow-x-auto">
+        <div className={`flex items-center gap-2 px-4 pt-4 border-b overflow-x-auto ${darkMode ? 'border-slate-700' : 'border-gray-200'}`}>
             <TabButton id="ALL" label="Todas" count={counts.all} />
             <TabButton id="NEW" label="Novas" count={counts.new} isPulsing={hasNewItems && activeTab !== 'NEW'} />
             <TabButton id="ANALYSIS" label="Em Análise" count={counts.analysis} />
             <TabButton id="DONE" label="Concluídas" count={counts.done} />
         </div>
 
-        <div className="p-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
+        <div className={`p-4 border-b flex justify-between items-center ${darkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50/50 border-gray-200'}`}>
             <div className="relative max-w-sm w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                 <input 
                     type="text" 
                     placeholder="Buscar por processo ou beneficiário..." 
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className={`w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
+                        darkMode 
+                        ? 'bg-slate-900 border-slate-700 text-slate-100 focus:ring-blue-500/20 focus:border-blue-500' 
+                        : 'bg-white border-gray-200 text-gray-800 focus:ring-blue-500/20 focus:border-blue-500'
+                    }`}
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                 />
             </div>
-            <div className="text-xs text-gray-500 font-medium hidden md:block">
+            <div className={`text-xs font-medium hidden md:block ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>
                 Visualizando {filteredSolicitations.length} de {counts.all} processos
             </div>
         </div>
 
         <div className="overflow-x-auto min-h-[400px]">
           <table className="w-full text-left">
-            <thead className="bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider">
+            <thead className={`font-semibold text-xs uppercase tracking-wider ${darkMode ? 'bg-slate-900/80 text-slate-400' : 'bg-gray-50 text-gray-500'}`}>
               <tr>
                 <th className="px-6 py-4">Processo</th>
                 <th className="px-6 py-4">Beneficiário / Unidade</th>
@@ -285,7 +290,7 @@ export const SolicitationsView: React.FC<SolicitationsViewProps> = ({ onNavigate
                 <th className="px-6 py-4 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className={`divide-y ${darkMode ? 'divide-slate-700' : 'divide-gray-100'}`}>
               {loading ? (
                   <tr>
                       <td colSpan={6} className="px-6 py-8 text-center text-gray-500">

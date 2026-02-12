@@ -5,11 +5,12 @@ import { AssignModal } from './AssignModal';
 
 interface AccountabilityViewProps {
     onNavigate?: (page: string, processId?: string, accountabilityId?: string) => void;
+    darkMode?: boolean;
 }
 
 type TabType = 'ALL' | 'NEW' | 'ANALYSIS' | 'DONE';
 
-export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNavigate }) => {
+export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNavigate, darkMode = false }) => {
   const [activeTab, setActiveTab] = useState<TabType>('NEW');
   const [accountabilities, setAccountabilities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -192,7 +193,7 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
 
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className={`space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 ${darkMode ? 'text-slate-100' : ''}`}>
       
       {/* 🔔 Notification Toast */}
       {showNotification && (
@@ -215,20 +216,20 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
       
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-            <div className="p-2 bg-teal-600 rounded-lg text-white shadow-sm">
+          <h2 className={`text-xl font-black flex items-center gap-2 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>
+            <div className={`p-2 rounded-lg shadow-sm ${darkMode ? 'bg-teal-500/20 text-teal-400' : 'bg-teal-600 text-white'}`}>
                 <CheckSquare size={18} />
             </div>
             Painel de Controle SOSFU
           </h2>
-          <p className="text-slate-500 text-sm mt-1 ml-11">Gestão centralizada de prestação de contas.</p>
+          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} text-sm mt-1 ml-11`}>Gestão centralizada de prestação de contas.</p>
         </div>
       </div>
 
       {/* Section C: Queue Tabs */}
-      <div className="bg-white rounded-2xl border-2 border-slate-100 overflow-hidden shadow-sm">
-        <div className="flex items-center gap-1 px-4 pt-4 pb-0 bg-white">
-            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
+      <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl border-2 overflow-hidden shadow-sm`}>
+        <div className={`flex items-center gap-1 px-4 pt-4 pb-0 ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
+            <div className={`flex items-center gap-1 p-1 rounded-xl ${darkMode ? 'bg-slate-900' : 'bg-slate-100'}`}>
                 {([
                     { id: 'NEW' as TabType, label: 'Inbox', icon: <Inbox size={14} />, count: counts.new },
                     { id: 'ANALYSIS' as TabType, label: 'Minha Fila', icon: <Users size={14} />, count: counts.analysis },
@@ -240,13 +241,13 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
                         className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                             activeTab === tab.id 
                             ? 'bg-teal-600 text-white shadow-sm' 
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-white'
+                            : (darkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-500 hover:text-slate-700 hover:bg-white')
                         }`}
                     >
                         {tab.icon} {tab.label}
                         {tab.count !== undefined && tab.count > 0 && (
                             <span className={`ml-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${
-                                activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+                                activeTab === tab.id ? 'bg-white/20 text-white' : (darkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-600')
                             } ${hasNewItems && tab.id === 'NEW' ? 'animate-pulse bg-red-500 text-white' : ''}`}>
                                 {tab.count > 99 ? '99+' : tab.count}
                             </span>
@@ -264,14 +265,18 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
                     placeholder="Buscar..." 
                     value={filter} 
                     onChange={e => setFilter(e.target.value)} 
-                    className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-300" 
+                    className={`pl-9 pr-4 py-2 border rounded-lg text-sm w-56 focus:outline-none focus:ring-2 ${
+                        darkMode 
+                        ? 'bg-slate-900 border-slate-700 text-slate-100 focus:ring-teal-500/20 focus:border-teal-400' 
+                        : 'bg-slate-50 border-slate-200 text-gray-800 focus:ring-teal-200 focus:border-teal-300'
+                    }`} 
                 />
             </div>
         </div>
 
         {/* Toolbar Info */}
         {(activeTab === 'NEW' || activeTab === 'ANALYSIS') && (
-             <div className="px-6 py-2 bg-teal-50/50 border-b border-teal-100/50 flex items-center gap-2">
+             <div className={`px-6 py-2 border-b flex items-center gap-2 ${darkMode ? 'bg-teal-900/20 border-teal-800/50' : 'bg-teal-50/50 border-teal-100/50'}`}>
                 <Sparkles size={12} className="text-teal-400" />
                 <span className="text-xs font-medium text-teal-700">
                     {activeTab === 'NEW' ? 'Processos aguardando triagem ou análise inicial.' : 'Processos em sua fila de trabalho.'}
@@ -281,7 +286,7 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
 
         <div className="overflow-x-auto min-h-[400px]">
           <table className="w-full text-left">
-            <thead className="bg-slate-50 text-slate-500 font-semibold text-xs uppercase tracking-wider border-b border-slate-100">
+            <thead className={`font-semibold text-xs uppercase tracking-wider border-b ${darkMode ? 'bg-slate-900/50 text-slate-400 border-slate-700' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
               <tr>
                 <th className="px-6 py-4">Nº PC</th>
                 <th className="px-6 py-4">Suprido</th>
@@ -320,17 +325,17 @@ export const AccountabilityView: React.FC<AccountabilityViewProps> = ({ onNaviga
                     return (
                         <tr 
                             key={item.id} 
-                            className="hover:bg-gray-50 transition-colors cursor-pointer group"
+                            className={`transition-colors cursor-pointer group ${darkMode ? 'border-slate-700 hover:bg-slate-700/50' : 'border-slate-100 hover:bg-gray-50'}`}
                             onClick={() => handleViewDetails(item)}
                         >
                         <td className="px-6 py-4">
-                            <span className="font-bold text-gray-800 text-sm group-hover:text-teal-600 transition-colors">{item.process_number}</span>
+                            <span className={`font-bold text-sm transition-colors ${darkMode ? 'text-slate-200 group-hover:text-teal-400' : 'text-gray-800 group-hover:text-teal-600'}`}>{item.process_number}</span>
                         </td>
                         <td className="px-6 py-4">
-                            <div className="text-sm font-medium text-gray-800">{item.profiles?.full_name || 'Desconhecido'}</div>
+                            <div className={`text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-gray-800'}`}>{item.profiles?.full_name || 'Desconhecido'}</div>
                         </td>
                         <td className="px-6 py-4">
-                            <span className="text-sm font-mono text-gray-700">
+                            <span className={`text-sm font-mono ${darkMode ? 'text-slate-400' : 'text-gray-700'}`}>
                                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
                             </span>
                         </td>

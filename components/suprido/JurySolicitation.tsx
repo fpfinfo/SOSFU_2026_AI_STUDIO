@@ -356,7 +356,8 @@ export const JurySolicitation: React.FC<JurySolicitationProps> = ({ onNavigate }
                 event_end_date: endDate,
                 manager_name: managerName,
                 manager_email: managerEmail,
-                justification: finalJustification
+                justification: finalJustification,
+                type: 'EXTRA-JÚRI'
             }).select('id').single();
 
             if (error) throw error;

@@ -6,7 +6,7 @@ import { RolesSettings } from './settings/RolesSettings';
 import { ExpenseElementsSettings } from './settings/ExpenseElementsSettings';
 import { Tag } from 'lucide-react';
 
-export const SettingsView: React.FC<{ userProfile?: any }> = ({ userProfile }) => {
+export const SettingsView: React.FC<{ userProfile?: any, darkMode?: boolean }> = ({ userProfile, darkMode = false }) => {
     const [activeSection, setActiveSection] = useState('general');
 
     const menuItems = [
@@ -19,11 +19,11 @@ export const SettingsView: React.FC<{ userProfile?: any }> = ({ userProfile }) =
     ];
 
     return (
-        <div className="flex flex-col md:flex-row gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className={`flex flex-col md:flex-row gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 ${darkMode ? 'text-slate-100' : ''}`}>
             {/* Sidebar Navigation */}
             <div className="w-full md:w-64 flex-shrink-0">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                    <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-4 px-3 flex items-center gap-2">
+                <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'} rounded-xl shadow-sm border p-4`}>
+                    <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 px-3 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-gray-900'}`}>
                         <Settings size={14} />
                         Configurações
                     </h3>
@@ -38,8 +38,8 @@ export const SettingsView: React.FC<{ userProfile?: any }> = ({ userProfile }) =
                                     className={`
                                         w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors
                                         ${isActive 
-                                            ? 'bg-blue-50 text-blue-700' 
-                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
+                                            ? (darkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-700') 
+                                            : (darkMode ? 'text-slate-400 hover:bg-slate-700 hover:text-slate-200' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900')}
                                     `}
                                 >
                                     <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
@@ -53,7 +53,7 @@ export const SettingsView: React.FC<{ userProfile?: any }> = ({ userProfile }) =
 
             {/* Content Area */}
             <div className="flex-1">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 min-h-[600px]">
+                <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'} rounded-xl shadow-sm border p-8 min-h-[600px]`}>
                     {activeSection === 'general' && <GeneralSettings />}
                     {activeSection === 'elementos' && <ExpenseElementsSettings module="SOSFU" />}
                     {activeSection === 'users' && <UsersSettings userProfile={userProfile} />}

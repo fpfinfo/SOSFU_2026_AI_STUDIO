@@ -65,8 +65,8 @@ export const SodpaHeader: React.FC<SodpaHeaderProps> = ({
         },
         {
             id: 'reports',
-            label: 'Relatórios',
-            shortLabel: 'Relat.',
+            label: 'Mapa Geográfico',
+            shortLabel: 'Mapa',
             icon: <BarChart3 size={18} />
         }
     ];

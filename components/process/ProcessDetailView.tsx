@@ -33,9 +33,16 @@ interface ProcessDetailViewProps {
   onBack: () => void;
   initialTab?: TabType; 
   userProfile?: any;
+  darkMode?: boolean;
 }
 
-export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId, onBack, initialTab = 'OVERVIEW', userProfile }) => {
+export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ 
+  processId, 
+  onBack, 
+  initialTab = 'OVERVIEW', 
+  userProfile,
+  darkMode = false 
+}) => {
   const [activeTab, setActiveTab] = useState<TabType>(initialTab); 
   const [processData, setProcessData] = useState<any>(null);
   const [requesterProfile, setRequesterProfile] = useState<any>(null);
@@ -582,7 +589,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
 
   const OverviewTab = () => {
-    if (!processData) return <div className="p-8 text-center text-gray-500">Carregando dados...</div>;
+    if (!processData) return <div className={`p-8 text-center ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>Carregando dados...</div>;
 
     // Lógica para Banner de Status Específico
     const isWaitingManager = accountabilityData?.status === 'WAITING_MANAGER' || processData?.status === 'WAITING_MANAGER';
@@ -595,24 +602,24 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
             {/* ═══ Banner: Confirmar Recebimento (Suprido) ═══ */}
             {isWaitingSupridoConfirmation && isSuprido && (
-                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 rounded-2xl p-6 shadow-md">
+                <div className={`${darkMode ? 'bg-emerald-950/20 border-emerald-500/50 shadow-emerald-950/20' : 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-300 shadow-emerald-200/50'} border-2 rounded-2xl p-6 shadow-md transition-colors`}>
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
                         <div className="flex items-start gap-4">
-                            <div className="p-3 bg-emerald-100 rounded-full text-emerald-600 animate-pulse">
+                            <div className={`p-3 rounded-full animate-pulse ${darkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}>
                                 <Wallet size={24} />
                             </div>
                             <div>
-                                <h3 className="text-lg font-black text-emerald-900">💰 Recursos Creditados</h3>
-                                <p className="text-emerald-700 text-sm mt-1 max-w-xl leading-relaxed">
+                                <h3 className={`text-lg font-black ${darkMode ? 'text-emerald-400' : 'text-emerald-900'}`}>💰 Recursos Creditados</h3>
+                                <p className={`text-sm mt-1 max-w-xl leading-relaxed ${darkMode ? 'text-emerald-500/80' : 'text-emerald-700'}`}>
                                     O pagamento foi processado pela SOSFU. Confirme o recebimento dos recursos na sua conta bancária para iniciar a <strong>Prestação de Contas</strong>.
-                                    <br/><span className="text-xs text-emerald-600">Prazo para PC: 30 dias após confirmação (Res. CNJ 169/2013)</span>
+                                    <br/><span className={`text-xs ${darkMode ? 'text-emerald-600' : 'text-emerald-600'}`}>Prazo para PC: 30 dias após confirmação (Res. CNJ 169/2013)</span>
                                 </p>
                             </div>
                         </div>
                         <button
                             onClick={handleConfirmReceipt}
                             disabled={confirmReceiptLoading}
-                            className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-black text-sm hover:bg-emerald-700 transition-all flex items-center gap-2 shadow-lg shadow-emerald-200 whitespace-nowrap disabled:opacity-50"
+                            className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-black text-sm hover:bg-emerald-700 transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20 whitespace-nowrap disabled:opacity-50"
                         >
                             {confirmReceiptLoading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                             Confirmar Recebimento
@@ -623,15 +630,15 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
             {/* ═══ Banner: Pagamento Realizado (SOSFU informativo) ═══ */}
             {processData.status === 'PAID' && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex items-center gap-4">
-                    <div className="p-2.5 bg-emerald-100 rounded-full text-emerald-600">
+                <div className={`${darkMode ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50 border-emerald-200'} border rounded-xl p-5 flex items-center gap-4 transition-colors`}>
+                    <div className={`p-2.5 rounded-full ${darkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}>
                         <CheckCircle2 size={20} />
                     </div>
                     <div>
-                        <h3 className="font-bold text-emerald-800 text-sm">
+                        <h3 className={`font-bold text-sm ${darkMode ? 'text-emerald-400' : 'text-emerald-800'}`}>
                             {isRessarcimento ? 'Ressarcimento Pago ✓' : 'Recurso Recebido ✓'}
                         </h3>
-                        <p className="text-emerald-600 text-xs mt-0.5">
+                        <p className={`text-xs mt-0.5 ${darkMode ? 'text-emerald-500/70' : 'text-emerald-600'}`}>
                             {isRessarcimento
                                 ? 'O reembolso foi processado e depositado na conta do servidor.'
                                 : 'O suprido confirmou o recebimento. A fase de Prestação de Contas está aberta.'}
@@ -642,13 +649,13 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
             {/* ═══ Banner: Ressarcimento em Análise ═══ */}
             {isRessarcimento && processData.status === 'WAITING_RESSARCIMENTO_ANALYSIS' && (
-                <div className="bg-sky-50 border border-sky-200 rounded-xl p-5 flex items-center gap-4">
-                    <div className="p-2.5 bg-sky-100 rounded-full text-sky-600">
+                <div className={`${darkMode ? 'bg-sky-500/5 border-sky-500/20' : 'bg-sky-50 border-sky-200'} border rounded-xl p-5 flex items-center gap-4 transition-colors`}>
+                    <div className={`p-2.5 rounded-full ${darkMode ? 'bg-sky-500/20 text-sky-400' : 'bg-sky-100 text-sky-600'}`}>
                         <Search size={20} />
                     </div>
                     <div>
-                        <h3 className="font-bold text-sky-800 text-sm">Ressarcimento em Análise</h3>
-                        <p className="text-sky-600 text-xs mt-0.5">
+                        <h3 className={`font-bold text-sm ${darkMode ? 'text-sky-400' : 'text-sky-800'}`}>Ressarcimento em Análise</h3>
+                        <p className={`text-xs mt-0.5 ${darkMode ? 'text-sky-500/70' : 'text-sky-600'}`}>
                             {isSuprido
                                 ? 'Sua solicitação de reembolso está sendo analisada pela equipe SOSFU. Você será notificado sobre o resultado.'
                                 : 'Solicitação de ressarcimento aguardando auditoria de comprovantes e homologação.'}
@@ -659,13 +666,13 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
             {/* ═══ Banner: Ressarcimento Aprovado → Pagamento ═══ */}
             {isRessarcimento && processData.status === 'WAITING_RESSARCIMENTO_EXECUTION' && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex items-center gap-4">
-                    <div className="p-2.5 bg-emerald-100 rounded-full text-emerald-600 animate-pulse">
+                <div className={`${darkMode ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50 border-emerald-200'} border rounded-xl p-5 flex items-center gap-4 transition-colors`}>
+                    <div className={`p-2.5 rounded-full animate-pulse ${darkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}>
                         <Wallet size={20} />
                     </div>
                     <div>
-                        <h3 className="font-bold text-emerald-800 text-sm">Reembolso Aprovado — Aguardando Pagamento</h3>
-                        <p className="text-emerald-600 text-xs mt-0.5">
+                        <h3 className={`font-bold text-sm ${darkMode ? 'text-emerald-400' : 'text-emerald-800'}`}>Reembolso Aprovado — Aguardando Pagamento</h3>
+                        <p className={`text-xs mt-0.5 ${darkMode ? 'text-emerald-500/70' : 'text-emerald-600'}`}>
                             {isSuprido
                                 ? 'Seu ressarcimento foi homologado pela SOSFU. O pagamento será processado em breve na sua conta bancária.'
                                 : 'Ressarcimento homologado. Gere a NE, DL e OB para processar o pagamento ao servidor.'}
@@ -676,25 +683,25 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
             
             {/* Banner de Status: AGUARDANDO GESTOR */}
             {isWaitingManager && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
+                <div className={`${darkMode ? 'bg-amber-500/5 border-amber-500/20 shadow-amber-950/10' : 'bg-amber-50 border-amber-200 shadow-sm'} border rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 transition-colors`}>
                     <div className="flex items-start gap-4">
-                        <div className="p-3 bg-white rounded-full text-amber-600 shadow-sm border border-amber-100">
+                        <div className={`p-3 rounded-full shadow-sm border ${darkMode ? 'bg-slate-800 text-amber-500 border-amber-500/20' : 'bg-white text-amber-600 border-amber-100'}`}>
                             <UserCheck size={24} />
                         </div>
                         <div>
-                            <h3 className="text-lg font-bold text-amber-900">Aguardando Atesto Gerencial</h3>
-                            <p className="text-amber-700 text-sm mt-1 max-w-xl">
+                            <h3 className={`text-lg font-bold ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>Aguardando Atesto Gerencial</h3>
+                            <p className={`text-sm mt-1 max-w-xl ${darkMode ? 'text-amber-500/70' : 'text-amber-700'}`}>
                                 {currentUserRole === 'GESTOR' ? 'A' : 'Sua'} {accountabilityData?.status === 'WAITING_MANAGER' ? 'prestação de contas' : 'solicitação'} foi {currentUserRole === 'GESTOR' ? 'encaminhada para sua' : 'enviada com sucesso e agora está sob'} análise de <strong>{managerName}</strong>.
                                 <br/>Assim que o atesto for realizado, o processo será encaminhado automaticamente para a SOSFU.
                             </p>
                         </div>
                     </div>
                     <div className="flex flex-col items-end gap-2 min-w-[200px]">
-                        <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Etapa Atual</span>
-                        <div className="w-full bg-amber-200 h-2 rounded-full overflow-hidden">
+                        <span className={`text-xs font-bold uppercase tracking-wider ${darkMode ? 'text-amber-500/80' : 'text-amber-600'}`}>Etapa Atual</span>
+                        <div className={`w-full h-2 rounded-full overflow-hidden ${darkMode ? 'bg-amber-900/40' : 'bg-amber-200'}`}>
                             <div className="bg-amber-500 h-full w-[50%] animate-pulse"></div>
                         </div>
-                        <span className="text-[10px] text-amber-600 font-medium">Revisão pelo Gestor</span>
+                        <span className={`text-[10px] font-medium ${darkMode ? 'text-amber-600/80' : 'text-amber-600'}`}>Revisão pelo Gestor</span>
                     </div>
                 </div>
             )}
@@ -707,35 +714,35 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
             {/* Cards de Resumo */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Beneficiário */}
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <div className={`${darkMode ? 'bg-slate-800 border-slate-700 shadow-slate-950/20' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-xl border transition-colors`}>
+                    <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>
                         <User size={16} /> Beneficiário
                     </h3>
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 font-bold text-lg">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${darkMode ? 'bg-slate-700 text-slate-400' : 'bg-gray-100 text-gray-500'}`}>
                             {requesterProfile?.full_name?.charAt(0) || processData.beneficiary?.charAt(0)}
                         </div>
                         <div className="overflow-hidden">
-                            <p className="font-bold text-gray-900 truncate" title={requesterProfile?.full_name || processData.beneficiary}>
+                            <p className={`font-bold truncate ${darkMode ? 'text-slate-100' : 'text-gray-900'}`} title={requesterProfile?.full_name || processData.beneficiary}>
                                 {requesterProfile?.full_name || processData.beneficiary}
                             </p>
-                            <p className="text-sm text-gray-500 truncate">{requesterProfile?.email}</p>
-                            <p className="text-xs text-gray-400 mt-1 truncate">{requesterProfile?.lotacao || processData.unit}</p>
+                            <p className={`text-sm truncate ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>{requesterProfile?.email}</p>
+                            <p className={`text-xs mt-1 truncate ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>{requesterProfile?.lotacao || processData.unit}</p>
                         </div>
                     </div>
                 </div>
 
                 {/* Dados Financeiros */}
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <div className={`${darkMode ? 'bg-slate-800 border-slate-700 shadow-slate-950/20' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-xl border transition-colors`}>
+                    <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>
                         <Wallet size={16} /> Dados Financeiros
                     </h3>
                     <div>
-                        <p className="text-sm text-gray-500 mb-1">{isRessarcimento ? 'Valor Reembolso' : 'Valor Solicitado'}</p>
-                        <p className="text-2xl font-bold text-gray-900 mb-2 font-mono">
+                        <p className={`text-sm mb-1 ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>{isRessarcimento ? 'Valor Reembolso' : 'Valor Solicitado'}</p>
+                        <p className={`text-2xl font-bold mb-2 font-mono ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(processData.value)}
                         </p>
-                        <div className="text-xs bg-gray-50 p-2 rounded border border-gray-100 text-gray-600">
+                        <div className={`text-xs p-2 rounded border ${darkMode ? 'bg-slate-900 border-slate-700 text-slate-400' : 'bg-gray-50 border-gray-100 text-gray-600'}`}>
                             <p className="truncate" title={processData.unit}><strong>Unidade:</strong> {processData.unit}</p>
                             <p className="mt-1"><strong>Data:</strong> {new Date(processData.created_at).toLocaleDateString()}</p>
                         </div>
@@ -743,57 +750,57 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                 </div>
 
                 {/* Status - SIMPLIFICADO (Barra removida, pois a Timeline global já existe) */}
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <div className={`${darkMode ? 'bg-slate-800 border-slate-700 shadow-slate-950/20' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-xl border transition-colors`}>
+                    <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>
                         <Clock size={16} /> Status do Processo
                     </h3>
                     <div className="flex flex-col items-start gap-3">
                         <StatusBadge status={accountabilityData?.status || processData.status} size="lg" />
-                        <p className="text-xs text-gray-500 mt-1">Acompanhe os detalhes na linha do tempo acima.</p>
+                        <p className={`text-xs mt-1 ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>Acompanhe os detalhes na linha do tempo acima.</p>
                     </div>
                 </div>
             </div>
 
             {/* Justificativa */}
-            <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm">
-                <div className="flex items-center gap-2 mb-4 border-b border-gray-100 pb-2">
-                    <AlignLeft size={18} className="text-gray-400"/>
-                    <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
+            <div className={`${darkMode ? 'bg-slate-800 border-slate-700 shadow-slate-950/20' : 'bg-white border-gray-200 shadow-sm'} p-8 rounded-xl border transition-colors`}>
+                <div className={`flex items-center gap-2 mb-4 border-b pb-2 ${darkMode ? 'border-slate-700' : 'border-gray-100'}`}>
+                    <AlignLeft size={18} className={`${darkMode ? 'text-slate-500' : 'text-gray-400'}`}/>
+                    <h3 className={`text-sm font-bold uppercase tracking-wider ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>
                         Justificativa / Objeto da Despesa
                     </h3>
                 </div>
-                <div className="text-gray-700 leading-relaxed whitespace-pre-wrap font-serif text-base">
+                <div className={`leading-relaxed whitespace-pre-wrap font-serif text-base ${darkMode ? 'text-slate-300' : 'text-gray-700'}`}>
                     {processData.justification || (
-                        <span className="text-gray-400 italic">Nenhuma justificativa fornecida.</span>
+                        <span className={`${darkMode ? 'text-slate-600' : 'text-gray-400'} italic`}>Nenhuma justificativa fornecida.</span>
                     )}
                 </div>
             </div>
 
             {/* Metadados e Gestor */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <div className={`${darkMode ? 'bg-slate-800 border-slate-700 shadow-slate-950/20' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-xl border transition-colors`}>
+                    <h4 className={`text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>
                         <Shield size={16} /> Gestor Responsável
                     </h4>
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-teal-50 text-teal-600 rounded-full flex items-center justify-center font-bold">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${darkMode ? 'bg-teal-500/10 text-teal-400' : 'bg-teal-50 text-teal-600'}`}>
                             {processData.manager_name?.charAt(0) || 'G'}
                         </div>
                         <div>
-                            <p className="font-bold text-gray-800">{processData.manager_name || 'Não atribuído'}</p>
-                            <p className="text-sm text-gray-500">{processData.manager_email || '-'}</p>
+                            <p className={`font-bold ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>{processData.manager_name || 'Não atribuído'}</p>
+                            <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>{processData.manager_email || '-'}</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <div className={`${darkMode ? 'bg-slate-800 border-slate-700 shadow-slate-950/20' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-xl border transition-colors`}>
+                    <h4 className={`text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>
                         <Calendar size={16} /> Período do Evento
                     </h4>
                     <div className="grid grid-cols-2 gap-4 mt-2">
                         <div>
-                            <p className="text-[10px] text-gray-500 uppercase font-bold">Início</p>
-                            <p className="text-sm font-semibold text-gray-800">
+                            <p className={`text-[10px] uppercase font-bold ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>Início</p>
+                            <p className={`text-sm font-semibold ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>
                                 {(() => {
                                     if (!processData.event_start_date) return '-';
                                     const [y, m, d] = processData.event_start_date.split('-').map(Number);
@@ -802,8 +809,8 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                             </p>
                         </div>
                         <div>
-                            <p className="text-[10px] text-gray-500 uppercase font-bold">Fim</p>
-                            <p className="text-sm font-semibold text-gray-800">
+                            <p className={`text-[10px] uppercase font-bold ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>Fim</p>
+                            <p className={`text-sm font-semibold ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>
                                 {(() => {
                                     if (!processData.event_end_date) return '-';
                                     const [y, m, d] = processData.event_end_date.split('-').map(Number);
@@ -895,32 +902,42 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
       if (documents.length === 0) {
           return (
-              <div className="flex flex-col items-center justify-center h-[500px] animate-in fade-in">
-                  <FolderOpen size={48} className="text-gray-300 mb-4" />
-                  <h3 className="font-bold text-gray-600 text-lg">Nenhum documento gerado</h3>
-                  <p className="text-sm text-gray-400 mt-1">Os documentos aparecerão aqui conforme o processo avança.</p>
+              <div className={`flex flex-col items-center justify-center h-[500px] animate-in fade-in ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>
+                  <FolderOpen size={48} className="mb-4 opacity-30" />
+                  <h3 className={`font-bold text-lg ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>Nenhum documento gerado</h3>
+                  <p className="text-sm mt-1">Os documentos aparecerão aqui conforme o processo avança.</p>
               </div>
           );
       }
 
       return (
-          <div className="flex gap-0 h-[calc(100vh-200px)] min-h-[600px] animate-in fade-in rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white">
+          <div className={`flex gap-0 h-[calc(100vh-200px)] min-h-[600px] animate-in fade-in rounded-xl overflow-hidden border shadow-sm transition-colors ${
+              darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'
+          }`}>
               {/* === SIDEBAR ESQUERDA === */}
-              <div className="w-[280px] min-w-[280px] bg-white border-r border-gray-200 flex flex-col">
+              <div className={`w-[280px] min-w-[280px] border-r flex flex-col transition-colors ${
+                  darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'
+              }`}>
                   {/* Header da Sidebar */}
-                    <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                        <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                            <FolderOpen size={15} className="text-blue-600" />
+                    <div className={`px-4 py-3 border-b flex items-center justify-between transition-colors ${
+                        darkMode ? 'border-slate-700' : 'border-gray-100'
+                    }`}>
+                        <h3 className={`text-sm font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-gray-700'}`}>
+                            <FolderOpen size={15} className="text-blue-500" />
                             Autos do Processo
                         </h3>
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                darkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'
+                            }`}>
                                 {documents.length} docs
                             </span>
                             {!isArchived && (
                                 <button
                                     onClick={() => { setEditingDoc(null); setNewDocModalOpen(true); }}
-                                    className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                                    className={`p-1.5 rounded-lg transition-colors ${
+                                        darkMode ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                                    }`}
                                     title="Novo Documento"
                                 >
                                     <Plus size={14} />
@@ -937,33 +954,35 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                               <button
                                   key={doc.id || i}
                                   onClick={() => handleDocClick(i)}
-                                  className={`w-full text-left px-4 py-3 border-b border-gray-50 transition-all group ${
+                                  className={`w-full text-left px-4 py-3 border-b transition-all group border-l-[3px] ${
                                       isActive 
-                                          ? 'bg-blue-50 border-l-[3px] border-l-blue-600' 
-                                          : 'hover:bg-gray-50 border-l-[3px] border-l-transparent'
+                                          ? (darkMode ? 'bg-blue-500/10 border-slate-700 border-l-blue-500' : 'bg-blue-50 border-gray-50 border-l-blue-600') 
+                                          : (darkMode ? 'hover:bg-slate-700/50 border-slate-700 border-l-transparent' : 'hover:bg-gray-50 border-gray-50 border-l-transparent')
                                   }`}
                               >
                                   <div className="flex items-start gap-2.5">
-                                      <div className={`mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                                          isActive ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'
+                                      <div className={`mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                                          isActive 
+                                          ? (darkMode ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-600') 
+                                          : (darkMode ? 'bg-slate-700 text-slate-500' : 'bg-gray-100 text-gray-400')
                                       }`}>
                                           <FileText size={14} />
                                       </div>
                                       <div className="flex-1 min-w-0">
                                           <p className={`text-[10px] font-bold uppercase tracking-wider ${
-                                              isActive ? 'text-blue-500' : 'text-gray-400'
+                                              isActive ? (darkMode ? 'text-blue-400' : 'text-blue-500') : (darkMode ? 'text-slate-500' : 'text-gray-400')
                                           }`}>
                                               DOC {String(i + 1).padStart(2, '0')}
                                           </p>
                                           <p className={`text-xs font-bold truncate ${
-                                              isActive ? 'text-blue-800' : 'text-gray-700'
+                                              isActive ? (darkMode ? 'text-white' : 'text-blue-800') : (darkMode ? 'text-slate-300' : 'text-gray-700')
                                           }`}>
                                               {doc.title}
                                           </p>
-                                          <p className="text-[10px] text-gray-400 truncate mt-0.5">
+                                          <p className={`text-[10px] truncate mt-0.5 ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>
                                               {docDescriptions[doc.document_type] || doc.document_type}
                                           </p>
-                                          <p className="text-[10px] text-gray-300 mt-0.5">
+                                          <p className={`text-[10px] mt-0.5 ${darkMode ? 'text-slate-600' : 'text-gray-300'}`}>
                                               {new Date(doc.created_at).toLocaleDateString('pt-BR', {
                                                   day: '2-digit', month: '2-digit', year: 'numeric',
                                                   hour: '2-digit', minute: '2-digit'
@@ -971,20 +990,26 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                                           </p>
                                       </div>
                                         {doc.metadata?.is_draft && (
-                                            <span className="text-[8px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 mt-0.5 shrink-0 uppercase tracking-wider">Minuta</span>
+                                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border mt-0.5 shrink-0 uppercase tracking-wider ${
+                                                darkMode ? 'bg-amber-900/30 text-amber-400 border-amber-800' : 'bg-amber-100 text-amber-700 border-amber-200'
+                                            }`}>Minuta</span>
                                         )}
                                         {doc.document_type === 'GENERIC' && doc.metadata?.created_by && !isArchived && (
                                             <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); setEditingDoc(doc); setNewDocModalOpen(true); }}
-                                                    className="p-1 rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors"
+                                                    className={`p-1 rounded transition-colors ${
+                                                        darkMode ? 'hover:bg-blue-500/20 text-slate-400 hover:text-blue-400' : 'hover:bg-blue-100 text-gray-400 hover:text-blue-600'
+                                                    }`}
                                                     title="Editar"
                                                 >
                                                     <FileSignature size={11} />
                                                 </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleDeleteDoc(doc); }}
-                                                    className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-600 transition-colors"
+                                                    className={`p-1 rounded transition-colors ${
+                                                        darkMode ? 'hover:bg-red-500/20 text-slate-400 hover:text-red-400' : 'hover:bg-red-100 text-gray-400 hover:text-red-600'
+                                                    }`}
                                                     title="Excluir"
                                                 >
                                                     <X size={11} />
@@ -999,12 +1024,14 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
               </div>
 
               {/* === PAINEL DE VISUALIZAÇÃO === */}
-              <div className="flex-1 flex flex-col bg-slate-50 min-w-0">
+              <div className={`flex-1 flex flex-col min-w-0 transition-colors ${darkMode ? 'bg-slate-950' : 'bg-slate-50'}`}>
                   {/* Toolbar */}
-                  <div className="px-4 py-2.5 border-b border-gray-200 bg-white flex items-center justify-between">
+                  <div className={`px-4 py-2.5 border-b flex items-center justify-between transition-colors ${
+                      darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'
+                  }`}>
                       <div className="flex items-center">
                           {viewMode === 'reading' && (
-                              <span className="text-xs font-bold text-gray-500 uppercase mr-3">
+                              <span className={`text-xs font-bold uppercase mr-3 ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>
                                   {documents[activeDocIndex]?.title}
                               </span>
                           )}
@@ -1013,7 +1040,11 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                           {/* Toggle Mode */}
                           <button
                               onClick={() => setViewMode(viewMode === 'unified' ? 'reading' : 'unified')}
-                              className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-600"
+                              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold border rounded-lg transition-colors ${
+                                  darkMode 
+                                  ? 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600' 
+                                  : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                              }`}
                           >
                               {viewMode === 'unified' ? (
                                   <>
@@ -1028,12 +1059,12 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                               )}
                           </button>
 
-                          <div className="w-px h-5 bg-gray-200 mx-1" />
+                          <div className={`w-px h-5 mx-1 ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`} />
 
                           {/* Print */}
                           <button
                               onClick={handlePrint}
-                              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                              className={`p-1.5 rounded-lg transition-colors ${darkMode ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-700' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
                               title="Imprimir"
                           >
                               <Printer size={16} />
@@ -1042,7 +1073,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                           {/* Download */}
                           <button
                               onClick={handleDownload}
-                              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                              className={`p-1.5 rounded-lg transition-colors ${darkMode ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-700' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
                               title="Download"
                           >
                               <Download size={16} />
@@ -1066,13 +1097,15 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                                   >
                                       {/* Separador com label */}
                                       <div className="absolute -left-8 top-0 bottom-0 flex items-start">
-                                          <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest [writing-mode:vertical-lr] rotate-180 mt-4">
+                                          <span className={`text-[9px] font-black uppercase tracking-widest [writing-mode:vertical-lr] rotate-180 mt-4 ${darkMode ? 'text-slate-700' : 'text-gray-300'}`}>
                                               DOC {i + 1}
                                           </span>
                                       </div>
                                       <div 
-                                          className={`bg-white shadow-md rounded-sm border transition-all cursor-pointer ${
-                                              activeDocIndex === i ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-200'
+                                          className={`rounded-sm border transition-all cursor-pointer shadow-md ${
+                                              activeDocIndex === i 
+                                              ? (darkMode ? 'border-blue-600 ring-2 ring-blue-900/40' : 'border-blue-300 ring-2 ring-blue-100') 
+                                              : (darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200')
                                           }`}
                                           onClick={() => setActiveDocIndex(i)}
                                       >
@@ -1086,7 +1119,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                       ) : (
                           /* === MODO LEITURA: um por vez === */
                           <div className="w-full max-w-[210mm]">
-                              <div className="bg-white shadow-md rounded-sm border border-gray-200">
+                              <div className={`shadow-md rounded-sm border transition-colors ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
                                   <div className="min-h-[297mm] origin-top">
                                       {renderDocumentContent(documents[activeDocIndex])}
                                   </div>
@@ -1097,17 +1130,25 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                                   <button
                                       onClick={() => setActiveDocIndex(Math.max(0, activeDocIndex - 1))}
                                       disabled={activeDocIndex === 0}
-                                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-gray-500 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                      className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold border rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${
+                                          darkMode 
+                                          ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' 
+                                          : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                                      }`}
                                   >
                                       <ChevronLeft size={14} /> Anterior
                                   </button>
-                                  <span className="text-xs font-bold text-gray-400">
+                                  <span className={`text-xs font-bold ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>
                                       {activeDocIndex + 1} / {documents.length}
                                   </span>
                                   <button
                                       onClick={() => setActiveDocIndex(Math.min(documents.length - 1, activeDocIndex + 1))}
                                       disabled={activeDocIndex === documents.length - 1}
-                                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-gray-500 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                      className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold border rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${
+                                          darkMode 
+                                          ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' 
+                                          : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                                      }`}
                                   >
                                       Próximo <ChevronRight size={14} />
                                   </button>
@@ -1151,22 +1192,32 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
           const isMinuta = existing?.status === 'MINUTA';
           return (
               <div key={doc.type} className={`border rounded-xl p-4 flex flex-col gap-3 transition-all ${
-                  isSigned ? 'border-emerald-200 bg-emerald-50' : isMinuta ? 'border-amber-200 bg-amber-50/30' : 'border-gray-100 bg-gray-50/50'
+                  isSigned 
+                  ? (darkMode ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50') 
+                  : isMinuta 
+                    ? (darkMode ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-200 bg-amber-50/30') 
+                    : (darkMode ? 'border-slate-700 bg-slate-800/50' : 'border-gray-100 bg-gray-50/50')
               }`}>
                   <div className="flex items-center justify-between">
-                      <div className={`p-2 rounded-lg ${isSigned ? 'bg-emerald-100 text-emerald-600' : isMinuta ? 'bg-amber-100 text-amber-600' : doc.bg + ' ' + doc.color}`}>
+                      <div className={`p-2 rounded-lg transition-colors ${
+                          isSigned 
+                          ? (darkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600') 
+                          : isMinuta 
+                            ? (darkMode ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-600') 
+                            : (darkMode ? 'bg-slate-700 text-slate-500' : doc.bg + ' ' + doc.color)
+                      }`}>
                           {isSigned ? <CheckCircle2 size={18} /> : isMinuta ? <Clock size={18} /> : <Icon size={18} />}
                       </div>
                       {existing && (
-                          <button onClick={() => setSelectedDoc(existing)} className="text-[10px] font-bold text-blue-600 hover:underline">Ver</button>
+                          <button onClick={() => setSelectedDoc(existing)} className={`text-[10px] font-bold hover:underline transition-colors ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Ver</button>
                       )}
                   </div>
                   <div>
-                      <h4 className="font-bold text-gray-700 text-xs">{doc.label}</h4>
-                      <p className="text-[10px] text-gray-400 mt-1">
+                      <h4 className={`font-bold text-xs transition-colors ${darkMode ? 'text-slate-200' : 'text-gray-700'}`}>{doc.label}</h4>
+                      <p className={`text-[10px] mt-1 transition-colors ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>
                           {isSigned ? '✓ Assinado' : isMinuta ? '⏳ Minuta' : 'Pendente'}
                       </p>
-                      <p className="text-[9px] text-gray-400 mt-0.5">→ {doc.subtitle}</p>
+                      <p className={`text-[9px] mt-0.5 transition-colors ${darkMode ? 'text-slate-600' : 'text-gray-400'}`}>→ {doc.subtitle}</p>
                   </div>
               </div>
           );
@@ -1177,15 +1228,17 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
               {/* ═══ SOSFU Payment Confirmation Card ═══ */}
               {processData?.status === 'WAITING_SOSFU_PAYMENT' && (currentUserRole.startsWith('SOSFU') || currentUserRole === 'ADMIN') && (
-                  <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl p-6 text-white shadow-lg border border-emerald-500/30">
+                  <div className={`rounded-2xl p-6 text-white shadow-lg border transition-all ${
+                      darkMode ? 'bg-gradient-to-r from-emerald-900 to-teal-900 border-emerald-500/30' : 'bg-gradient-to-r from-emerald-600 to-teal-600 border-emerald-500/30'
+                  }`}>
                       <div className="flex items-center justify-between flex-wrap gap-4">
                           <div className="flex items-center gap-4">
-                              <div className="p-3 bg-white/15 rounded-xl backdrop-blur">
+                              <div className="p-3 bg-white/10 rounded-xl backdrop-blur">
                                   <BadgeCheck size={24} />
                               </div>
                               <div>
                                   <h3 className="text-xl font-black">Comunicar Pagamento ao Suprido</h3>
-                                  <p className="text-emerald-100 text-sm mt-0.5 max-w-lg">
+                                  <p className={`${darkMode ? 'text-emerald-400/80' : 'text-emerald-100'} text-sm mt-0.5 max-w-lg`}>
                                       Todos os documentos foram assinados pelo Ordenador. Comunique ao suprido que o pagamento foi processado.
                                   </p>
                               </div>
@@ -1193,7 +1246,9 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                           <button
                               onClick={handleConfirmPayment}
                               disabled={confirmPaymentLoading}
-                              className="px-6 py-3 bg-white text-emerald-700 rounded-xl text-sm font-black shadow-lg hover:bg-emerald-50 transition-all flex items-center gap-2 disabled:opacity-50"
+                              className={`px-6 py-3 rounded-xl text-sm font-black shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 ${
+                                  darkMode ? 'bg-emerald-500 text-white hover:bg-emerald-400' : 'bg-white text-emerald-700 hover:bg-emerald-50'
+                              }`}
                           >
                               {confirmPaymentLoading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                               Comunicar Pagamento
@@ -1204,27 +1259,29 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
               {/* ═══ Status: Waiting Suprido Confirmation ═══ */}
               {processData?.status === 'WAITING_SUPRIDO_CONFIRMATION' && (currentUserRole.startsWith('SOSFU') || currentUserRole === 'ADMIN') && (
-                  <div className="bg-teal-50 border border-teal-200 rounded-2xl p-5 flex items-center gap-4">
-                      <div className="p-2.5 bg-teal-100 rounded-full text-teal-600">
+                  <div className={`${darkMode ? 'bg-teal-500/5 border-teal-500/20' : 'bg-teal-50 border-teal-200'} border rounded-2xl p-5 flex items-center gap-4 transition-colors`}>
+                      <div className={`p-2.5 rounded-full ${darkMode ? 'bg-teal-500/20 text-teal-400' : 'bg-teal-100 text-teal-600'}`}>
                           <Clock size={20} />
                       </div>
                       <div>
-                          <h3 className="font-bold text-teal-800 text-sm">Aguardando Confirmação do Suprido</h3>
-                          <p className="text-teal-600 text-xs mt-0.5">O pagamento foi comunicado. Quando o suprido confirmar o recebimento, o ciclo de Solicitação encerrará e inicia a Prestação de Contas.</p>
+                          <h3 className={`font-bold text-sm ${darkMode ? 'text-teal-400' : 'text-teal-800'}`}>Aguardando Confirmação do Suprido</h3>
+                          <p className={`text-xs mt-0.5 ${darkMode ? 'text-teal-500/70' : 'text-teal-600'}`}>O pagamento foi comunicado. Quando o suprido confirmar o recebimento, o ciclo de Solicitação encerrará e inicia a Prestação de Contas.</p>
                       </div>
                   </div>
               )}
 
               {/* Header Card */}
-              <div className="bg-gradient-to-r from-blue-600 to-teal-600 rounded-2xl p-6 text-white shadow-lg">
+              <div className={`rounded-2xl p-6 text-white shadow-lg transition-all ${
+                  darkMode ? 'bg-gradient-to-r from-blue-900 to-teal-900 border border-blue-500/20' : 'bg-gradient-to-r from-blue-600 to-teal-600'
+              }`}>
                   <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                          <div className="p-3 bg-white/15 rounded-xl backdrop-blur">
+                          <div className="p-3 bg-white/10 rounded-xl backdrop-blur">
                               <Wallet size={24} />
                           </div>
                           <div>
                             <h3 className="text-xl font-black">{isRessarcimento ? 'Execução do Reembolso' : 'Execução da Despesa'}</h3>
-                              <p className="text-blue-100 text-sm mt-0.5">
+                              <p className={`text-sm mt-0.5 ${darkMode ? 'text-blue-400/80' : 'text-blue-100'}`}>
                                   {isRessarcimento
                                       ? 'Gere a NE, DL e OB para o pagamento do ressarcimento ao servidor.'
                                       : 'Gere as minutas, anexe PDFs do SIAFE e tramite para o Ordenador.'}
@@ -1233,7 +1290,9 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                       </div>
                       {(currentUserRole.startsWith('SOSFU') || currentUserRole === 'ADMIN') && (
                           <button onClick={() => setExecutionWizardOpen(true)}
-                              className="px-6 py-3 bg-white text-blue-700 rounded-xl text-sm font-black shadow-lg hover:bg-blue-50 transition-all flex items-center gap-2">
+                              className={`px-6 py-3 rounded-xl text-sm font-black shadow-lg transition-all flex items-center gap-2 ${
+                                  darkMode ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-white text-blue-700 hover:bg-blue-50'
+                              }`}>
                               <FileText size={16} /> Iniciar Execução
                           </button>
                       )}
@@ -1241,26 +1300,26 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
               </div>
 
               {/* ═══ SECTION 1: Documentos para SEFIN (Ordenador) ═══ */}
-              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+              <div className={`${darkMode ? 'bg-slate-800 border-slate-700 shadow-slate-950/20' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-xl border transition-colors`}>
                   <div className="flex items-center gap-2 mb-4">
-                      <Scale size={14} className="text-amber-600" />
-                      <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest">Tramitação SEFIN</h4>
-                      <span className="text-[9px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-md font-bold border border-amber-100">Ordenador assina</span>
+                      <Scale size={14} className="text-amber-500" />
+                      <h4 className={`text-sm font-black uppercase tracking-widest ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Tramitação SEFIN</h4>
+                      <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold border ${darkMode ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>Ordenador assina</span>
                   </div>
-                  <p className="text-[10px] text-gray-400 mb-4">Portaria (minuta) + Certidão (minuta) + NE (PDF original do SIAFE)</p>
+                  <p className={`text-[10px] mb-4 ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>Portaria (minuta) + Certidão (minuta) + NE (PDF original do SIAFE)</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {sefinDocs.map(renderDocCard)}
                   </div>
               </div>
 
               {/* ═══ SECTION 2: Documentos internos (Dossiê) ═══ */}
-              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+              <div className={`${darkMode ? 'bg-slate-800 border-slate-700 shadow-slate-950/20' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-xl border transition-colors`}>
                   <div className="flex items-center gap-2 mb-4">
-                      <Archive size={14} className="text-teal-600" />
-                      <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest">Dossiê Digital</h4>
-                      <span className="text-[9px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded-md font-bold border border-teal-100">Auto-assinado SOSFU</span>
+                      <Archive size={14} className="text-teal-500" />
+                      <h4 className={`text-sm font-black uppercase tracking-widest ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Dossiê Digital</h4>
+                      <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold border ${darkMode ? 'bg-teal-500/10 text-teal-400 border-teal-500/20' : 'bg-teal-50 text-teal-600 border-teal-100'}`}>Auto-assinado SOSFU</span>
                   </div>
-                  <p className="text-[10px] text-gray-400 mb-4">DL e OB — PDFs originais do SIAFE, anexados automaticamente ao dossiê</p>
+                  <p className={`text-[10px] mb-4 ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>DL e OB — PDFs originais do SIAFE, anexados automaticamente ao dossiê</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {internalDocs.map(renderDocCard)}
                   </div>
@@ -1332,20 +1391,24 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
                   {/* Extra-Júri Review Button (SOSFU only) */}
                   {isExtraJuri && currentUserRole === 'SOSFU' && (
-                      <div className="bg-gradient-to-r from-blue-600 to-teal-600 rounded-xl p-5 text-white shadow-lg">
+                  <div className={`rounded-xl p-5 text-white shadow-lg transition-all ${
+                      darkMode ? 'bg-gradient-to-r from-blue-900 to-teal-900 border border-blue-500/20' : 'bg-gradient-to-r from-blue-600 to-teal-600'
+                  }`}>
                           <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
-                                  <div className="p-2.5 bg-white/15 rounded-lg backdrop-blur">
+                                  <div className="p-2.5 bg-white/10 rounded-lg backdrop-blur">
                                       <Scale size={22} />
                                   </div>
                                   <div>
                                       <h3 className="font-black text-base">Análise Extra-Júri</h3>
-                                      <p className="text-blue-100 text-xs mt-0.5">Ajuste quantidades e valores aprovados para participantes e despesas.</p>
+                                      <p className={`${darkMode ? 'text-blue-400/80' : 'text-blue-100'} text-xs mt-0.5`}>Ajuste quantidades e valores aprovados para participantes e despesas.</p>
                                   </div>
                               </div>
                               <button
                                   onClick={() => setJuriReviewOpen(true)}
-                                  className="px-5 py-2.5 bg-white text-blue-700 rounded-lg text-sm font-black shadow-lg hover:bg-blue-50 transition-all flex items-center gap-2"
+                                  className={`px-5 py-2.5 rounded-lg text-sm font-black shadow-lg transition-all flex items-center gap-2 ${
+                                      darkMode ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-white text-blue-700 hover:bg-blue-50'
+                                  }`}
                               >
                                   <Scale size={16} /> Abrir Painel de Revisão
                               </button>
@@ -1355,19 +1418,23 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
                   {/* Extra-Júri Info Banner (non-SOSFU) */}
                   {isExtraJuri && currentUserRole !== 'SOSFU' && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">
-                          <Scale size={18} className="text-blue-600 shrink-0" />
+                      <div className={`${darkMode ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50 border-blue-200'} border rounded-xl p-4 flex items-center gap-3 transition-colors`}>
+                          <Scale size={18} className="text-blue-500 shrink-0" />
                           <div>
-                              <p className="text-sm font-bold text-blue-800">Processo Extra-Júri</p>
-                              <p className="text-xs text-blue-600">A SOSFU realizará a análise e ajuste das quantidades aprovadas para este processo.</p>
+                              <p className={`text-sm font-bold ${darkMode ? 'text-blue-400' : 'text-blue-800'}`}>Processo Extra-Júri</p>
+                              <p className={`text-xs ${darkMode ? 'text-blue-500/70' : 'text-blue-600'}`}>A SOSFU realizará a análise e ajuste das quantidades aprovadas para este processo.</p>
                           </div>
                       </div>
                   )}
 
-                  <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                      <h3 className="font-bold text-gray-800 mb-4">Parecer Técnico</h3>
+                  <div className={`${darkMode ? 'bg-slate-800 border-slate-700 shadow-slate-950/20' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-xl border transition-colors`}>
+                      <h3 className={`font-bold mb-4 ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>Parecer Técnico</h3>
                       <textarea 
-                          className="w-full p-4 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none resize-none bg-gray-50 focus:bg-white transition-all"
+                          className={`w-full p-4 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 outline-none resize-none transition-all ${
+                              darkMode 
+                              ? 'bg-slate-900 border-slate-700 text-slate-200 focus:border-blue-500' 
+                              : 'bg-gray-50 border-gray-200 focus:border-blue-400'
+                          }`}
                           rows={6}
                           placeholder="Digite o parecer técnico..."
                           value={analystNote}
@@ -1385,14 +1452,18 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
               </div>
 
               <div className="space-y-6">
-                  <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                      <h3 className="font-bold text-gray-800 mb-4">Ações de Controle</h3>
+                  <div className={`${darkMode ? 'bg-slate-800 border-slate-700 shadow-slate-950/20' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-xl border transition-colors`}>
+                      <h3 className={`font-bold mb-4 ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>Ações de Controle</h3>
                       
                       <div className="space-y-3">
                           {currentUserRole === 'SOSFU_GESTOR' && (
                               <button 
                                 onClick={() => handleStatusChange('WAITING_SOSFU_EXECUTION')}
-                                className="w-full py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-sm font-bold hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2"
+                                className={`w-full py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 border ${
+                                    darkMode 
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20' 
+                                    : 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100'
+                                }`}
                               >
                                   <CheckCircle2 size={16}/> Aprovar para Execução
                               </button>
@@ -1400,7 +1471,11 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                           
                           <button 
                             onClick={() => handleStatusChange('WAITING_CORRECTION')}
-                            className="w-full py-2.5 bg-orange-50 text-orange-700 border border-orange-100 rounded-lg text-sm font-bold hover:bg-orange-100 transition-colors flex items-center justify-center gap-2"
+                            className={`w-full py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 border ${
+                                darkMode 
+                                ? 'bg-orange-500/10 text-orange-400 border-orange-500/20 hover:bg-orange-500/20' 
+                                : 'bg-orange-50 text-orange-700 border-orange-100 hover:bg-orange-100'
+                            }`}
                           >
                               <AlertTriangle size={16}/> Solicitar Correção
                           </button>
@@ -1408,7 +1483,11 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                           {currentUserRole === 'SOSFU_GESTOR' && (
                               <button 
                                 onClick={() => handleStatusChange('REJECTED')}
-                                className="w-full py-2.5 bg-red-50 text-red-700 border border-red-100 rounded-lg text-sm font-bold hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                                className={`w-full py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 border ${
+                                    darkMode 
+                                    ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20' 
+                                    : 'bg-red-50 text-red-700 border-red-100 hover:bg-red-100'
+                                }`}
                               >
                                   <Ban size={16}/> Indeferir Processo
                               </button>
@@ -1632,28 +1711,30 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
       // --- MODO MINUTA: ASSINATURA INDIVIDUAL ---
       if (isMinutaMode) {
           return (
-              <div className="bg-white p-8 rounded-xl border border-orange-200 shadow-sm">
+              <div className={`${darkMode ? 'bg-slate-800 border-orange-500/30' : 'bg-white border-orange-200'} p-8 rounded-xl border shadow-sm transition-colors`}>
                   <div className="flex items-start gap-4 mb-6">
-                      <div className="p-3 bg-orange-100 text-orange-600 rounded-lg">
+                      <div className={`p-3 rounded-lg ${darkMode ? 'bg-orange-500/20 text-orange-400' : 'bg-orange-100 text-orange-600'}`}>
                           <FileSignature size={24} />
                       </div>
                       <div>
-                          <h3 className="text-xl font-bold text-gray-800">Minutas Pendentes de Assinatura</h3>
-                          <p className="text-gray-500">O suprido tramitou documentos para sua análise e assinatura. Revise cada minuta individualmente.</p>
+                          <h3 className={`text-xl font-bold ${darkMode ? 'text-slate-100' : 'text-gray-800'}`}>Minutas Pendentes de Assinatura</h3>
+                          <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>O suprido tramitou documentos para sua análise e assinatura. Revise cada minuta individualmente.</p>
                       </div>
                   </div>
 
                   {/* Lista de Minutas */}
                   <div className="space-y-3 mb-6">
                       {processDraftDocs.map((doc: any) => (
-                          <div key={doc.id} className="flex items-center justify-between p-4 bg-orange-50/50 rounded-xl border border-orange-100 group">
+                          <div key={doc.id} className={`flex items-center justify-between p-4 rounded-xl border group transition-all ${
+                              darkMode ? 'bg-slate-900/50 border-slate-700 hover:border-orange-500/50' : 'bg-orange-50/50 border-orange-100 hover:border-orange-200'
+                          }`}>
                               <div className="flex items-center gap-3 flex-1 min-w-0">
-                                  <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${darkMode ? 'bg-orange-500/10 text-orange-500' : 'bg-orange-100 text-orange-600'}`}>
                                       <FileText size={16} />
                                   </div>
                                   <div className="min-w-0">
-                                      <p className="text-sm font-bold text-gray-800 truncate">{doc.title}</p>
-                                      <p className="text-[10px] text-gray-400 mt-0.5">
+                                      <p className={`text-sm font-bold truncate ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>{doc.title}</p>
+                                      <p className={`text-[10px] mt-0.5 ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>
                                           {doc.metadata?.subType || doc.document_type} • {new Date(doc.created_at).toLocaleDateString('pt-BR')}
                                       </p>
                                   </div>
@@ -1661,13 +1742,21 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                               <div className="flex items-center gap-2 shrink-0">
                                   <button
                                       onClick={() => setSelectedDoc(doc)}
-                                      className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                      className={`px-3 py-1.5 text-xs font-bold border rounded-lg transition-colors ${
+                                          darkMode 
+                                          ? 'bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700' 
+                                          : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                      }`}
                                   >
                                       <Eye size={12} className="inline mr-1" /> Ver
                                   </button>
                                   <button
                                       onClick={() => { setEditingDoc(doc); setNewDocModalOpen(true); }}
-                                      className="px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                                      className={`px-3 py-1.5 text-xs font-bold border rounded-lg transition-colors ${
+                                          darkMode 
+                                          ? 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20' 
+                                          : 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'
+                                      }`}
                                   >
                                       <FileSignature size={12} className="inline mr-1" /> Editar
                                   </button>
@@ -1689,7 +1778,9 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                   </div>
 
                   {/* Info box */}
-                  <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100 text-xs text-blue-700">
+                  <div className={`flex items-center gap-2 p-3 rounded-lg border text-xs transition-colors ${
+                      darkMode ? 'bg-blue-500/10 border-blue-500/20 text-blue-300' : 'bg-blue-50 border-blue-100 text-blue-700'
+                  }`}>
                       <AlertCircle size={14} className="shrink-0" />
                       <span>Ao assinar todas as minutas, o processo será devolvido automaticamente ao suprido para tramitação ao SOSFU.</span>
                   </div>
@@ -1698,7 +1789,11 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                   <div className="mt-4">
                       <button 
                           onClick={handleCorrection}
-                          className="w-full py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 text-sm"
+                          className={`w-full py-2.5 border rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm ${
+                              darkMode 
+                              ? 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600 mb-2' 
+                              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
                       >
                           <AlertTriangle size={16} /> Devolver para Correção
                       </button>
@@ -1709,14 +1804,14 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
       // --- MODO PC: ATESTO DE PRESTAÇÃO DE CONTAS (existente) ---
       return (
-          <div className="bg-white p-8 rounded-xl border border-amber-200 shadow-sm">
+          <div className={`${darkMode ? 'bg-slate-800 border-amber-500/30' : 'bg-white border-amber-200'} p-8 rounded-xl border shadow-sm transition-colors`}>
               <div className="flex items-start gap-4 mb-6">
-                  <div className="p-3 bg-amber-100 text-amber-600 rounded-lg">
+                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-600'}`}>
                       <UserCheck size={24} />
                   </div>
                   <div>
-                      <h3 className="text-xl font-bold text-gray-800">Revisão Gerencial</h3>
-                      <p className="text-gray-500">O suprido submeteu a prestação de contas. Analise os comprovantes e ateste a regularidade.</p>
+                      <h3 className={`text-xl font-bold ${darkMode ? 'text-slate-100' : 'text-gray-800'}`}>Revisão Gerencial</h3>
+                      <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>O suprido submeteu a prestação de contas. Analise os comprovantes e ateste a regularidade.</p>
                   </div>
               </div>
 
@@ -1729,7 +1824,11 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                   </button>
                   <button 
                     onClick={handleCorrection}
-                    className="flex-1 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                    className={`flex-1 py-3 border rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
+                        darkMode 
+                        ? 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600' 
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
                   >
                       <AlertTriangle size={18} /> Devolver para Correção
                   </button>
@@ -1738,19 +1837,23 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
       );
   };
 
-  if (loading) return <ProcessDetailSkeleton />;
+  if (loading) return <ProcessDetailSkeleton darkMode={darkMode} />;
 
   if (!processData) {
       return (
-          <div className="flex h-screen items-center justify-center flex-col gap-4">
+          <div className={`flex h-screen items-center justify-center flex-col gap-4 ${darkMode ? 'bg-slate-900' : 'bg-gray-50'}`}>
               <AlertTriangle className="text-red-500 w-12 h-12" />
               <div className="text-center">
-                  <h3 className="text-xl font-bold text-gray-800">Processo não encontrado</h3>
-                  <p className="text-gray-500">Não foi possível carregar os dados deste processo.</p>
+                  <h3 className={`text-xl font-bold ${darkMode ? 'text-slate-100' : 'text-gray-800'}`}>Processo não encontrado</h3>
+                  <p className={`${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>Não foi possível carregar os dados deste processo.</p>
               </div>
               <button 
                   onClick={onBack}
-                  className="px-6 py-2 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50"
+                  className={`px-6 py-2 border rounded-lg text-sm font-bold transition-colors ${
+                      darkMode 
+                      ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' 
+                      : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                  }`}
               >
                   Voltar
               </button>
@@ -1759,20 +1862,20 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
   }
 
   return (
-    <div className="bg-[#F3F4F6] min-h-screen pb-12 relative flex flex-col">
+    <div className={`${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-[#F3F4F6] text-gray-800'} min-h-screen pb-12 relative flex flex-col transition-colors duration-300`}>
         
         {/* Header Navigation */}
-        <div className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center shadow-sm sticky top-0 z-30">
+        <div className={`${darkMode ? 'bg-slate-800 border-slate-700 shadow-slate-950/20' : 'bg-white border-gray-200 shadow-sm'} px-8 py-4 flex justify-between items-center sticky top-0 z-30 transition-colors`}>
             <div className="flex items-center gap-4">
-                <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors">
+                <button onClick={onBack} className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-gray-100 text-gray-500'}`}>
                     <ArrowLeft size={20} />
                 </button>
                 <div>
-                    <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <h1 className={`text-xl font-bold flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                         {processData?.process_number}
                         <StatusBadge status={processData?.status} />
                     </h1>
-                    <p className="text-xs text-gray-500 mt-0.5 uppercase tracking-wide font-bold">
+                    <p className={`text-xs mt-0.5 uppercase tracking-wide font-bold ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>
                         {processData?.beneficiary} • {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(processData?.value || 0)}
                     </p>
                 </div>
@@ -1783,7 +1886,11 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                     <Tooltip content="Adicionar um novo documento ao dossiê digital" position="bottom">
                     <button
                         onClick={() => { setEditingDoc(null); setNewDocModalOpen(true); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all shadow-sm"
+                        className={`flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-bold transition-all shadow-sm ${
+                            darkMode 
+                            ? 'bg-slate-700 border-slate-600 text-slate-200 hover:bg-blue-600 hover:border-blue-500 hover:text-white' 
+                            : 'bg-white border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700'
+                        }`}
                     >
                         <Plus size={16} /> Novo Doc
                     </button>
@@ -1805,7 +1912,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                     <button
                         onClick={() => handleTramitar('SOSFU')}
                         disabled={tramitarLoading}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200/20 disabled:opacity-50"
                     >
                         {tramitarLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                         Tramitar → SOSFU
@@ -1813,7 +1920,9 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                 )}
                 {/* Minutas pendentes badge */}
                 {pendingMinutas.length > 0 && currentUserRole === 'USER' && (
-                    <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-1 rounded-md border border-amber-200">
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-md border ${
+                        darkMode ? 'bg-amber-900/30 text-amber-400 border-amber-800' : 'bg-amber-100 text-amber-700 border-amber-200'
+                    }`}>
                         {pendingMinutas.length} minuta(s) pendente(s)
                     </span>
                 )}
@@ -1828,11 +1937,12 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                     status={processData.status}
                     accountabilityStatus={accountabilityData?.status}
                     isRejected={processData.status === 'REJECTED' || accountabilityData?.status === 'REJECTED'}
+                    darkMode={darkMode}
                 />
             </div>
 
             {/* Abas */}
-            <div className="flex gap-2 mb-8 overflow-x-auto pb-2 no-scrollbar border-b border-gray-200">
+            <div className={`flex gap-2 mb-8 overflow-x-auto pb-2 no-scrollbar border-b ${darkMode ? 'border-slate-700' : 'border-gray-200'}`}>
                 {[
                     { id: 'OVERVIEW', label: 'Visão Geral', icon: Eye, tooltip: 'Resumo geral do processo com dados do beneficiário e valores' },
                     { id: 'DOSSIER', label: 'Dossiê Digital', icon: FolderOpen, tooltip: 'Todos os documentos do processo organizados cronologicamente' },
@@ -1849,8 +1959,8 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                         onClick={() => { setActiveTab(t.id as any); setSelectedDoc(null); }} 
                         className={`flex items-center gap-2 px-6 py-3 text-sm font-bold rounded-t-lg transition-all whitespace-nowrap border-b-2 ${
                             activeTab === t.id 
-                            ? 'border-blue-600 text-blue-600 bg-white' 
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                            ? 'border-blue-600 text-blue-600 ' + (darkMode ? 'bg-slate-800' : 'bg-white') 
+                            : (darkMode ? 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100')
                         }`}
                     >
                         <t.icon size={16} />
@@ -1862,7 +1972,9 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
             {/* CONTEÚDO PRINCIPAL (ABAS) */}
             <div className="flex-1">
-                {activeTab === 'OVERVIEW' && <OverviewTab />}
+                {activeTab === 'OVERVIEW' && (
+                    <OverviewTab />
+                )}
 
                 {activeTab === 'DOSSIER' && (
                     <div className="animate-in fade-in">
@@ -1879,7 +1991,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                 {activeTab === 'ANALYSIS' && <AnalysisTab />}
 
                 {activeTab === 'ACCOUNTABILITY' && (
-                    <div className="animate-in fade-in bg-white rounded-xl shadow-sm border border-gray-200 min-h-[600px]">
+                    <div className={`animate-in fade-in rounded-xl shadow-sm border min-h-[600px] overflow-hidden ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
                         
                         {/* CONDICIONAL APRIMORADA: EXIBE PAINEL DE AUDITORIA ESPECÍFICO (SOSFU OU SODPA) */}
                         {(currentUserRole.startsWith('SOSFU') || currentUserRole.startsWith('SODPA') || currentUserRole === 'ADMIN') ? (
@@ -1890,6 +2002,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                                     pcItems={pcItems}
                                     onRefresh={fetchProcessData}
                                     processId={processId}
+                                    darkMode={darkMode}
                                 />
                             ) : (
                                 <SosfuAuditPanel 
@@ -1899,6 +2012,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                                     pcItems={pcItems}
                                     onRefresh={fetchProcessData}
                                     processId={processId}
+                                    darkMode={darkMode}
                                 />
                             )
                         ) : currentUserRole === 'GESTOR' && (accountabilityData?.status === 'WAITING_MANAGER' || processData?.status === 'WAITING_MANAGER') ? (
@@ -1910,20 +2024,21 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                                 role={currentUserRole as any}
                                 onSuccess={fetchProcessData}
                                 isEmbedded={true}
+                                darkMode={darkMode}
                             />
                         ) : (
                             <div className="flex flex-col items-center justify-center h-[600px]">
-                                <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 mb-6">
+                                <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${darkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
                                     <Receipt size={40} />
                                 </div>
-                                <h3 className="text-xl font-bold text-gray-800">Nenhuma prestação de contas iniciada</h3>
-                                <p className="text-gray-500 mt-2 max-w-md text-center">
+                                <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Nenhuma prestação de contas iniciada</h3>
+                                <p className={`mt-2 max-w-md text-center ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>
                                     Este processo ainda não possui uma prestação de contas vinculada. Se o recurso já foi liberado, inicie o processo abaixo.
                                 </p>
                                 <button 
                                     onClick={handleInitAccountability}
                                     disabled={creatingPC}
-                                    className="mt-8 px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg shadow-blue-200"
+                                    className="mt-8 px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg shadow-blue-200/20"
                                 >
                                     {creatingPC ? <Loader2 className="animate-spin" /> : <Plus size={20} />}
                                     Iniciar Prestação de Contas
@@ -1934,10 +2049,11 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                 )}
 
                 {activeTab === 'AUDIT' && (
-                    <div className="animate-in fade-in bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div className={`animate-in fade-in rounded-xl shadow-sm border p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
                         <AuditLogTab 
                             solicitationId={processId}
                             processDocuments={documents}
+                            darkMode={darkMode}
                         />
                     </div>
                 )}
@@ -1947,30 +2063,32 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                         {processData?.status === 'ARCHIVED' ? (
                             <div className="space-y-6">
                                 {/* Header do Arquivo */}
-                                <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-8 text-white">
+                                <div className={`rounded-2xl p-8 text-white shadow-xl transition-all ${
+                                    darkMode ? 'bg-slate-800 border border-slate-700 shadow-slate-950/40' : 'bg-gradient-to-r from-slate-800 to-slate-900 shadow-slate-900/20'
+                                }`}>
                                     <div className="flex items-center gap-4 mb-6">
-                                        <div className="w-14 h-14 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center">
+                                        <div className={`w-14 h-14 rounded-xl flex items-center justify-center backdrop-blur transition-colors ${darkMode ? 'bg-emerald-500/10' : 'bg-white/10'}`}>
                                             <Archive size={28} className="text-emerald-400" />
                                         </div>
                                         <div>
                                             <h2 className="text-2xl font-bold">Processo Arquivado</h2>
-                                            <p className="text-slate-400 text-sm mt-1">Baixa efetuada no SIAFE — Processo encerrado</p>
+                                            <p className={`${darkMode ? 'text-slate-500' : 'text-slate-400'} text-sm mt-1`}>Baixa efetuada no SIAFE — Processo encerrado</p>
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-5">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Nº do Processo</p>
+                                        <div className={`backdrop-blur border rounded-xl p-5 transition-colors ${darkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-white/5 border-white/10'}`}>
+                                            <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Nº do Processo</p>
                                             <p className="text-lg font-mono font-bold text-white">{processData.process_number}</p>
                                         </div>
-                                        <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-5">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">NL SIAFE</p>
+                                        <div className={`backdrop-blur border rounded-xl p-5 transition-colors ${darkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-white/5 border-white/10'}`}>
+                                            <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>NL SIAFE</p>
                                             <p className="text-lg font-mono font-bold text-emerald-400">
                                                 {processData.nl_siafe || <span className="text-slate-500 italic text-sm">Não informada</span>}
                                             </p>
                                         </div>
-                                        <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-5">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Data da Baixa</p>
+                                        <div className={`backdrop-blur border rounded-xl p-5 transition-colors ${darkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-white/5 border-white/10'}`}>
+                                            <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Data da Baixa</p>
                                             <p className="text-lg font-bold text-white">
                                                 {processData.data_baixa 
                                                     ? new Date(processData.data_baixa).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -1982,33 +2100,33 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                                 </div>
 
                                 {/* Resumo do Processo */}
-                                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                                    <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
-                                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                                <div className={`rounded-2xl shadow-sm overflow-hidden border transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'}`}>
+                                    <div className={`px-6 py-4 border-b transition-colors ${darkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-100'}`}>
+                                        <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-100' : 'text-gray-800'}`}>
                                             <FileText size={16} className="text-blue-600" />
                                             Resumo do Processo Arquivado
                                         </h3>
                                     </div>
                                     <div className="p-6">
                                         <table className="w-full">
-                                            <tbody className="divide-y divide-gray-100">
+                                            <tbody className={`divide-y transition-colors ${darkMode ? 'divide-slate-700' : 'divide-gray-100'}`}>
                                                 <tr>
-                                                    <td className="py-3 text-sm font-bold text-gray-500 w-48">Suprido / Beneficiário</td>
-                                                    <td className="py-3 text-sm text-gray-800 font-medium">{processData.beneficiary?.toUpperCase()}</td>
+                                                    <td className={`py-3 text-sm font-bold w-48 ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Suprido / Beneficiário</td>
+                                                    <td className={`py-3 text-sm font-medium ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>{processData.beneficiary?.toUpperCase()}</td>
                                                 </tr>
                                                 <tr>
-                                                    <td className="py-3 text-sm font-bold text-gray-500">Unidade / Lotação</td>
-                                                    <td className="py-3 text-sm text-gray-800">{processData.unit?.split('[')[0]?.trim() || '---'}</td>
+                                                    <td className={`py-3 text-sm font-bold ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Unidade / Lotação</td>
+                                                    <td className={`py-3 text-sm ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>{processData.unit?.split('[')[0]?.trim() || '---'}</td>
                                                 </tr>
                                                 <tr>
-                                                    <td className="py-3 text-sm font-bold text-gray-500">Valor Concedido</td>
-                                                    <td className="py-3 text-sm text-gray-800 font-mono font-bold">
+                                                    <td className={`py-3 text-sm font-bold ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Valor Concedido</td>
+                                                    <td className={`py-3 text-sm font-mono font-bold ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>
                                                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(processData.value)}
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td className="py-3 text-sm font-bold text-gray-500">Período do Evento</td>
-                                                    <td className="py-3 text-sm text-gray-800">
+                                                    <td className={`py-3 text-sm font-bold ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Período do Evento</td>
+                                                    <td className={`py-3 text-sm ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>
                                                         {(() => {
                                                             const formatDate = (dateStr: string) => {
                                                                 if (!dateStr) return 'N/I';
@@ -2020,37 +2138,41 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td className="py-3 text-sm font-bold text-gray-500">Data da Solicitação</td>
-                                                    <td className="py-3 text-sm text-gray-800">
+                                                    <td className={`py-3 text-sm font-bold ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Data da Solicitação</td>
+                                                    <td className={`py-3 text-sm ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>
                                                         {new Date(processData.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td className="py-3 text-sm font-bold text-gray-500">NL SIAFE</td>
+                                                    <td className={`py-3 text-sm font-bold ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>NL SIAFE</td>
                                                     <td className="py-3">
                                                         {processData.nl_siafe ? (
-                                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-bold font-mono">
+                                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 border rounded-full text-xs font-bold font-mono transition-colors ${
+                                                                darkMode ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                            }`}>
                                                                 <Database size={12} />
                                                                 {processData.nl_siafe}
                                                             </span>
                                                         ) : (
-                                                            <span className="text-sm text-gray-400 italic">Pendente de registro</span>
+                                                            <span className={`text-sm italic transition-colors ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>Pendente de registro</span>
                                                         )}
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td className="py-3 text-sm font-bold text-gray-500">Data da Baixa SIAFE</td>
-                                                    <td className="py-3 text-sm text-gray-800">
+                                                    <td className={`py-3 text-sm font-bold ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Data da Baixa SIAFE</td>
+                                                    <td className={`py-3 text-sm transition-colors ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>
                                                         {processData.data_baixa 
                                                             ? new Date(processData.data_baixa).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                                                            : <span className="text-gray-400 italic">---</span>
+                                                            : <span className={`${darkMode ? 'text-slate-600' : 'text-gray-400'} italic`}>---</span>
                                                         }
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td className="py-3 text-sm font-bold text-gray-500">Status Final</td>
+                                                    <td className={`py-3 text-sm font-bold ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Status Final</td>
                                                     <td className="py-3">
-                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-700 border border-slate-200 rounded-full text-xs font-bold uppercase">
+                                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-full text-xs font-bold uppercase transition-colors ${
+                                                            darkMode ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-slate-100 text-slate-700 border-slate-200'
+                                                        }`}>
                                                             <Archive size={12} />
                                                             Arquivado
                                                         </span>
@@ -2062,9 +2184,9 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                                 </div>
 
                                 {/* Documentação Gerada */}
-                                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                                    <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
-                                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                                <div className={`rounded-2xl shadow-sm overflow-hidden border transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'}`}>
+                                    <div className={`px-6 py-4 border-b transition-colors ${darkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-100'}`}>
+                                        <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-slate-100' : 'text-gray-800'}`}>
                                             <FolderOpen size={16} className="text-amber-600" />
                                             Documentação do Processo ({documents.length} documentos)
                                         </h3>
@@ -2076,50 +2198,56 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                                                     <button
                                                         key={doc.id || i}
                                                         onClick={() => setSelectedDoc(doc)}
-                                                        className="flex items-center gap-3 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 transition-all text-left group"
+                                                        className={`flex items-center gap-3 p-4 border rounded-xl transition-all text-left group ${
+                                                            darkMode 
+                                                            ? 'border-slate-700 hover:border-blue-500 hover:bg-slate-700/50' 
+                                                            : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                                                        }`}
                                                     >
-                                                        <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                                                            <FileText size={18} className="text-blue-600" />
+                                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+                                                            darkMode ? 'bg-slate-700 text-blue-400 group-hover:bg-slate-600' : 'bg-blue-50 text-blue-600 group-hover:bg-blue-100'
+                                                        }`}>
+                                                            <FileText size={18} />
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-bold text-gray-800 truncate">{doc.title}</p>
-                                                            <p className="text-[10px] text-gray-400 mt-0.5">
+                                                            <p className={`text-sm font-bold truncate transition-colors ${darkMode ? 'text-slate-100' : 'text-gray-800'}`}>{doc.title}</p>
+                                                            <p className={`text-[10px] mt-0.5 transition-colors ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>
                                                                 {new Date(doc.created_at).toLocaleDateString('pt-BR')} • FLS. {String(i + 1).padStart(2, '0')}
                                                             </p>
                                                         </div>
-                                                        <Eye size={14} className="text-gray-300 group-hover:text-blue-500 transition-colors" />
+                                                        <Eye size={14} className={`transition-colors ${darkMode ? 'text-slate-600 group-hover:text-blue-400' : 'text-gray-300 group-hover:text-blue-500'}`} />
                                                     </button>
                                                 ))}
                                             </div>
                                         ) : (
-                                            <p className="text-sm text-gray-400 text-center py-8">Nenhum documento vinculado.</p>
+                                            <p className={`text-sm text-center py-8 transition-colors ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>Nenhum documento vinculado.</p>
                                         )}
                                     </div>
                                 </div>
 
                                 {/* Selo de Integridade */}
-                                <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center">
-                                        <Lock size={16} className="text-slate-600" />
+                                <div className={`rounded-xl border p-4 flex items-center gap-4 transition-colors ${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${darkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-200 text-slate-600'}`}>
+                                        <Lock size={16} />
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-xs font-bold text-slate-600 uppercase">Processo Encerrado e Arquivado</p>
-                                        <p className="text-[11px] text-slate-400 mt-0.5">
+                                        <p className={`text-xs font-bold uppercase transition-colors ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>Processo Encerrado e Arquivado</p>
+                                        <p className={`text-[11px] mt-0.5 transition-colors ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>
                                             Este processo foi baixado no SIAFE e arquivado definitivamente. Nenhuma alteração é permitida após o arquivamento.
                                         </p>
                                     </div>
-                                    <div className="text-[10px] font-mono text-slate-400">
+                                    <div className={`text-[10px] font-mono transition-colors ${darkMode ? 'text-slate-600' : 'text-gray-400'}`}>
                                         ID: {processData.id?.split('-')[0]}
                                     </div>
                                 </div>
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center h-[500px]">
-                                <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 mb-6">
+                                <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 transition-colors ${darkMode ? 'bg-slate-800 text-slate-600' : 'bg-slate-100 text-slate-400'}`}>
                                     <Archive size={40} />
                                 </div>
-                                <h3 className="text-xl font-bold text-gray-800">Processo ainda não arquivado</h3>
-                                <p className="text-gray-500 mt-2 max-w-md text-center">
+                                <h3 className={`text-xl font-bold transition-colors ${darkMode ? 'text-slate-100' : 'text-gray-800'}`}>Processo ainda não arquivado</h3>
+                                <p className={`mt-2 max-w-md text-center transition-colors ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>
                                     O arquivo ficará disponível após a baixa do processo no SIAFE. 
                                     O processo atual está em <strong>{processData?.status || '---'}</strong>.
                                 </p>
@@ -2138,20 +2266,24 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                     onClick={() => setSelectedDoc(null)}
                 >
                     <div
-                        className={`bg-white rounded-xl shadow-2xl w-full h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 relative ${
+                        className={`rounded-xl shadow-2xl w-full h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 relative ${
                             isUploadedPdf ? 'max-w-5xl' : 'max-w-4xl'
-                        }`}
+                        } ${darkMode ? 'bg-slate-900 border border-slate-700' : 'bg-white'}`}
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header do Modal */}
-                        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/80 backdrop-blur sticky top-0 z-10 shrink-0">
-                            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                        <div className={`px-6 py-4 border-b flex justify-between items-center backdrop-blur sticky top-0 z-10 shrink-0 transition-colors ${
+                            darkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-gray-50/80 border-gray-200'
+                        }`}>
+                            <h3 className={`font-bold flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                                 <FileText size={18} className="text-blue-600"/>
                                 {selectedDoc.title}
                             </h3>
                             <button
                                 onClick={() => setSelectedDoc(null)}
-                                className="p-2 bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 rounded-full transition-all"
+                                className={`p-2 rounded-full transition-all ${
+                                    darkMode ? 'bg-slate-700 hover:bg-red-500/20 text-slate-400 hover:text-red-400' : 'bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600'
+                                }`}
                                 title="Fechar (ESC)"
                             >
                                 <X size={20} />
@@ -2160,12 +2292,12 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
 
                         {/* Conteúdo do Modal - adaptativo para PDF vs template */}
                         {isUploadedPdf ? (
-                            <div className="flex-1 flex flex-col overflow-hidden">
+                            <div className={`flex-1 flex flex-col overflow-hidden transition-colors ${darkMode ? 'bg-slate-950' : ''}`}>
                                 {renderDocumentContent(selectedDoc)}
                             </div>
                         ) : (
-                            <div className="flex-1 overflow-y-auto p-8 bg-slate-100/50 flex justify-center custom-scrollbar">
-                                <div className="w-full max-w-[210mm] bg-white shadow-lg min-h-[297mm] origin-top">
+                            <div className={`flex-1 overflow-y-auto p-8 flex justify-center custom-scrollbar transition-colors ${darkMode ? 'bg-slate-950' : 'bg-slate-100/50'}`}>
+                                <div className={`w-full max-w-[210mm] shadow-lg min-h-[297mm] origin-top transition-colors ${darkMode ? 'bg-slate-900 shadow-slate-950/40' : 'bg-white'}`}>
                                     {renderDocumentContent(selectedDoc)}
                                 </div>
                             </div>
@@ -2182,6 +2314,7 @@ export const ProcessDetailView: React.FC<ProcessDetailViewProps> = ({ processId,
                     editingDoc={editingDoc}
                     onClose={() => { setNewDocModalOpen(false); setEditingDoc(null); }}
                     onSave={() => fetchProcessData()}
+                    darkMode={darkMode}
                 />
             )}
         </div>

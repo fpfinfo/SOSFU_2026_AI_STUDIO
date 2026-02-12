@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { Loader2, AlertCircle } from 'lucide-react';
 
@@ -22,13 +22,13 @@ interface MapIsochrone {
 }
 
 interface GoogleMapPremiumProps {
-    origin?: [number, number]; // [lng, lat]
-    destination?: [number, number]; // [lng, lat]
+    origin?: [number, number]; // [lat, lng] - Standard project format
+    destination?: [number, number]; // [lat, lng] - Standard project format
     markers?: MapMarker[];
     isochrones?: MapIsochrone[];
     onRouteCalculated?: (distance_km: number, duration_min: number) => void;
     onMarkerClick?: (marker: MapMarker) => void;
-    center?: [number, number]; // [lng, lat]
+    center?: [number, number]; // [lat, lng]
     zoom?: number;
     className?: string;
     mapType?: 'roadmap' | 'satellite' | 'hybrid' | 'terrain';
@@ -41,7 +41,12 @@ declare global {
     }
 }
 
-export const GoogleMapPremium: React.FC<GoogleMapPremiumProps> = ({ 
+export interface GoogleMapPremiumHandle {
+    getMap: () => any;
+    getStreetView: () => any;
+}
+
+export const GoogleMapPremium = forwardRef<GoogleMapPremiumHandle, GoogleMapPremiumProps>(({ 
     origin, 
     destination, 
     markers = [],
@@ -52,7 +57,7 @@ export const GoogleMapPremium: React.FC<GoogleMapPremiumProps> = ({
     zoom,
     className = "",
     mapType = 'roadmap'
-}) => {
+}, ref) => {
     const mapRef = useRef<HTMLDivElement>(null);
     const googleMapRef = useRef<any>(null);
     const polylineRef = useRef<any>(null);
@@ -60,6 +65,13 @@ export const GoogleMapPremium: React.FC<GoogleMapPremiumProps> = ({
     const dataMarkersRef = useRef<any[]>([]);
     const isochronesRef = useRef<any[]>([]);
     const infoWindowRef = useRef<any>(null);
+    const directionsServiceRef = useRef<any>(null);
+    const directionsRendererRef = useRef<any>(null);
+
+    useImperativeHandle(ref, () => ({
+        getMap: () => googleMapRef.current,
+        getStreetView: () => googleMapRef.current?.getStreetView()
+    }));
     
     const [isLoaded, setIsLoaded] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -92,39 +104,6 @@ export const GoogleMapPremium: React.FC<GoogleMapPremiumProps> = ({
         loadScript();
     }, []);
 
-    // Inicializar o Mapa
-    useEffect(() => {
-        if (isLoaded && mapRef.current && !googleMapRef.current) {
-            const initialPos = center ? { lat: center[1], lng: center[0] } : (origin ? { lat: origin[1], lng: origin[0] } : { lat: -1.4558, lng: -48.4902 });
-            
-            googleMapRef.current = new window.google.maps.Map(mapRef.current, {
-                center: initialPos,
-                zoom: zoom || 13,
-                mapTypeId: mapType,
-                mapTypeControl: true,
-                streetViewControl: true,
-                fullscreenControl: true,
-                styles: [
-                    {
-                        featureType: "poi",
-                        elementType: "labels",
-                        stylers: [{ visibility: "off" }]
-                    }
-                ]
-            });
-
-            infoWindowRef.current = new window.google.maps.InfoWindow();
-        }
-    }, [isLoaded, mapType, center, zoom, origin]);
-
-    // Sincronizar Center/Zoom externo
-    useEffect(() => {
-        if (googleMapRef.current && center) {
-            googleMapRef.current.panTo({ lat: center[1], lng: center[0] });
-            if (zoom) googleMapRef.current.setZoom(zoom);
-        }
-    }, [center, zoom]);
-
     const clearRouteAndMarkers = useCallback(() => {
         if (polylineRef.current) polylineRef.current.setMap(null);
         markersRef.current.forEach(m => m.setMap(null));
@@ -132,7 +111,7 @@ export const GoogleMapPremium: React.FC<GoogleMapPremiumProps> = ({
     }, []);
 
     const renderDataMarkers = useCallback(() => {
-        if (!googleMapRef.current) return;
+        if (!googleMapRef.current || !(googleMapRef.current instanceof window.google.maps.Map)) return;
 
         // Limpar marcadores de dados anteriores
         dataMarkersRef.current.forEach(m => m.setMap(null));
@@ -172,7 +151,7 @@ export const GoogleMapPremium: React.FC<GoogleMapPremiumProps> = ({
     }, [markers, onMarkerClick]);
 
     const renderIsochrones = useCallback(() => {
-        if (!googleMapRef.current) return;
+        if (!googleMapRef.current || !(googleMapRef.current instanceof window.google.maps.Map)) return;
 
         isochronesRef.current.forEach(p => p.setMap(null));
         isochronesRef.current = [];
@@ -192,72 +171,130 @@ export const GoogleMapPremium: React.FC<GoogleMapPremiumProps> = ({
         });
     }, [isochrones]);
 
+    // Inicializar o Mapa
     useEffect(() => {
-        if (isLoaded) {
+        if (isLoaded && mapRef.current && !googleMapRef.current) {
+            const initialPos = center ? { lat: center[0], lng: center[1] } : (origin ? { lat: origin[0], lng: origin[1] } : { lat: -1.4550, lng: -48.5024 });
+            
+            const map = new window.google.maps.Map(mapRef.current, {
+                center: initialPos,
+                zoom: zoom || 13,
+                mapTypeId: mapType,
+                mapTypeControl: true,
+                streetViewControl: true,
+                fullscreenControl: true,
+                styles: [
+                    {
+                        featureType: "poi",
+                        elementType: "labels",
+                        stylers: [{ visibility: "off" }]
+                    }
+                ]
+            });
+
+            googleMapRef.current = map;
+
+            infoWindowRef.current = new window.google.maps.InfoWindow();
+            directionsServiceRef.current = new window.google.maps.DirectionsService();
+            directionsRendererRef.current = new window.google.maps.DirectionsRenderer({
+                map: map,
+                suppressMarkers: true,
+                polylineOptions: {
+                    strokeColor: '#0d9488',
+                    strokeWeight: 6,
+                    strokeOpacity: 0.8
+                }
+            });
+
+            // Forçar renderização inicial de dados após pequena pausa para garantir que o Map está "ready" internamente
+            setTimeout(() => {
+                if (googleMapRef.current) {
+                    renderDataMarkers();
+                    renderIsochrones();
+                }
+            }, 100);
+        }
+
+        return () => {
+            // Limpeza opcional se necessário, mas googleMapRef.current persistirá entre re-renders
+        };
+    }, [isLoaded, mapType, center, zoom, origin, renderDataMarkers, renderIsochrones]);
+
+    // Sincronizar Center/Zoom externo
+    useEffect(() => {
+        if (googleMapRef.current && center && (googleMapRef.current instanceof window.google.maps.Map)) {
+            googleMapRef.current.panTo({ lat: center[0], lng: center[1] });
+            if (zoom) googleMapRef.current.setZoom(zoom);
+        }
+    }, [center, zoom]);
+
+
+    useEffect(() => {
+        if (isLoaded && googleMapRef.current) {
             renderDataMarkers();
             renderIsochrones();
         }
-    }, [isLoaded, renderDataMarkers, renderIsochrones]);
+    }, [isLoaded, markers, isochrones, renderDataMarkers, renderIsochrones]);
 
     const calculateRoute = useCallback(async () => {
-        if (!origin || !destination || !googleMapRef.current) return;
+        if (!origin || !destination || !googleMapRef.current || !(googleMapRef.current instanceof window.google.maps.Map) || !directionsServiceRef.current) return;
         
         setLoading(true);
         setError(null);
         try {
-            const { data, error: fnError } = await supabase.functions.invoke('google-maps-proxy', {
-                body: { action: 'route', from: origin, to: destination }
+            const request = {
+                origin: { lat: origin[0], lng: origin[1] },
+                destination: { lat: destination[0], lng: destination[1] },
+                travelMode: window.google.maps.TravelMode.DRIVING
+            };
+
+            directionsServiceRef.current.route(request, (result: any, status: string) => {
+                if (status === window.google.maps.DirectionsStatus.OK && result && result.routes && result.routes.length > 0) {
+                    directionsRendererRef.current.setDirections(result);
+                    
+                    const route = result.routes[0].legs[0];
+                    if (!route) {
+                        setError("Dados de rota corrompidos.");
+                        setLoading(false);
+                        return;
+                    }
+                    
+                    clearRouteAndMarkers();
+
+                    const originMarker = new window.google.maps.Marker({
+                        position: route.start_location,
+                        map: googleMapRef.current,
+                        label: 'A',
+                        title: 'Origem: TJPA Sede',
+                        zIndex: 30
+                    });
+
+                    const destMarker = new window.google.maps.Marker({
+                        position: route.end_location,
+                        map: googleMapRef.current,
+                        label: 'B',
+                        title: 'Destino',
+                        zIndex: 30
+                    });
+
+                    markersRef.current = [originMarker, destMarker];
+
+                    if (onRouteCalculated) {
+                        onRouteCalculated(route.distance.value / 1000, route.duration.value / 60);
+                    }
+                } else {
+                    console.error("Directions Status:", status, result);
+                    if (status === 'ZERO_RESULTS') {
+                        setError("Nenhuma rota encontrada (verifique se as coordenadas estão corretas).");
+                    } else {
+                        setError(`Falha no cálculo: ${status}`);
+                    }
+                }
+                setLoading(false);
             });
-
-            if (fnError) throw new Error("Erro de comunicação com o servidor de rotas.");
-            if (data.error) throw new Error(data.message);
-
-            const coordinates = data.features[0].geometry.coordinates as [number, number][];
-            const summary = data.features[0].properties.summary;
-
-            clearRouteAndMarkers();
-
-            const path = coordinates.map(c => ({ lat: c[1], lng: c[0] }));
-
-            polylineRef.current = new window.google.maps.Polyline({
-                path: path,
-                geodesic: true,
-                strokeColor: '#0d9488',
-                strokeOpacity: 0.8,
-                strokeWeight: 6,
-                map: googleMapRef.current,
-                zIndex: 20
-            });
-
-            const originMarker = new window.google.maps.Marker({
-                position: path[0],
-                map: googleMapRef.current,
-                label: 'A',
-                title: 'Origem',
-                zIndex: 30
-            });
-
-            const destMarker = new window.google.maps.Marker({
-                position: path[path.length - 1],
-                map: googleMapRef.current,
-                label: 'B',
-                title: 'Destino',
-                zIndex: 30
-            });
-
-            markersRef.current = [originMarker, destMarker];
-
-            const bounds = new window.google.maps.LatLngBounds();
-            path.forEach(p => bounds.extend(p));
-            googleMapRef.current.fitBounds(bounds, 50);
-
-            if (onRouteCalculated) {
-                onRouteCalculated(summary.distance / 1000, summary.duration / 60);
-            }
         } catch (err: any) {
-            console.error("Erro no roteamento Google Premium:", err);
-            setError(err.message || "Falha ao calcular rota oficial.");
-        } finally {
+            console.error("Erro no roteamento Google Nativo:", err);
+            setError("Falha ao processar requisição de rota.");
             setLoading(false);
         }
     }, [origin, destination, clearRouteAndMarkers, onRouteCalculated]);
@@ -301,4 +338,4 @@ export const GoogleMapPremium: React.FC<GoogleMapPremiumProps> = ({
             )}
         </div>
     );
-};
+});

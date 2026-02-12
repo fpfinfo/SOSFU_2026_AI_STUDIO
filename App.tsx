@@ -18,7 +18,7 @@ import { SeadDashboard } from './components/sead/SeadDashboard';
 import { PresidenciaDashboard } from './components/presidencia/PresidenciaDashboard';
 import { SodpaCockpit } from './components/sodpa/SodpaCockpit';
 import { RessarcimentoCockpit } from './components/ressarcimento/RessarcimentoCockpit';
-import { SosfuInbox } from './components/sosfu/SosfuInbox';
+import { SosfuWorkstation } from './components/sosfu/SosfuWorkstation';
 import { EmergencySolicitation } from './components/suprido/EmergencySolicitation';
 import { JurySolicitation } from './components/suprido/JurySolicitation';
 import { DiariasSolicitation } from './components/suprido/DiariasSolicitation';
@@ -65,8 +65,20 @@ const App: React.FC = () => {
   const [processInitialTab, setProcessInitialTab] = useState<ProcessTabType>('OVERVIEW');
   const [availableRoles, setAvailableRoles] = useState<{slug: string, name: string}[]>([]);
 
-  // Perfil Simulado State (Persistente)
   const [simulatedRole, setSimulatedRole] = useState<string | null>(localStorage.getItem('simulated_role'));
+  const [darkMode, setDarkMode] = useState<boolean>(localStorage.getItem('global_dark_mode') === 'true');
+
+  // Sync Dark Mode with Document and Ref
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('global_dark_mode', darkMode.toString());
+  }, [darkMode]);
+
+  const toggleDarkMode = () => setDarkMode(!darkMode);
 
   useEffect(() => {
     // Escuta mudanças no localStorage para alternar abas reativamente
@@ -312,13 +324,19 @@ const App: React.FC = () => {
       case 'dashboard':
         return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
-                {stats.map((stat) => (
-                  <StatCard key={stat.id} data={stat} />
-                ))}
-             </div>
-             <SosfuInbox onNavigate={handleNavigation} userProfile={currentUserProfile} />
-             <TeamTable isGestor={true} />
+              {currentUserProfile?.dperfil?.slug?.startsWith('SOSFU') || currentUserProfile?.dperfil?.slug === 'ADMIN' ? (
+                <SosfuWorkstation onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} />
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+                    {stats.map((stat) => (
+                      <StatCard key={stat.id} data={stat} />
+                    ))}
+                  </div>
+                  <SosfuWorkstation onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} />
+                  <TeamTable isGestor={true} />
+                </>
+              )}
           </div>
         );
       case 'suprido_dashboard':
@@ -330,19 +348,19 @@ const App: React.FC = () => {
       case 'gestor_dashboard':
         return <GestorDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} />;
       case 'sefin_dashboard':
-        return <SefinCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} />;
+        return <SefinCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />;
       case 'ajsefin_dashboard':
-        return <AjsefinCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} />;
+        return <AjsefinCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />;
       case 'sgp_dashboard':
-        return <SgpDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} />;
+        return <SgpDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} />;
       case 'sead_dashboard':
-        return <SeadDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} />;
+        return <SeadDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} />;
       case 'presidencia_dashboard':
-        return <PresidenciaDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} />;
+        return <PresidenciaDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} />;
       case 'sodpa_dashboard':
-        return <SodpaCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} />;
+        return <SodpaCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />;
       case 'ressarcimento_dashboard':
-        return <RessarcimentoCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} />;
+        return <RessarcimentoCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />;
       case 'solicitation_emergency':
         return <EmergencySolicitation onNavigate={handleNavigation} />;
       case 'solicitation_jury':
@@ -373,7 +391,7 @@ const App: React.FC = () => {
                     if (role.startsWith('RESSARCIMENTO')) return setActiveTab('ressarcimento_dashboard');
                     if (role === 'GESTOR') return setActiveTab('gestor_dashboard');
                     if (role === 'USER') return setActiveTab('suprido_dashboard');
-                    if (role.startsWith('SOSFU') || role === 'ADMIN') return setActiveTab('accountability');
+                    if (role.startsWith('SOSFU') || role === 'ADMIN') return setActiveTab('dashboard');
                     return setActiveTab('dashboard');
                 }} 
             />
@@ -429,9 +447,11 @@ const App: React.FC = () => {
         onNavigate={handleNavigation}
         userProfile={currentUserProfile}
         availableRoles={availableRoles}
+        darkMode={darkMode}
+        onToggleDarkMode={toggleDarkMode}
       />
       
-      {['sefin_dashboard', 'ajsefin_dashboard', 'sodpa_dashboard', 'ressarcimento_dashboard', 'sgp_dashboard', 'sead_dashboard', 'presidencia_dashboard'].includes(activeTab || '') ? (
+      {['dashboard', 'sefin_dashboard', 'ajsefin_dashboard', 'sodpa_dashboard', 'ressarcimento_dashboard', 'sgp_dashboard', 'sead_dashboard', 'presidencia_dashboard'].includes(activeTab || '') ? (
         <div id="main-content">{renderContent()}</div>
       ) : (
         <main id="main-content" className="max-w-[1600px] mx-auto px-6 py-8">

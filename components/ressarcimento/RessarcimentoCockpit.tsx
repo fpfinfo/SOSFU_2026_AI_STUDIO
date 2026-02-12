@@ -14,12 +14,13 @@ const DARK_MODE_KEY = 'ressarcimento_dark_mode';
 interface RessarcimentoCockpitProps {
     onNavigate: (page: string, processId?: string) => void;
     userProfile: any;
+    darkMode?: boolean;
+    onToggleDarkMode?: () => void;
 }
 
-export const RessarcimentoCockpit: React.FC<RessarcimentoCockpitProps> = ({ onNavigate, userProfile }) => {
+export const RessarcimentoCockpit: React.FC<RessarcimentoCockpitProps> = ({ onNavigate, userProfile, darkMode = false, onToggleDarkMode }) => {
     const [activeView, setActiveView] = useState<RessarcimentoViewType>('control');
     const [lastSeenCount, setLastSeenCount] = useState(0);
-    const [darkMode, setDarkMode] = useState(false);
     const [pendingCount, setPendingCount] = useState(0);
     const [urgentCount, setUrgentCount] = useState(0);
 
@@ -27,9 +28,6 @@ export const RessarcimentoCockpit: React.FC<RessarcimentoCockpitProps> = ({ onNa
     useEffect(() => {
         const savedCount = localStorage.getItem(SEEN_COUNT_KEY);
         if (savedCount) setLastSeenCount(parseInt(savedCount, 10) || 0);
-
-        const savedDark = localStorage.getItem(DARK_MODE_KEY);
-        if (savedDark) setDarkMode(savedDark === 'true');
     }, []);
 
     // Fetch pending counts
@@ -62,18 +60,22 @@ export const RessarcimentoCockpit: React.FC<RessarcimentoCockpitProps> = ({ onNa
 
     const newCount = Math.max(0, pendingCount - lastSeenCount);
 
+    // Keyboard shortcut for dark mode (D)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+            if (e.key === 'd' || e.key === 'D') {
+                onToggleDarkMode?.();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onToggleDarkMode]);
+
     const handleAcknowledgeNew = useCallback(() => {
         localStorage.setItem(SEEN_COUNT_KEY, pendingCount.toString());
         setLastSeenCount(pendingCount);
     }, [pendingCount]);
-
-    const handleToggleDarkMode = useCallback(() => {
-        setDarkMode(prev => {
-            const next = !prev;
-            localStorage.setItem(DARK_MODE_KEY, next.toString());
-            return next;
-        });
-    }, []);
 
     const renderActiveView = () => {
         switch (activeView) {
@@ -108,7 +110,7 @@ export const RessarcimentoCockpit: React.FC<RessarcimentoCockpitProps> = ({ onNa
                 pendingCount={pendingCount}
                 urgentCount={urgentCount}
                 darkMode={darkMode}
-                onToggleDarkMode={handleToggleDarkMode}
+                onToggleDarkMode={onToggleDarkMode}
             />
 
             <main className="flex-1 overflow-auto">
