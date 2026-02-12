@@ -5,8 +5,7 @@ import {
     BarChart3, Mail, Scale, TrendingUp, Building2, MapPin
 } from 'lucide-react';
 import { GoogleMapPremium } from '../ui/Map/GoogleMapPremium';
-
-// Remoção dos estilos Leaflet e componentes auxiliares de mapa antigos
+import { CURRENCY_COMPACT, CURRENCY_FULL } from '../../lib/utils';
 
 // ==================== TYPES ====================
 interface ElementoDespesa {
@@ -62,8 +61,6 @@ interface SefinMapViewProps {
 }
 
 // ==================== CONSTANTS ====================
-const CURRENCY_COMPACT = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' });
-const CURRENCY_FULL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const INITIAL_CENTER: [number, number] = [-3.5, -52];
 
 // Elementos de despesa permitidos para Suprimento de Fundos (CNJ 169/2013)
@@ -84,8 +81,6 @@ function seededRandom(seed: number): number {
     const x = Math.sin(seed) * 10000;
     return x - Math.floor(x);
 }
-
-// Remoção do MapController Leaflet
 
 // ==================== POPUP CONTENT ====================
 const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
@@ -158,9 +153,9 @@ const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
                     <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
                         <div
                             className={`h-full rounded-full transition-all ${
-                                prestadoPct >= 80 ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' :
-                                prestadoPct >= 50 ? 'bg-gradient-to-r from-amber-400 to-amber-500' :
-                                'bg-gradient-to-r from-red-400 to-red-500'
+                                prestadoPct >= 80 ? 'bg-linear-to-r from-emerald-400 to-emerald-600' :
+                                prestadoPct >= 50 ? 'bg-linear-to-r from-amber-400 to-amber-500' :
+                                'bg-linear-to-r from-red-400 to-red-500'
                             }`}
                             style={{ width: `${Math.min(100, prestadoPct)}%` }}
                         />
@@ -242,8 +237,6 @@ const SidebarItem = memo(({ stat, isSelected, onClick }: {
         </div>
     </button>
 ));
-
-// Remoção dos componentes de marcador do Leaflet
 
 // ==================== MAIN COMPONENT ====================
 export const SefinMapView: React.FC<SefinMapViewProps> = ({ darkMode = false }) => {
@@ -521,7 +514,7 @@ export const SefinMapView: React.FC<SefinMapViewProps> = ({ darkMode = false }) 
                     />
 
                     {/* Legend */}
-                    <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm p-3 rounded-xl shadow-lg border border-gray-200 z-[1000] text-xs">
+                    <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm p-3 rounded-xl shadow-lg border border-gray-200 z-1000 text-xs">
                         <div className="flex items-center gap-2 mb-2">
                             <BarChart3 size={13} className="text-gray-400" />
                             <span className="font-black text-gray-600 uppercase text-[10px] tracking-wider">Legenda</span>
@@ -557,7 +550,7 @@ export const SefinMapView: React.FC<SefinMapViewProps> = ({ darkMode = false }) 
                     </div>
 
                     {/* Stats Badge */}
-                    <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg border border-gray-200 z-[1000]">
+                    <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg border border-gray-200 z-1000">
                         <div className="flex items-center gap-2">
                             <TrendingUp size={13} className="text-emerald-500" />
                             <span className="text-[10px] font-bold text-slate-600">

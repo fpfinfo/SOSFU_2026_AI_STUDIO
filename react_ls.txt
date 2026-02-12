@@ -1,0 +1,36 @@
+sosfu---tjpa@0.0.0 C:\Users\fabio.freitas\Documents\GitHub\SOSFU_2026_AI_STUDIO-claude-improve-fund-services-wGWdK
+Ôö£ÔöÇÔö¼ @react-google-maps/api@2.20.8
+Ôöé ÔööÔöÇÔöÇ react@18.2.0 deduped
+Ôö£ÔöÇÔö¼ framer-motion@12.34.0
+Ôöé ÔööÔöÇÔöÇ react@18.2.0 deduped
+Ôö£ÔöÇÔö¼ lucide-react@0.563.0
+Ôöé ÔööÔöÇÔöÇ react@18.2.0 deduped
+Ôö£ÔöÇÔö¼ react-dom@18.2.0
+Ôöé ÔööÔöÇÔöÇ react@18.2.0 deduped
+Ôö£ÔöÇÔö¼ react-leaflet@4.2.1
+Ôöé Ôö£ÔöÇÔö¼ @react-leaflet/core@2.1.0
+Ôöé Ôöé ÔööÔöÇÔöÇ react@18.2.0 deduped
+Ôöé ÔööÔöÇÔöÇ react@18.2.0 deduped
+Ôö£ÔöÇÔöÇ react@18.2.0
+ÔööÔöÇÔö¼ recharts@3.7.0
+  Ôö£ÔöÇÔö¼ @reduxjs/toolkit@2.11.2
+  Ôöé ÔööÔöÇÔöÇ react@18.2.0 deduped
+  Ôö£ÔöÇÔö¼ react-redux@9.2.0
+  Ôöé ÔööÔöÇÔöÇ react@18.2.0 deduped
+  Ôö£ÔöÇÔöÇ react@18.2.0 deduped
+  ÔööÔöÇÔö¼ use-sync-external-store@1.6.0
+    ÔööÔöÇÔöÇ react@18.2.0 deduped
+
+sosfu---tjpa@0.0.0 C:\Users\fabio.freitas\Documents\GitHub\SOSFU_2026_AI_STUDIO-claude-improve-fund-services-wGWdK
+Ôö£ÔöÇÔö¼ @react-google-maps/api@2.20.8
+Ôöé ÔööÔöÇÔöÇ react-dom@18.2.0 deduped
+Ôö£ÔöÇÔö¼ framer-motion@12.34.0
+Ôöé ÔööÔöÇÔöÇ react-dom@18.2.0 deduped
+Ôö£ÔöÇÔöÇ react-dom@18.2.0
+Ôö£ÔöÇÔö¼ react-leaflet@4.2.1
+Ôöé Ôö£ÔöÇÔö¼ @react-leaflet/core@2.1.0
+Ôöé Ôöé ÔööÔöÇÔöÇ react-dom@18.2.0 deduped
+Ôöé ÔööÔöÇÔöÇ react-dom@18.2.0 deduped
+ÔööÔöÇÔö¼ recharts@3.7.0
+  ÔööÔöÇÔöÇ react-dom@18.2.0 deduped
+

@@ -18,16 +18,18 @@ import { SeadDashboard } from './components/sead/SeadDashboard';
 import { PresidenciaDashboard } from './components/presidencia/PresidenciaDashboard';
 import { SodpaCockpit } from './components/sodpa/SodpaCockpit';
 import { RessarcimentoCockpit } from './components/ressarcimento/RessarcimentoCockpit';
-import { SosfuInbox } from './components/sosfu/SosfuInbox';
+import { SosfuWorkstation } from './components/sosfu/SosfuWorkstation';
 import { EmergencySolicitation } from './components/suprido/EmergencySolicitation';
 import { JurySolicitation } from './components/suprido/JurySolicitation';
 import { DiariasSolicitation } from './components/suprido/DiariasSolicitation';
 import { RessarcimentoSolicitation } from './components/suprido/RessarcimentoSolicitation';
 import { ProcessDetailView } from './components/process/ProcessDetailView';
 import { AccountabilityWizard } from './components/accountability/AccountabilityWizard';
+import { SupridoFormsView } from './components/suprido/SupridoFormsView';
+import { SupridoProcessesView } from './components/suprido/SupridoProcessesView';
 import { LoginView } from './components/LoginView';
 import { DASHBOARD_STATS } from './constants';
-import { Loader2, Map as MapIcon } from 'lucide-react';
+import { Loader2, Map as MapIcon, LayoutDashboard } from 'lucide-react';
 
 // Lazy-load: Leaflet (~300KB) é carregado apenas quando o usuário abre a aba Relatórios
 const LazyReportsView = React.lazy(() => import('./components/ReportsView').then(m => ({ default: m.ReportsView })));
@@ -63,8 +65,20 @@ const App: React.FC = () => {
   const [processInitialTab, setProcessInitialTab] = useState<ProcessTabType>('OVERVIEW');
   const [availableRoles, setAvailableRoles] = useState<{slug: string, name: string}[]>([]);
 
-  // Perfil Simulado State (Persistente)
   const [simulatedRole, setSimulatedRole] = useState<string | null>(localStorage.getItem('simulated_role'));
+  const [darkMode, setDarkMode] = useState<boolean>(localStorage.getItem('global_dark_mode') === 'true');
+
+  // Sync Dark Mode with Document and Ref
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('global_dark_mode', darkMode.toString());
+  }, [darkMode]);
+
+  const toggleDarkMode = () => setDarkMode(!darkMode);
 
   useEffect(() => {
     // Escuta mudanças no localStorage para alternar abas reativamente
@@ -121,17 +135,25 @@ const App: React.FC = () => {
       try {
           // 1. Caixa de Entrada (Solicitações aguardando SOSFU + PC aguardando SOSFU)
           // Inclui: WAITING_SOSFU_ANALYSIS (Novas) + WAITING_SOSFU_EXECUTION (Execução)
-          const { count: inboxSol } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).in('status', ['WAITING_SOSFU_ANALYSIS', 'WAITING_SOSFU_EXECUTION']);
-          const { count: inboxPC } = await supabase.from('accountabilities').select('*', { count: 'exact', head: true }).eq('status', 'WAITING_SOSFU');
+          const { count: inboxSol, error: errInboxSol } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).in('status', ['WAITING_SOSFU_ANALYSIS', 'WAITING_SOSFU_EXECUTION']);
+          const { count: inboxPC, error: errInboxPC } = await supabase.from('accountabilities').select('*', { count: 'exact', head: true }).eq('status', 'WAITING_SOSFU');
+          
+          if (errInboxSol) console.error("Header: Erro ao buscar contagem de solicitações (inbox):", errInboxSol);
+          if (errInboxPC) console.error("Header: Erro ao buscar contagem de prestações de contas (inbox):", errInboxPC);
           
           // 2. Minha Mesa (Solicitações atribuídas a mim)
-          const { count: mySol } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).eq('analyst_id', userId).neq('status', 'PAID');
+          const { count: mySol, error: errMySol } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).eq('analyst_id', userId).neq('status', 'PAID');
           
           // 3. Minha Mesa (PCs atribuídas a mim)
-          const { count: myPC } = await supabase.from('accountabilities').select('*', { count: 'exact', head: true }).eq('analyst_id', userId).eq('status', 'WAITING_SOSFU');
+          const { count: myPC, error: errMyPC } = await supabase.from('accountabilities').select('*', { count: 'exact', head: true }).eq('analyst_id', userId).eq('status', 'WAITING_SOSFU');
+          
+          if (errMySol) console.error("Header: Erro ao buscar contagem de 'Minha Mesa' (solicitações):", errMySol);
+          if (errMyPC) console.error("Header: Erro ao buscar contagem de 'Minha Mesa' (prestação de contas):", errMyPC);
 
           // 4. Fluxo SEFIN (Waiting SEFIN)
-          const { count: sefin } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).eq('status', 'WAITING_SEFIN_SIGNATURE');
+          const { count: sefin, error: errSefin } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).eq('status', 'WAITING_SEFIN_SIGNATURE');
+          
+          if (errSefin) console.error("Header: Erro ao buscar contagem de processos na SEFIN:", errSefin);
 
           const newStats = [...DASHBOARD_STATS];
           newStats[0] = { ...newStats[0], count: (inboxSol || 0) + (inboxPC || 0), details: [`${inboxSol} Solicitações`, `${inboxPC} Prest. Contas`] };
@@ -310,33 +332,43 @@ const App: React.FC = () => {
       case 'dashboard':
         return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
-                {stats.map((stat) => (
-                  <StatCard key={stat.id} data={stat} />
-                ))}
-             </div>
-             <SosfuInbox onNavigate={handleNavigation} userProfile={currentUserProfile} />
-             <TeamTable isGestor={true} />
+              {currentUserProfile?.dperfil?.slug?.startsWith('SOSFU') || currentUserProfile?.dperfil?.slug === 'ADMIN' ? (
+                <SosfuWorkstation onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} />
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+                    {stats.map((stat) => (
+                      <StatCard key={stat.id} data={stat} />
+                    ))}
+                  </div>
+                  <SosfuWorkstation onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} />
+                  <TeamTable isGestor={true} />
+                </>
+              )}
           </div>
         );
       case 'suprido_dashboard':
         return <SupridoDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} />;
+      case 'suprido_forms':
+        return <SupridoFormsView onNavigate={handleNavigation} onBack={() => setActiveTab('suprido_dashboard')} />;
+      case 'suprido_processes':
+        return <SupridoProcessesView onNavigate={handleNavigation} onBack={() => setActiveTab('suprido_dashboard')} />;
       case 'gestor_dashboard':
         return <GestorDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} />;
       case 'sefin_dashboard':
-        return <SefinCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} />;
+        return <SefinCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />;
       case 'ajsefin_dashboard':
-        return <AjsefinCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} />;
+        return <AjsefinCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />;
       case 'sgp_dashboard':
-        return <SgpDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} />;
+        return <SgpDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} />;
       case 'sead_dashboard':
-        return <SeadDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} />;
+        return <SeadDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} />;
       case 'presidencia_dashboard':
-        return <PresidenciaDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} />;
+        return <PresidenciaDashboard onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} />;
       case 'sodpa_dashboard':
-        return <SodpaCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} />;
+        return <SodpaCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />;
       case 'ressarcimento_dashboard':
-        return <RessarcimentoCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} />;
+        return <RessarcimentoCockpit onNavigate={handleNavigation} userProfile={currentUserProfile} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />;
       case 'solicitation_emergency':
         return <EmergencySolicitation onNavigate={handleNavigation} />;
       case 'solicitation_jury':
@@ -367,7 +399,7 @@ const App: React.FC = () => {
                     if (role.startsWith('RESSARCIMENTO')) return setActiveTab('ressarcimento_dashboard');
                     if (role === 'GESTOR') return setActiveTab('gestor_dashboard');
                     if (role === 'USER') return setActiveTab('suprido_dashboard');
-                    if (role.startsWith('SOSFU') || role === 'ADMIN') return setActiveTab('accountability');
+                    if (role.startsWith('SOSFU') || role === 'ADMIN') return setActiveTab('dashboard');
                     return setActiveTab('dashboard');
                 }} 
             />
@@ -417,15 +449,19 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary fallbackTitle="Erro no Sistema SOSFU">
     <div className="min-h-screen bg-[#F8FAFC]">
+      {!['sodpa_dashboard', 'ressarcimento_dashboard'].includes(activeTab || '') && (
       <Header 
         activeTab={activeTab} 
         onTabChange={(tab) => handleNavigation(tab)}
         onNavigate={handleNavigation}
         userProfile={currentUserProfile}
         availableRoles={availableRoles}
+        darkMode={darkMode}
+        onToggleDarkMode={toggleDarkMode}
       />
+      )}
       
-      {['sefin_dashboard', 'ajsefin_dashboard', 'sodpa_dashboard', 'ressarcimento_dashboard', 'sgp_dashboard', 'sead_dashboard', 'presidencia_dashboard'].includes(activeTab || '') ? (
+      {['dashboard', 'sefin_dashboard', 'ajsefin_dashboard', 'sodpa_dashboard', 'ressarcimento_dashboard', 'sgp_dashboard', 'sead_dashboard', 'presidencia_dashboard'].includes(activeTab || '') ? (
         <div id="main-content">{renderContent()}</div>
       ) : (
         <main id="main-content" className="max-w-[1600px] mx-auto px-6 py-8">

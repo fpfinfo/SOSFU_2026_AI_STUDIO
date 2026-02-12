@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Shield, User, Settings, LogOut, ChevronDown, LayoutDashboard, FileText, CheckSquare, PieChart, Briefcase, Gavel, Scale, Archive, Map } from 'lucide-react';
+import { Shield, User, Settings, LogOut, ChevronDown, LayoutDashboard, FileText, CheckSquare, PieChart, Briefcase, Gavel, Scale, Archive, Map, Sun, Moon, Bell } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { NotificationPanel } from './NotificationPanel';
 import { Tooltip } from './ui/Tooltip';
@@ -10,6 +10,8 @@ interface HeaderProps {
   onNavigate?: (page: string, processId?: string) => void;
   userProfile?: any;
   availableRoles?: {slug: string, name: string}[];
+  darkMode?: boolean;
+  onToggleDarkMode?: () => void;
 }
 
 // ==================== MODULE CONFIGS ====================
@@ -158,7 +160,7 @@ const INDEPENDENT_MODULES = [
   'sodpa_dashboard', 'ressarcimento_dashboard', 'sgp_dashboard', 'sead_dashboard', 'presidencia_dashboard'
 ];
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNavigate, userProfile, availableRoles = [] }) => {
+export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNavigate, userProfile, availableRoles = [], darkMode = false, onToggleDarkMode }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -296,38 +298,39 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
 
   return (
     <>
-    <header className="bg-white border-b border-gray-200 h-16 px-4 md:px-6 flex items-center justify-between sticky top-0 z-50" role="banner">
+    <header className={`${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'} h-16 px-4 md:px-6 flex items-center justify-between sticky top-0 z-50 transition-colors duration-300`} role="banner">
       <div className="flex items-center gap-6">
         <div className="relative" ref={switcherRef}>
             <button 
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-all duration-300 ${isSwitcherOpen ? 'bg-blue-50 border-blue-200 shadow-inner' : 'bg-white border-transparent hover:bg-gray-50'}`}
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-all duration-300 ${isSwitcherOpen ? (darkMode ? 'bg-slate-800 border-slate-700 shadow-inner' : 'bg-blue-50 border-blue-200 shadow-inner') : (darkMode ? 'bg-slate-900 border-transparent hover:bg-slate-800' : 'bg-white border-transparent hover:bg-gray-50')}`}
                 onClick={() => setIsSwitcherOpen(!isSwitcherOpen)}
             >
                 <div className="relative">
-                    <img src="/assets/brasao-tjpa.png" alt="Brasão TJPA" className={`h-9 md:h-10 w-auto transition-transform duration-500 ${isSwitcherOpen ? 'scale-110 rotate-3' : 'group-hover:scale-105'}`}/>
+                    <img src="/assets/brasao-tjpa.png" alt="Brasão TJPA" className={`h-9 md:h-10 w-auto transition-transform duration-500 filter ${darkMode ? 'brightness-125' : ''} ${isSwitcherOpen ? 'scale-110 rotate-3' : 'group-hover:scale-105'}`}/>
                     {isSwitcherOpen && <span className="absolute -top-1 -right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span></span>}
                 </div>
                 <div className="hidden lg:block text-left">
                     <div className="flex items-center gap-1.5">
-                        <h1 className={`${titleColor} font-black text-[15px] leading-tight tracking-tight`}>{headerTitle}</h1>
-                        <ChevronDown size={14} className={`text-gray-300 transition-transform duration-300 ${isSwitcherOpen ? 'rotate-180 text-blue-500' : ''}`} />
+                        <h1 className={`${darkMode ? 'text-slate-100' : titleColor} font-black text-[15px] leading-tight tracking-tight`}>{headerTitle}</h1>
+                        <ChevronDown size={14} className={`${darkMode ? 'text-slate-600' : 'text-gray-300'} transition-transform duration-300 ${isSwitcherOpen ? 'rotate-180 text-blue-500' : ''}`} />
                     </div>
-                    <p className={`${subtitleColor} text-[9px] font-black tracking-[0.1em] uppercase opacity-80 flex items-center gap-1`}>
+                    <p className={`${darkMode ? 'text-slate-400' : subtitleColor} text-[9px] font-black tracking-[0.1em] uppercase opacity-80 flex items-center gap-1`}>
                         {headerSubtitle}
                     </p>
                 </div>
             </button>
 
+
             {/* Master Switcher Dropdown (Modules + Roles) */}
             {isSwitcherOpen && (
-                <div className="absolute top-full left-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col animate-in zoom-in-95 fade-in duration-200 z-[70] overflow-hidden">
+                <div className={`absolute top-full left-0 mt-3 w-80 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-2xl shadow-2xl border flex flex-col animate-in zoom-in-95 fade-in duration-200 z-[70] overflow-hidden`}>
                     
                     {/* Role Simulation Section (Profiles) - Only for multi-role/admin */}
                     {availableRoles.length > 1 && (
-                        <div className="p-3 bg-slate-50 border-b border-slate-100">
+                        <div className={`p-3 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-b border-slate-100'}`}>
                              <div className="flex items-center justify-between mb-2 px-2">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Simular Perfil de Acesso</p>
-                                <Shield size={12} className="text-slate-300" />
+                                <p className={`text-[10px] font-black ${darkMode ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-widest`}>Simular Perfil de Acesso</p>
+                                <Shield size={12} className={darkMode ? 'text-slate-600' : 'text-slate-300'} />
                              </div>
                              <div className="grid grid-cols-2 gap-2">
                                 {availableRoles.map(r => (
@@ -335,8 +338,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
                                         key={r.slug}
                                         onClick={() => handleRoleSwitch(r.slug)}
                                         className={`px-3 py-2 rounded-lg text-[11px] font-bold uppercase transition-all flex items-center justify-center border text-center ${userRole === r.slug 
-                                            ? 'bg-blue-600 text-white border-blue-600 shadow-md scale-[1.02]' 
-                                            : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-sm'}`}
+                                            ? (darkMode ? 'bg-blue-600 text-white border-blue-600 shadow-md scale-[1.02]' : 'bg-blue-600 text-white border-blue-600 shadow-md scale-[1.02]') 
+                                            : (darkMode ? 'bg-slate-800 text-slate-400 border-slate-700 hover:border-blue-500 hover:text-blue-400' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-sm')}`}
                                     >
                                         {(r.name || r.slug).split(' ')[0]}
                                     </button>
@@ -344,6 +347,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
                              </div>
                         </div>
                     )}
+
 
                     <div className="p-3 max-h-[60vh] overflow-y-auto">
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2 mb-2">Dashboards Oficiais</p>
@@ -426,8 +430,22 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
         )}
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        {/* Dark Mode Toggle */}
+        <button
+            onClick={onToggleDarkMode}
+            className={`p-2 rounded-lg transition-all flex items-center justify-center ${
+                darkMode
+                    ? 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
+                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+            }`}
+            title={darkMode ? "Ativar Modo Claro" : "Ativar Modo Escuro"}
+        >
+            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
+
         <NotificationPanel userId={userProfile?.id} onNavigate={onNavigate} />
+
         
         {/* User Dropdown */}
         <div className="relative" ref={menuRef}>
@@ -439,10 +457,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
                 aria-haspopup="true"
             >
                 <div className="text-right hidden md:block group-hover:opacity-100 transition-opacity">
-                    <p className="text-xs font-bold text-gray-800 uppercase leading-none mb-1">{userProfile?.full_name?.split(' ')[0] || 'Usuário'}</p>
+                    <p className={`text-xs font-bold ${darkMode ? 'text-slate-200' : 'text-gray-800'} uppercase leading-none mb-1`}>{userProfile?.full_name?.split(' ')[0] || 'Usuário'}</p>
                     <div className="flex items-center justify-end gap-1">
                         <span className={`w-1.5 h-1.5 rounded-full ${userRole === 'ADMIN' ? 'bg-red-500' : 'bg-green-500'}`}></span>
-                        <p className="text-[10px] text-gray-500 font-medium leading-none">{userProfile?.dperfil?.name || 'Carregando...'}</p>
+                        <p className={`text-[10px] ${darkMode ? 'text-slate-500' : 'text-gray-500'} font-medium leading-none`}>{userProfile?.dperfil?.name || 'Carregando...'}</p>
                     </div>
                 </div>
                 <div className="relative">
@@ -473,6 +491,29 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onNaviga
                             {userProfile?.dperfil?.name}
                         </span>
                     </div>
+
+                    {/* Mobile Navigation (Tabs) */}
+                    {visibleTabs.length > 0 && (
+                        <div className="md:hidden py-1 border-b border-gray-100">
+                            <p className="px-4 py-1 text-[10px] font-black uppercase text-gray-400 tracking-widest">Navegação</p>
+                            {visibleTabs.map(tab => {
+                                const Icon = tab.icon;
+                                const isActive = activeTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => { setIsMenuOpen(false); onTabChange && onTabChange(tab.id); }}
+                                        className={`w-full px-4 py-2 text-left text-sm flex items-center gap-3 transition-colors ${isActive ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
+                                    >
+                                        <Icon size={16} className={isActive ? 'text-blue-600' : 'text-gray-400'} />
+                                        <span>{tab.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+
+
 
                     <div className="py-1">
                         <button 

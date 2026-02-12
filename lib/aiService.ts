@@ -5,14 +5,19 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
  * Switched to OpenRouter as primary provider per user request.
  */
 
-// Production OpenRouter Key (Updated 2026-02-11)
-const OPENROUTER_API_KEY = "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";
-const DEFAULT_OPENROUTER_MODEL = "openrouter/pony-alpha"; // Can be swapped to "anthropic/claude-3-haiku" or "google/gemini-pro" via OpenRouter if needed
+// OpenRouter Configuration (Primary AI Provider)
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || "";
+const DEFAULT_OPENROUTER_MODEL = "openrouter/pony-alpha";
 const FALLBACK_OPENROUTER_MODEL = "anthropic/claude-3-haiku";
 
 // Gemini Configuration (Secondary/Fallback)
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const DEFAULT_GEMINI_MODEL = "gemini-1.5-flash";
+
+// Validate keys at startup
+if (!OPENROUTER_API_KEY) {
+    console.warn("[Sentinela IA] VITE_OPENROUTER_API_KEY não configurada. O provedor primário de IA não funcionará.");
+}
 
 // Initialize Gemini Client
 const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;

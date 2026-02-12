@@ -3,13 +3,12 @@ import { supabase } from '../../lib/supabase';
 import { 
     Loader2, Map as MapIcon, DollarSign, Search, Navigation, 
     BarChart3, Mail, Scale, TrendingUp, Building2, MapPin, 
-    ChevronRight, Filter
+    ChevronRight, Filter, X
 } from 'lucide-react';
 import { GoogleMapPremium } from '../ui/Map/GoogleMapPremium';
+import { MapDetailCard } from '../reports/MapDetailCard';
 import { useExpenseElements } from '../../hooks/useExpenseElements';
-
-
-// Remoção dos estilos Leaflet e componentes auxiliares de mapa antigos
+import { CURRENCY_COMPACT, CURRENCY_FULL } from '../../lib/utils';
 
 // ==================== SIDEBAR ITEM ====================
 const SidebarItem = memo(({ stat, isSelected, onClick }: {
@@ -19,7 +18,7 @@ const SidebarItem = memo(({ stat, isSelected, onClick }: {
         onClick={onClick}
         className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all text-left group ${
             isSelected
-                ? 'bg-emerald-50 border-emerald-200 ring-1 ring-emerald-100'
+                ? 'bg-sky-50 border-sky-200 ring-1 ring-sky-100'
                 : 'bg-white border-transparent hover:bg-gray-50 hover:border-gray-200'
         }`}
     >
@@ -27,18 +26,18 @@ const SidebarItem = memo(({ stat, isSelected, onClick }: {
             <div className={`w-7 h-7 flex items-center justify-center rounded-full text-[9px] font-bold shrink-0 ${
                 stat.totalConcedido > 50000 ? 'bg-red-100 text-red-600' :
                     stat.totalConcedido > 20000 ? 'bg-amber-100 text-amber-600' :
-                        'bg-emerald-100 text-emerald-600'
+                        'bg-sky-100 text-sky-600'
             }`}>
                 {stat.comarca.slice(0, 2).toUpperCase()}
             </div>
             <div className="min-w-0">
-                <p className={`text-xs font-bold truncate ${isSelected ? 'text-emerald-700' : 'text-gray-700'}`}>{stat.comarca}</p>
+                <p className={`text-xs font-bold truncate ${isSelected ? 'text-sky-700' : 'text-gray-700'}`}>{stat.comarca}</p>
                 <p className="text-[10px] text-gray-400 truncate">{stat.entrancia} · {stat.processCount} proc.</p>
             </div>
         </div>
         <div className="text-right shrink-0 ml-2">
             <span className="text-xs font-bold text-gray-600 block">{CURRENCY_COMPACT.format(stat.totalConcedido)}</span>
-            <Navigation size={10} className={`ml-auto mt-0.5 ${isSelected ? 'text-emerald-500' : 'text-gray-300 group-hover:text-emerald-400'}`} />
+            <Navigation size={10} className={`ml-auto mt-0.5 ${isSelected ? 'text-sky-500' : 'text-gray-300 group-hover:text-sky-400'}`} />
         </div>
     </button>
 ));
@@ -97,8 +96,6 @@ interface SodpaGeoMapProps {
 }
 
 // ==================== CONSTANTS ====================
-const CURRENCY_COMPACT = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' });
-const CURRENCY_FULL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const INITIAL_CENTER: [number, number] = [-3.5, -52];
 
 const ENTRANCIA_RANGES: Record<string, [number, number]> = {
@@ -148,7 +145,7 @@ const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
                             <img src={stat.juiz.avatar_url} alt={stat.juiz.name}
                                 className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-md" />
                         ) : (
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center text-sm font-black text-white border-2 border-white shadow-md">
+                            <div className="w-12 h-12 rounded-full bg-linear-to-br from-amber-300 to-amber-500 flex items-center justify-center text-sm font-black text-white border-2 border-white shadow-md">
                                 {initials}
                             </div>
                         )}
@@ -234,7 +231,6 @@ const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
 });
 
 // ==================== SIDEBAR ITEM ====================
-// Remoção dos componentes de marcador do Leaflet
 
 // ==================== MAIN COMPONENT ====================
 export const SodpaGeoMap: React.FC<SodpaGeoMapProps> = ({ darkMode = false }) => {
@@ -429,7 +425,7 @@ export const SodpaGeoMap: React.FC<SodpaGeoMapProps> = ({ darkMode = false }) =>
     if (loading) {
         return (
             <div className={`flex flex-col items-center justify-center h-[600px] rounded-xl ${darkMode ? 'bg-slate-800' : 'bg-slate-50'}`}>
-                <Loader2 className="w-12 h-12 text-emerald-600 animate-spin mb-4" />
+                <Loader2 className="w-12 h-12 text-sky-600 animate-spin mb-4" />
                 <p className={`font-medium ${darkMode ? 'text-slate-300' : 'text-gray-500'}`}>Carregando mapa de situação geográfica...</p>
                 <p className={`text-xs mt-2 ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>Processando dados de Diárias e Passagens</p>
             </div>
@@ -441,7 +437,7 @@ export const SodpaGeoMap: React.FC<SodpaGeoMapProps> = ({ darkMode = false }) =>
             {/* Header */}
             <div className={`flex flex-col md:flex-row justify-between items-center gap-4 p-4 rounded-2xl border shadow-sm shrink-0 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
                 <div className="flex items-center gap-3">
-                    <div className={`p-2.5 rounded-xl ${darkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}><MapIcon size={24} /></div>
+                    <div className={`p-2.5 rounded-xl ${darkMode ? 'bg-sky-500/10 text-sky-400' : 'bg-sky-50 text-sky-600'}`}><MapIcon size={24} /></div>
                     <div>
                         <h2 className={`text-lg font-black leading-none ${darkMode ? 'text-white' : 'text-gray-800'}`}>Mapa de Situação Geográfica</h2>
                         <p className={`text-xs mt-1 ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Distribuição de despesas por comarca do Estado do Pará</p>
@@ -449,7 +445,7 @@ export const SodpaGeoMap: React.FC<SodpaGeoMapProps> = ({ darkMode = false }) =>
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="text-center px-4 border-r border-slate-200">
-                        <p className="text-lg font-black text-emerald-600 font-mono">{CURRENCY_COMPACT.format(totalGeral)}</p>
+                        <p className="text-lg font-black text-sky-600 font-mono">{CURRENCY_COMPACT.format(totalGeral)}</p>
                         <p className="text-[9px] text-slate-400 uppercase font-bold">Total Concedido</p>
                     </div>
                     <div className="text-center px-4 border-r border-slate-200">
@@ -477,7 +473,7 @@ export const SodpaGeoMap: React.FC<SodpaGeoMapProps> = ({ darkMode = false }) =>
                             <input
                                 type="text"
                                 placeholder="Buscar comarca ou unidade..."
-                                className={`w-full pl-8 pr-3 py-1.5 border rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 ${darkMode ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500' : 'bg-white border-gray-200'}`}
+                                className={`w-full pl-8 pr-3 py-1.5 border rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 ${darkMode ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500' : 'bg-white border-gray-200'}`}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
@@ -489,7 +485,7 @@ export const SodpaGeoMap: React.FC<SodpaGeoMapProps> = ({ darkMode = false }) =>
                                 onClick={() => setFilterType('all')}
                                 className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-md text-[10px] font-bold transition-all ${
                                     filterType === 'all' 
-                                    ? 'bg-white text-emerald-600 shadow-sm' 
+                                    ? 'bg-white text-sky-600 shadow-sm' 
                                     : 'text-slate-500 hover:text-slate-700'
                                 }`}
                             >
@@ -499,7 +495,7 @@ export const SodpaGeoMap: React.FC<SodpaGeoMapProps> = ({ darkMode = false }) =>
                                 onClick={() => setFilterType('comarcas')}
                                 className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-md text-[10px] font-bold transition-all ${
                                     filterType === 'comarcas' 
-                                    ? 'bg-white text-emerald-600 shadow-sm' 
+                                    ? 'bg-white text-sky-600 shadow-sm' 
                                     : 'text-slate-500 hover:text-slate-700'
                                 }`}
                             >
@@ -509,7 +505,7 @@ export const SodpaGeoMap: React.FC<SodpaGeoMapProps> = ({ darkMode = false }) =>
                                 onClick={() => setFilterType('unidades')}
                                 className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-md text-[10px] font-bold transition-all ${
                                     filterType === 'unidades' 
-                                    ? 'bg-white text-emerald-600 shadow-sm' 
+                                    ? 'bg-white text-sky-600 shadow-sm' 
                                     : 'text-slate-500 hover:text-slate-700'
                                 }`}
                             >
@@ -594,12 +590,46 @@ export const SodpaGeoMap: React.FC<SodpaGeoMapProps> = ({ darkMode = false }) =>
                         onMarkerClick={(marker) => {
                             if (typeof marker.id === 'string' && marker.id.startsWith('comarca-')) {
                                 setSelectedComarca(marker.data.comarca);
-                                setMapFocus({ center: [marker.lng, marker.lat], zoom: 10 });
+                                setMapFocus({ center: [marker.lat, marker.lng], zoom: 10 });
                             } else {
-                                setMapFocus({ center: [marker.lng, marker.lat], zoom: 12 });
+                                setMapFocus({ center: [marker.lat, marker.lng], zoom: 12 });
                             }
                         }}
                     />
+
+                    {/* Floating Immersive Dashboard (Modal Overlay) */}
+                    {selectedComarca && (
+                        <div className="absolute inset-0 z-[2000] flex items-center justify-center p-4 md:p-8 animate-in zoom-in-95 duration-300 pointer-events-none">
+                            <div className="w-[95%] h-[95%] bg-white/95 backdrop-blur-xl rounded-[40px] shadow-2xl border border-white/50 flex flex-col overflow-hidden pointer-events-auto">
+                                <div className="p-1.5 flex justify-end">
+                                    <button 
+                                        onClick={() => {
+                                            setSelectedComarca(null);
+                                            setMapFocus({ center: INITIAL_CENTER, zoom: 6 });
+                                        }}
+                                        className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all shadow-sm"
+                                    >
+                                        <X size={20} />
+                                    </button>
+                                </div>
+                                <div className="flex-1 overflow-y-auto px-4 pb-8">
+                                    {(() => {
+                                        const stat = stats.find(s => s.comarca === selectedComarca);
+                                        return stat ? (
+                                            <MapDetailCard 
+                                                data={stat} 
+                                                onClose={() => {
+                                                    setSelectedComarca(null);
+                                                    setMapFocus({ center: INITIAL_CENTER, zoom: 6 });
+                                                }}
+                                                isDashboard={true}
+                                            />
+                                        ) : null;
+                                    })()}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Legend */}
                     <div className={`absolute bottom-4 left-4 p-3 rounded-xl shadow-lg border z-[1000] text-xs ${darkMode ? 'bg-slate-800/95 border-slate-700 text-slate-300' : 'bg-white/95 border-gray-200 text-gray-600'}`}>

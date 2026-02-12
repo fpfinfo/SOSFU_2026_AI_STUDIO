@@ -25,7 +25,7 @@ const SOSFU_MEMBERS_PER_PAGE = 8;
 const TEAM_MODULE = 'SOSFU';
 
 // ==================== COMPONENT ====================
-export const TeamTable: React.FC<{ isGestor?: boolean }> = ({ isGestor = false }) => {
+export const TeamTable: React.FC<{ isGestor?: boolean; hideHeader?: boolean }> = ({ isGestor = false, hideHeader = false }) => {
     const [members, setMembers] = useState<SosfuTeamMember[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -146,16 +146,19 @@ export const TeamTable: React.FC<{ isGestor?: boolean }> = ({ isGestor = false }
     return (
         <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100 mb-20">
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                        <Users size={18} className="text-blue-600" />
+            <div className="flex flex-wrap items-center justify-between mb-4 gap-3">
+                {!hideHeader ? (
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                            <Users size={18} className="text-blue-600" />
+                        </div>
+                        <h2 className="text-lg font-black text-slate-800">Gestão de Equipe</h2>
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                            {members.length}
+                        </span>
                     </div>
-                    <h2 className="text-lg font-black text-slate-800">Gestão de Equipe</h2>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
-                        {members.length}
-                    </span>
-                </div>
+                ) : <div />}
+                
                 <div className="flex items-center gap-3">
                     {/* Table search filter */}
                     {members.length > 3 && (
@@ -188,6 +191,7 @@ export const TeamTable: React.FC<{ isGestor?: boolean }> = ({ isGestor = false }
 
             {members.length > 0 ? (
                 <div className="rounded-2xl border shadow-sm overflow-hidden bg-white border-slate-200">
+                    <div className="overflow-x-auto">
                     {/* Table */}
                     <table className="w-full">
                         <thead>
@@ -336,6 +340,7 @@ export const TeamTable: React.FC<{ isGestor?: boolean }> = ({ isGestor = false }
                             })}
                         </tbody>
                     </table>
+                    </div>
 
                     {/* Pagination Footer */}
                     {totalPages > 1 && (

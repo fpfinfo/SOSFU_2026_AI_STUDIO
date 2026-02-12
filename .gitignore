@@ -21,6 +21,9 @@ dist-ssr
 __ref_repo/
 sosfu2026_ref/
 
+# Claude Code
+.claude/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { SodpaHeader } from './SodpaHeader';
 import type { SodpaViewType } from './SodpaHeader';
 import { SodpaDashboard } from './SodpaDashboard';
+import { SodpaWorkstation } from './SodpaWorkstation';
 import { SodpaProcessManagement } from './SodpaProcessManagement';
 import { SodpaAccountability } from './SodpaAccountability';
 import { SodpaSettings } from './SodpaSettings';
@@ -15,16 +16,17 @@ const DARK_MODE_KEY = 'sodpa_dark_mode';
 interface SodpaCockpitProps {
     onNavigate: (page: string, processId?: string) => void;
     userProfile: any;
+    darkMode?: boolean;
+    onToggleDarkMode?: () => void;
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
 // MAIN COCKPIT COMPONENT
 // ════════════════════════════════════════════════════════════════════════════════
 
-export const SodpaCockpit: React.FC<SodpaCockpitProps> = ({ onNavigate, userProfile }) => {
+export const SodpaCockpit: React.FC<SodpaCockpitProps> = ({ onNavigate, userProfile, darkMode = false, onToggleDarkMode }) => {
     const [activeView, setActiveView] = useState<SodpaViewType>('control');
     const [lastSeenCount, setLastSeenCount] = useState(0);
-    const [darkMode, setDarkMode] = useState(false);
     const [pendingCount, setPendingCount] = useState(0);
     const [urgentCount, setUrgentCount] = useState(0);
 
@@ -32,9 +34,6 @@ export const SodpaCockpit: React.FC<SodpaCockpitProps> = ({ onNavigate, userProf
     useEffect(() => {
         const savedCount = localStorage.getItem(SEEN_COUNT_KEY);
         if (savedCount) setLastSeenCount(parseInt(savedCount, 10) || 0);
-
-        const savedDark = localStorage.getItem(DARK_MODE_KEY);
-        if (savedDark) setDarkMode(savedDark === 'true');
     }, []);
 
     // Fetch pending counts
@@ -73,30 +72,21 @@ export const SodpaCockpit: React.FC<SodpaCockpitProps> = ({ onNavigate, userProf
         setLastSeenCount(pendingCount);
     }, [pendingCount]);
 
-    const handleToggleDarkMode = useCallback(() => {
-        setDarkMode(prev => {
-            const next = !prev;
-            localStorage.setItem(DARK_MODE_KEY, next.toString());
-            return next;
-        });
-    }, []);
-
-    // Keyboard shortcut for dark mode (D)
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
             if (e.key === 'd' || e.key === 'D') {
-                handleToggleDarkMode();
+                onToggleDarkMode?.();
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [handleToggleDarkMode]);
+    }, [onToggleDarkMode]);
 
     const renderActiveView = () => {
         switch (activeView) {
             case 'control':
-                return <SodpaDashboard onNavigate={onNavigate} darkMode={darkMode} userProfile={userProfile} />;
+                return <SodpaWorkstation onNavigate={onNavigate} userProfile={userProfile} darkMode={darkMode} />;
             case 'processes':
                 return <SodpaProcessManagement darkMode={darkMode} onNavigate={onNavigate} />;
             case 'accountability':
@@ -108,7 +98,7 @@ export const SodpaCockpit: React.FC<SodpaCockpitProps> = ({ onNavigate, userProf
             case 'settings':
                 return <SodpaSettings darkMode={darkMode} userProfile={userProfile} />;
             default:
-                return <SodpaDashboard onNavigate={onNavigate} darkMode={darkMode} userProfile={userProfile} />;
+                return <SodpaWorkstation onNavigate={onNavigate} userProfile={userProfile} darkMode={darkMode} />;
         }
     };
 
@@ -125,7 +115,8 @@ export const SodpaCockpit: React.FC<SodpaCockpitProps> = ({ onNavigate, userProf
                 newCount={newCount}
                 onAcknowledgeNew={handleAcknowledgeNew}
                 darkMode={darkMode}
-                onToggleDarkMode={handleToggleDarkMode}
+                onToggleDarkMode={onToggleDarkMode}
+                userProfile={userProfile}
             />
 
             {/* Main Content */}

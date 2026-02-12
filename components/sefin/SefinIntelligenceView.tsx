@@ -5,13 +5,11 @@ import {
     BarChart3, PieChart, Loader2, Building2, Calendar
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { formatCurrency } from '../../lib/utils';
 
 interface SefinIntelligenceViewProps {
     darkMode?: boolean;
 }
-
-const formatCurrency = (v: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
 interface BudgetMetrics {
     totalAllocated: number;
@@ -211,7 +209,7 @@ export const SefinIntelligenceView: React.FC<SefinIntelligenceViewProps> = ({ da
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl text-white shadow-xl relative overflow-hidden group hover:shadow-2xl transition-shadow">
+                <div className="bg-linear-to-br from-slate-800 to-slate-900 p-6 rounded-2xl text-white shadow-xl relative overflow-hidden group hover:shadow-2xl transition-shadow">
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><Wallet size={64} /></div>
                     <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Saldo Disponível</p>
                     <h3 className="text-3xl font-black">{formatCurrency(budgetMetrics.available)}</h3>
@@ -286,7 +284,7 @@ export const SefinIntelligenceView: React.FC<SefinIntelligenceViewProps> = ({ da
                                     <div key={i} className="flex items-center gap-3">
                                         <span className={`text-xs w-16 text-right ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{m.month}</span>
                                         <div className={`flex-1 h-5 rounded-lg overflow-hidden ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
-                                            <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-lg transition-all duration-500 flex items-center justify-end px-2"
+                                            <div className="h-full bg-linear-to-r from-emerald-400 to-teal-500 rounded-lg transition-all duration-500 flex items-center justify-end px-2"
                                                 style={{ width: `${Math.max(pct, 5)}%` }}>
                                                 <span className="text-[9px] font-bold text-white">{formatCurrency(m.value)}</span>
                                             </div>
