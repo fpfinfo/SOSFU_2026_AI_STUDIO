@@ -14,7 +14,7 @@ import { supabase } from './supabase';
 
 // ==================== CONFIG ====================
 
-const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjMzYTI2YWU1NmQxZTRmNzRiNjhlZWZiZWYxZGZhZGY1IiwiaCI6Im11cm11cjY0In0=';
+const ORS_API_KEY = import.meta.env.VITE_ORS_API_KEY || '';
 const ORS_BASE_URL = 'https://api.openrouteservice.org';
 
 // Sede TJPA — Belém, PA
