@@ -13,6 +13,7 @@ import {
     type OrsIsochroneResult,
     type OrsTileConfig,
 } from '../../lib/openRouteService';
+import { CURRENCY_COMPACT, CURRENCY_FULL } from '../../lib/utils';
 import {
     Search,
     MapPin,
@@ -60,9 +61,6 @@ const UNIDADE_COLORS: Record<string, string> = {
     'Outro': '#6b7280',
 };
 
-const CURRENCY_COMPACT = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' });
-const CURRENCY_FULL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-
 // ── Types ──
 interface ElementoDespesa {
     codigo: string;
@@ -101,12 +99,6 @@ interface UnidadeAdmin {
     lat: number;
     lng: number;
 }
-
-// Remoção do MapController Leaflet
-
-
-
-// Remoção dos componentes de marcador do Leaflet
 
 // ── Popup Content ──
 const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
@@ -207,8 +199,6 @@ const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
         </div>
     );
 });
-
-// Remoção do marcador de Unidade Admin do Leaflet
 
 // ── Sidebar Item ──
 const SidebarItem = memo(({ stat, isSelected, onClick }: { stat: ComarcaStats; isSelected: boolean; onClick: () => void; }) => {
@@ -907,7 +897,7 @@ export const GeographicMap: React.FC = () => {
                 `}>
                     
                     {/* Expand/Restore Button (Floating on Map) */}
-                    <div className="absolute top-4 left-4 z-[1000] flex gap-2">
+                    <div className="absolute top-4 left-4 z-1000 flex gap-2">
                          {isExpanded && (
                             <button
                                 onClick={() => setIsExpanded(false)}
@@ -929,7 +919,7 @@ export const GeographicMap: React.FC = () => {
 
                     {/* Floating Immersive Dashboard (Modal Overlay) */}
                     {selectedComarca && (
-                        <div className="absolute inset-0 z-[2000] flex items-center justify-center p-[2.5%] animate-in zoom-in-95 duration-300 pointer-events-none">
+                        <div className="absolute inset-0 z-2000 flex items-center justify-center p-[2.5%] animate-in zoom-in-95 duration-300 pointer-events-none">
                             <div className="w-[95%] h-[95%] bg-white/95 backdrop-blur-xl rounded-[40px] shadow-2xl border border-white/50 flex flex-col overflow-hidden pointer-events-auto">
                                 <div className="p-1.5 flex justify-end">
                                     <button 
@@ -1027,7 +1017,7 @@ export const GeographicMap: React.FC = () => {
                     />
 
                     {/* Legend Floating */}
-                    <div className="absolute bottom-6 left-4 md:left-auto md:right-16 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-slate-100 z-[1000] text-xs max-w-[200px]">
+                    <div className="absolute bottom-6 left-4 md:left-auto md:right-16 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-slate-100 z-1000 text-xs max-w-[200px]">
                         <div className="flex items-center gap-2 mb-3">
                             <BarChart3 size={14} className="text-teal-600" />
                             <span className="font-black text-slate-800 uppercase text-[10px] tracking-wider">Investimento</span>
@@ -1066,7 +1056,7 @@ export const GeographicMap: React.FC = () => {
                     </div>
 
                     {/* Tile Layer Badge */}
-                    <div className="absolute top-4 right-4 z-[1000]">
+                    <div className="absolute top-4 right-4 z-1000">
                         <div className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-lg border border-slate-200 text-[9px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
                             <Layers size={10} className="text-teal-500" />
                             {activeTile.name}

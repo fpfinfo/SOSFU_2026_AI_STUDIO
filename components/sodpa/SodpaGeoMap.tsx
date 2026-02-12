@@ -8,9 +8,7 @@ import {
 import { GoogleMapPremium } from '../ui/Map/GoogleMapPremium';
 import { MapDetailCard } from '../reports/MapDetailCard';
 import { useExpenseElements } from '../../hooks/useExpenseElements';
-
-
-// Remoção dos estilos Leaflet e componentes auxiliares de mapa antigos
+import { CURRENCY_COMPACT, CURRENCY_FULL } from '../../lib/utils';
 
 // ==================== SIDEBAR ITEM ====================
 const SidebarItem = memo(({ stat, isSelected, onClick }: {
@@ -98,8 +96,6 @@ interface SodpaGeoMapProps {
 }
 
 // ==================== CONSTANTS ====================
-const CURRENCY_COMPACT = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' });
-const CURRENCY_FULL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const INITIAL_CENTER: [number, number] = [-3.5, -52];
 
 const ENTRANCIA_RANGES: Record<string, [number, number]> = {
@@ -149,7 +145,7 @@ const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
                             <img src={stat.juiz.avatar_url} alt={stat.juiz.name}
                                 className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-md" />
                         ) : (
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center text-sm font-black text-white border-2 border-white shadow-md">
+                            <div className="w-12 h-12 rounded-full bg-linear-to-br from-amber-300 to-amber-500 flex items-center justify-center text-sm font-black text-white border-2 border-white shadow-md">
                                 {initials}
                             </div>
                         )}
@@ -235,7 +231,6 @@ const ComarcaPopupContent = memo(({ stat }: { stat: ComarcaStats }) => {
 });
 
 // ==================== SIDEBAR ITEM ====================
-// Remoção dos componentes de marcador do Leaflet
 
 // ==================== MAIN COMPONENT ====================
 export const SodpaGeoMap: React.FC<SodpaGeoMapProps> = ({ darkMode = false }) => {

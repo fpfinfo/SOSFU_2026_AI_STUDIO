@@ -1,6 +1,17 @@
 export const formatCurrency = (v: number) => 
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
+export const CURRENCY_COMPACT = new Intl.NumberFormat('pt-BR', { 
+    style: 'currency', 
+    currency: 'BRL', 
+    notation: 'compact' 
+});
+
+export const CURRENCY_FULL = new Intl.NumberFormat('pt-BR', { 
+    style: 'currency', 
+    currency: 'BRL' 
+});
+
 export const formatDate = (date: string | Date) => {
     if (!date) return 'N/I';
     return new Date(date).toLocaleDateString('pt-BR');
