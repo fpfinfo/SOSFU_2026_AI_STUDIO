@@ -53,6 +53,9 @@ const ROLE_STYLES: Record<string, { label: string; color: string; ring: string }
   'PRESIDENCIA_GESTOR': { label: 'Chefe Gabinete', color: 'text-slate-800', ring: 'ring-slate-300' },
   'PRESIDENCIA_EQUIPE': { label: 'Assessor Pres.', color: 'text-slate-600', ring: 'ring-slate-200' },
 
+  // RESSARCIMENTO
+  'RESSARCIMENTO': { label: 'Gestor Ress.', color: 'text-emerald-700', ring: 'ring-emerald-200' },
+
   // STANDARD
   'GESTOR': { label: 'Gestor Unidade', color: 'text-teal-600', ring: 'ring-teal-100' },
   'USER': { label: 'Usuário', color: 'text-gray-600', ring: 'ring-gray-100' },
@@ -128,9 +131,7 @@ export const RolesSettings: React.FC = () => {
         fetchProfiles();
     }, []);
 
-    const getRoleCount = (roleSlug: string) => {
-        return profiles.filter(p => (p.dperfil?.slug || 'SERVIDOR') === roleSlug).length;
-    };
+
 
     const filteredProfiles = profiles.filter(profile => {
         const matchesSearch = (profile.full_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
@@ -138,7 +139,7 @@ export const RolesSettings: React.FC = () => {
                               (profile.matricula?.toLowerCase() || '').includes(searchTerm.toLowerCase());
         
         const currentRole = profile.dperfil?.slug || 'SERVIDOR';
-        const matchesRole = selectedRoleFilter === 'ALL' || currentRole === selectedRoleFilter;
+        const matchesRole = selectedRoleFilter === 'ALL' || currentRole.startsWith(selectedRoleFilter);
 
         return matchesSearch && matchesRole;
     });
@@ -254,9 +255,11 @@ export const RolesSettings: React.FC = () => {
                     { group: 'SGP', label: 'RH', icon: User },
                     { group: 'SODPA', label: 'SODPA', icon: FileText },
                     { group: 'SEAD', label: 'SEAD', icon: Briefcase },
+                    { group: 'RESSARCIMENTO', label: 'Ressarc.', icon: DollarSign },
                     { group: 'PRESIDENCIA', label: 'Presid.', icon: Crown },
                     { group: 'GESTOR', label: 'Gestor', icon: UserCircle2 },
-                    { group: 'USER', label: 'Usuário', icon: User }
+                    { group: 'USER', label: 'Usuário', icon: User },
+                    { group: 'SERVIDOR', label: 'Sem Papel', icon: User }
                 ].map((item) => {
                     // Count includes both GESTOR and EQUIPE for the group
                     const count = profiles.filter(p => {
@@ -271,10 +274,10 @@ export const RolesSettings: React.FC = () => {
                             key={item.group} 
                             onClick={() => setSelectedRoleFilter(isActive ? 'ALL' : item.group)}
                             className={`
-                                flex flex-col items-center justify-center p-3 rounded-xl border transition-all
+                                flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-300
                                 ${isActive 
-                                    ? 'bg-blue-50 border-blue-200 shadow-sm' 
-                                    : 'bg-white border-gray-100 hover:border-blue-100 hover:shadow-sm'
+                                    ? 'bg-blue-50 border-blue-300 shadow-md scale-105 ring-4 ring-blue-50' 
+                                    : 'bg-white border-gray-100 hover:border-blue-200 hover:shadow-sm hover:-translate-y-0.5'
                                 }
                             `}
                         >

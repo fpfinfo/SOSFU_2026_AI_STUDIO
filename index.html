@@ -36,45 +36,6 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-      :root {
-        --fluid-base: clamp(14px, 1vw + 10px, 16px);
-      }
-      body {
-        font-family: "Outfit", "Inter", sans-serif;
-        background-color: #f8fafc;
-        font-size: var(--fluid-base);
-      }
-      /* Accessibility: Respect motion preferences with reasonable defaults */
-      @media (prefers-reduced-motion: reduce) {
-        *,
-        *::before,
-        *::after {
-          animation-duration: 50ms !important;
-          animation-iteration-count: 1 !important;
-          transition-duration: 50ms !important;
-          scroll-behavior: auto !important;
-        }
-      }
-      /* Skip to Content link for keyboard users */
-      .skip-link {
-        position: absolute;
-        top: -100%;
-        left: 16px;
-        z-index: 9999;
-        padding: 8px 16px;
-        background: #1e40af;
-        color: white;
-        font-weight: 700;
-        font-size: 14px;
-        border-radius: 0 0 8px 8px;
-        text-decoration: none;
-      }
-      .skip-link:focus {
-        top: 0;
-      }
-    </style>
     <script>
       // Polyfill para process.env
       window.process = {
@@ -88,7 +49,7 @@
   <body>
     <a href="#main-content" class="skip-link">Ir para o conteúdo principal</a>
     <div id="root"></div>
-    <script type="module" crossorigin="anonymous" src="./index.tsx"></script>
+    <script type="module" crossorigin="anonymous" src="/index.tsx"></script>
     <script>
       // Service Worker Registration (PWA)
       if ("serviceWorker" in navigator) {
