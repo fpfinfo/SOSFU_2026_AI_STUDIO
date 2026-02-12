@@ -202,8 +202,9 @@ export const RessarcimentoSolicitation: React.FC<RessarcimentoSolicitationProps>
             if (data?.error) throw new Error(data.message || "Erro na API de mapas.");
 
             if (data?.features?.[0]) {
-                const coords = data.features[0].geometry.coordinates;
-                updateItem(id, `${fieldPrefix}Coords` as any, coords);
+                const [lng, lat] = data.features[0].geometry.coordinates;
+                // Flip to [lat, lng] to match GoogleMapPremium project standard
+                updateItem(id, `${fieldPrefix}Coords` as any, [lat, lng]);
             } else {
                 alert(`Endereco de ${type} nao encontrado.`);
             }

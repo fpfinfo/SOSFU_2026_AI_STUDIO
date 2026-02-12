@@ -88,16 +88,39 @@ export const GoogleMapPremium = forwardRef<GoogleMapPremiumHandle, GoogleMapPrem
             const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
             
             if (!apiKey) {
-                console.error("VITE_GOOGLE_MAPS_API_KEY não encontrada no frontend.");
-                setError("Chave de API do Google não configurada (VITE_GOOGLE_MAPS_API_KEY).");
+                console.error("DEBUG: VITE_GOOGLE_MAPS_API_KEY não encontrada no process.env ou import.meta.env.");
+                console.info("DICA: Se a chave estiver no seu arquivo .env, tente reiniciar o servidor de desenvolvimento (npm run dev).");
+                setError("Chave de API do Google não configurada.");
                 return;
             }
 
+            // Evitar duplicidade de carregamento
+            const scriptId = 'google-maps-sdk-script';
+            if (document.getElementById(scriptId)) {
+                // Se o script já existe mas o window.google não está pronto, 
+                // o callback initGoogleMap cuidará disso ou podemos checar periodicamente
+                if (window.google && window.google.maps) {
+                    setIsLoaded(true);
+                }
+                return;
+            }
+
+            // Configurar callback global ANTES de carregar o script
+            window.initGoogleMap = () => {
+                console.info("Google Maps SDK carregado com sucesso.");
+                setIsLoaded(true);
+            };
+
             const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,places,drawing&callback=initGoogleMap`;
+            script.id = scriptId;
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,places,drawing&callback=initGoogleMap&loading=async`;
             script.async = true;
             script.defer = true;
-            window.initGoogleMap = () => setIsLoaded(true);
+            
+            script.onerror = () => {
+                setError("Erro ao carregar o script do Google Maps. Verifique sua conexão e a validade da chave.");
+            };
+
             document.head.appendChild(script);
         };
 
@@ -174,6 +197,14 @@ export const GoogleMapPremium = forwardRef<GoogleMapPremiumHandle, GoogleMapPrem
     // Inicializar o Mapa
     useEffect(() => {
         if (isLoaded && mapRef.current && !googleMapRef.current) {
+            // Verificação defensiva extra para o objeto google
+            if (!window.google || !window.google.maps || !window.google.maps.Map) {
+                console.warn("Google Maps SDK carregado mas objeto 'Map' indisponível. Tentando em breve...");
+                const timer = setTimeout(() => setIsLoaded(false), 500); // Forçar re-check
+                setTimeout(() => setIsLoaded(true), 600);
+                return () => clearTimeout(timer);
+            }
+
             const initialPos = center ? { lat: center[0], lng: center[1] } : (origin ? { lat: origin[0], lng: origin[1] } : { lat: -1.4550, lng: -48.5024 });
             
             const map = new window.google.maps.Map(mapRef.current, {
@@ -237,7 +268,7 @@ export const GoogleMapPremium = forwardRef<GoogleMapPremiumHandle, GoogleMapPrem
     }, [isLoaded, markers, isochrones, renderDataMarkers, renderIsochrones]);
 
     const calculateRoute = useCallback(async () => {
-        if (!origin || !destination || !googleMapRef.current || !(googleMapRef.current instanceof window.google.maps.Map) || !directionsServiceRef.current) return;
+        if (!origin || !destination || !googleMapRef.current || !(googleMapRef.current instanceof window.google.maps.Map) || !directionsServiceRef.current || !window.google?.maps?.DirectionsService) return;
         
         setLoading(true);
         setError(null);

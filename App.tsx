@@ -135,17 +135,25 @@ const App: React.FC = () => {
       try {
           // 1. Caixa de Entrada (Solicitações aguardando SOSFU + PC aguardando SOSFU)
           // Inclui: WAITING_SOSFU_ANALYSIS (Novas) + WAITING_SOSFU_EXECUTION (Execução)
-          const { count: inboxSol } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).in('status', ['WAITING_SOSFU_ANALYSIS', 'WAITING_SOSFU_EXECUTION']);
-          const { count: inboxPC } = await supabase.from('accountabilities').select('*', { count: 'exact', head: true }).eq('status', 'WAITING_SOSFU');
+          const { count: inboxSol, error: errInboxSol } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).in('status', ['WAITING_SOSFU_ANALYSIS', 'WAITING_SOSFU_EXECUTION']);
+          const { count: inboxPC, error: errInboxPC } = await supabase.from('accountabilities').select('*', { count: 'exact', head: true }).eq('status', 'WAITING_SOSFU');
+          
+          if (errInboxSol) console.error("Header: Erro ao buscar contagem de solicitações (inbox):", errInboxSol);
+          if (errInboxPC) console.error("Header: Erro ao buscar contagem de prestações de contas (inbox):", errInboxPC);
           
           // 2. Minha Mesa (Solicitações atribuídas a mim)
-          const { count: mySol } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).eq('analyst_id', userId).neq('status', 'PAID');
+          const { count: mySol, error: errMySol } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).eq('analyst_id', userId).neq('status', 'PAID');
           
           // 3. Minha Mesa (PCs atribuídas a mim)
-          const { count: myPC } = await supabase.from('accountabilities').select('*', { count: 'exact', head: true }).eq('analyst_id', userId).eq('status', 'WAITING_SOSFU');
+          const { count: myPC, error: errMyPC } = await supabase.from('accountabilities').select('*', { count: 'exact', head: true }).eq('analyst_id', userId).eq('status', 'WAITING_SOSFU');
+          
+          if (errMySol) console.error("Header: Erro ao buscar contagem de 'Minha Mesa' (solicitações):", errMySol);
+          if (errMyPC) console.error("Header: Erro ao buscar contagem de 'Minha Mesa' (prestação de contas):", errMyPC);
 
           // 4. Fluxo SEFIN (Waiting SEFIN)
-          const { count: sefin } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).eq('status', 'WAITING_SEFIN_SIGNATURE');
+          const { count: sefin, error: errSefin } = await supabase.from('solicitations').select('*', { count: 'exact', head: true }).eq('status', 'WAITING_SEFIN_SIGNATURE');
+          
+          if (errSefin) console.error("Header: Erro ao buscar contagem de processos na SEFIN:", errSefin);
 
           const newStats = [...DASHBOARD_STATS];
           newStats[0] = { ...newStats[0], count: (inboxSol || 0) + (inboxPC || 0), details: [`${inboxSol} Solicitações`, `${inboxPC} Prest. Contas`] };

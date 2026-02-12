@@ -57,7 +57,7 @@ export const SpendingChart: React.FC<SpendingChartProps> = ({ data }) => {
             </div>
 
             <div className="flex-1 w-full min-h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minHeight={250} minWidth={0}>
                     <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                         <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
                         <XAxis 
