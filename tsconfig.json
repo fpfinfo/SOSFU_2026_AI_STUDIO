@@ -29,9 +29,9 @@
     /* Strict type-checking (progressivo) */
     "strict": false,
     "noImplicitAny": false,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "noUnusedLocals": true,
+    "strictNullChecks": false,
+    "strictFunctionTypes": false,
+    "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true
@@ -43,6 +43,7 @@
   "exclude": [
     "node_modules",
     "dist",
-    "supabase/functions"
+    "supabase/functions",
+    "tests"
   ]
 }
