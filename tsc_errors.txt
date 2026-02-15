@@ -1,0 +1,4 @@
+components/RequestDetails.tsx(1051,3): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/RequestDetails.tsx(1053,33): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+components/RequestDetails.tsx(1054,5): error TS1109: Expression expected.
+components/RequestDetails.tsx(1097,3): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
