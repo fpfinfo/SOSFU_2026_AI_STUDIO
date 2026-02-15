@@ -1,0 +1,10 @@
+
+{
+  "name": "ÁGIL",
+  "description": "Uma plataforma corporativa do Tribunal de Justiça do Pará para gestão de suprimento de fundos, diárias e reembolsos.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
